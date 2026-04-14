@@ -1,5 +1,5 @@
-import darkLogo from "@/assets/logos/dark.svg";
-import logo from "@/assets/logos/main.svg";
+import darkLogo from "/images/logo/UOL-Rebrand-ID_Final-01.png";
+import logo from "/images/logo/UOL-Rebrand-ID_Final-01.png";
 import Image from "next/image";
 
 export function Logo() {
@@ -9,7 +9,7 @@ export function Logo() {
         src={logo}
         fill
         className="dark:hidden"
-        alt="NextAdmin logo"
+        alt="IERB Board"
         role="presentation"
         quality={100}
       />
@@ -18,7 +18,7 @@ export function Logo() {
         src={darkLogo}
         fill
         className="hidden dark:block"
-        alt="NextAdmin logo"
+        alt="IERB Board "
         role="presentation"
         quality={100}
       />

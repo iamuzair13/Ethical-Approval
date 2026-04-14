@@ -16,12 +16,12 @@ export async function getDevicesUsedData(
       amount: 250,
     },
     {
-      name: "Approved by Ethical Commitee",
+      name: "Approved by IERB",
       percentage: 0.2,
       amount: 500,
     },
     {
-      name: "Rejected by Ethical Commitee",
+      name: "Rejected by IERB",
       percentage: 0.05,
       amount: 125,
     },

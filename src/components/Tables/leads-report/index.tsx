@@ -14,7 +14,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { DownloadIcon } from "../icons";
 
-type LeadStatus = "Approved by Dean" | "Rejected by Dean" | "Approved by Ethical Commitee" | "Rejected by Ethical Commitee";
+type LeadStatus = "Approved by Dean" | "Rejected by Dean" | "Approved by IERB" | "Rejected by IERB";
 
 type Lead = {
   name: string;
@@ -47,7 +47,7 @@ const LEADS: Lead[] = [
     email: "fatima.noor@uol.edu.pk",
     project: "20 Mar 2026 - 27 Mar 2026",
     duration: "7 days",
-    status: "Approved by Ethical Commitee",
+    status: "Approved by IERB",
     avatar: "/images/user/user-19.png",
   },
   {
@@ -63,7 +63,7 @@ const LEADS: Lead[] = [
     email: "zainab.ahmed@uol.edu.pk",
     project: "15 May 2026 - 25 May 2026",
     duration: "10 days",
-    status: "Rejected by Ethical Commitee",
+    status: "Rejected by IERB",
     avatar: "/images/user/user-21.png",
   },
 ];
@@ -206,7 +206,7 @@ export function LeadsReport({
                         ? "bg-[#10B981]/[0.08] text-green"
                         : lead.status === "Rejected by Dean"
                         ? "bg-[#FB5454]/[0.08] text-red"
-                        : lead.status === "Approved by Ethical Commitee"
+                        : lead.status === "Approved by IERB"
                         ? "bg-[#10B981]/[0.08] text-green"
                         : "bg-[#FB5454]/[0.08] text-red",
                     )}

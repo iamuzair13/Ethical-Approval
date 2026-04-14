@@ -18,7 +18,7 @@ type PropsType = {
 export async function PaymentsOverview({
   timeFrame = "monthly",
   className,
-  title = "Ethical Approvals",
+  title = "IERB Approvals",
   cardsConfig = OVERVIEW_CARDS_CONFIG,
 }: PropsType) {
   const overviewData = await getOverviewData();

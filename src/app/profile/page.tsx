@@ -16,9 +16,9 @@ type RequestStage =
   | "Under Review by Dean"
   | "Approved by Dean"
   | "Rejected by Dean"
-  | "Under Review by Ethical Committee"
-  | "Approved by Ethical Committee"
-  | "Rejected by Ethical Committee";
+  | "Under Review by IERB"
+  | "Approved by IERB"
+  | "Rejected by IERB";
 
 type ApprovalRequest = {
   id: string;
@@ -33,9 +33,9 @@ const STAGES: RequestStage[] = [
   "Under Review by Dean",
   "Approved by Dean",
   "Rejected by Dean",
-  "Under Review by Ethical Committee",
-  "Approved by Ethical Committee",
-  "Rejected by Ethical Committee",
+  "Under Review by IERB",
+  "Approved by IERB",
+  "Rejected by IERB",
 ];
 
 export default function Page() {
@@ -66,7 +66,7 @@ export default function Page() {
       title: "Final Year Project User Interviews",
       submittedOn: "2026-04-02",
       expectedResponseDays: 2,
-      currentStage: "Approved by Ethical Committee",
+      currentStage: "Approved by IERB",
       description: "Interviews with postgraduate students and supervisors.",
     },
   ]);
@@ -142,7 +142,7 @@ export default function Page() {
               <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inDean}</p>
             </div>
             <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
-              <p className="text-body-sm">Under Review by Ethical Committee</p>
+              <p className="text-body-sm">Under Review by IERB</p>
               <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inEthical}</p>
             </div>
             <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">

@@ -40,7 +40,7 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
-        title: "Ethical committee panel",
+        title: "IERB panel",
         icon: Icons.User,
         url: "/EthicalCommiteePanel",
         items: []

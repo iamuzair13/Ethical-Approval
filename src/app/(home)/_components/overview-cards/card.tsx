@@ -15,7 +15,7 @@ type PropsType = {
 export function OverviewCard({ items }: PropsType) {
   return (
     <div className="col-span-12 rounded-[10px] bg-white py-5 shadow-1 dark:bg-gray-dark dark:shadow-card">
-      <div className="flex flex-wrap justify-between px-5 gap-5 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
+      <div className="flex flex-wrap justify-start px-5 gap-5 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
         {items.map(({ label, data }) => {
           const isDecreasing = data.growthRate < 0;
 
