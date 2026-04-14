@@ -86,7 +86,7 @@ export function LeadsReport({
   const leads = deanOnly
     ? LEADS.filter(({ status }) => status.includes("Dean"))
     : ethicalOnly
-      ? LEADS.filter(({ status }) => status.includes("Ethical"))
+      ? LEADS.filter(({ status }) => status.includes("IERB"))
       : LEADS;
 
   const getDurationInDays = (duration: string) => {

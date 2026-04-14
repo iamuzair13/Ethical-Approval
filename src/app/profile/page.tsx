@@ -1,6 +1,7 @@
 "use client";
 
 import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
+import ApprovalRequestStepper from "@/app/profile/_components/approval-request-stepper";
 import {
   Table,
   TableBody,
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { type FormEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type RequestStage =
   | "Under Review by Dean"
@@ -46,11 +47,7 @@ export default function Page() {
     department: "Computer Science",
   };
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    expectedResponseDays: "2",
-  });
+  const [isStepperOpen, setIsStepperOpen] = useState(false);
 
   const [requests, setRequests] = useState<ApprovalRequest[]>([
     {
@@ -71,17 +68,15 @@ export default function Page() {
     },
   ]);
 
-  const handleCreateRequest = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const title = formData.title.trim();
-    const description = formData.description.trim();
-    const expectedResponseDays = Number.parseInt(formData.expectedResponseDays, 10);
-
-    if (!title || !description || Number.isNaN(expectedResponseDays)) {
-      return;
-    }
-
+  const handleCreateRequest = ({
+    title,
+    description,
+    expectedResponseDays,
+  }: {
+    title: string;
+    description: string;
+    expectedResponseDays: number;
+  }) => {
     const newRequest: ApprovalRequest = {
       id: `REQ-${1000 + requests.length + 1}`,
       title,
@@ -92,11 +87,6 @@ export default function Page() {
     };
 
     setRequests((prev) => [newRequest, ...prev]);
-    setFormData({
-      title: "",
-      description: "",
-      expectedResponseDays: "2",
-    });
   };
 
   const requestStats = useMemo(() => {
@@ -156,48 +146,16 @@ export default function Page() {
           <h3 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
             Create New Approval Request
           </h3>
-          <form onSubmit={handleCreateRequest} className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, title: e.target.value }))
-                }
-                placeholder="Request title"
-                className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
-              />
-              <input
-                type="number"
-                min={1}
-                value={formData.expectedResponseDays}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    expectedResponseDays: e.target.value,
-                  }))
-                }
-                placeholder="Expected response (days)"
-                className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
-              />
-            </div>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, description: e.target.value }))
-              }
-              placeholder="Brief description of your research request"
-              rows={4}
-              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
-            />
-            <div>
-              <button
-                type="submit"
-                className="rounded-lg bg-primary px-4 py-2.5 font-medium text-white hover:bg-opacity-90"
-              >
-                Submit Request
-              </button>
-            </div>
-          </form>
+          <p className="mb-4 text-body-sm">
+            Start the multi-step ethical review form and submit your approval request.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsStepperOpen(true)}
+            className="rounded-lg bg-primary px-4 py-2.5 font-medium text-white hover:bg-opacity-90"
+          >
+            Open Approval Request Stepper
+          </button>
         </div>
 
         <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
@@ -268,6 +226,12 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      <ApprovalRequestStepper
+        open={isStepperOpen}
+        onClose={() => setIsStepperOpen(false)}
+        onSubmit={handleCreateRequest}
+      />
     </div>
   );
 }
