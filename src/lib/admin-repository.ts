@@ -110,7 +110,9 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
     `,
     [admin.id],
   );
-  const facultyIds = assigned.rows.map((row) => row.faculty_id);
+  const facultyIds = assigned.rows.map(
+    (row: { faculty_id: number }) => row.faculty_id,
+  );
   if (facultyIds.length === 0) {
     return { scopeMode: "all", facultyIds: [] };
   }
@@ -129,7 +131,7 @@ export async function resolveFacultyIdsFromSnapshotValue(
     `,
     [normalized],
   );
-  return result.rows.map((row) => row.faculty_id);
+  return result.rows.map((row: { faculty_id: number }) => row.faculty_id);
 }
 
 export async function createAdminUser(input: {
@@ -379,7 +381,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
     scopeMap.set(row.admin_user_id, current);
   }
 
-  return admins.rows.map((admin) => {
+  return admins.rows.map(
+    (admin: Pick<AdminRow, "id" | "name" | "email" | "role" | "status" | "sap_id">) => {
     const scope = scopeMap.get(admin.id);
     let facultyScope = "All Faculties";
     if (admin.role === "dean") {
@@ -401,7 +404,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       facultyScope,
       facultyIds: scope?.facultyIds ?? [],
     };
-  });
+    },
+  );
 }
 
 export async function getAdminUserByEmailExcludingId(input: {

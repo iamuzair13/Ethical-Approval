@@ -2,9 +2,9 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -91,5 +91,23 @@ export default function AdminLoginPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+function AdminLoginFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4 dark:bg-[#020d1a]">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow dark:bg-gray-dark">
+        <p className="text-sm text-dark-5">Loading admin sign in...</p>
+      </div>
+    </main>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<AdminLoginFallback />}>
+      <AdminLoginForm />
+    </Suspense>
   );
 }
