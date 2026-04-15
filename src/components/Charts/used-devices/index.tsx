@@ -20,7 +20,7 @@ type PropsType = {
 export async function UsedDevices({
   timeFrame = "monthly",
   className,
-  title = "IERB Approvals",
+  title = "IREB Approvals",
   sectionKey = "used_devices",
   data,
 }: PropsType) {

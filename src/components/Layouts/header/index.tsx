@@ -16,11 +16,11 @@ export function Header() {
 
   const dashboardLabel = (() => {
     if (pathname.toLowerCase().includes("deanpanel")) {
-      return "Dean IERB Approvals";
+      return "Dean IREB Approvals";
     }
 
     if (pathname.toLowerCase().includes("ethical")) {
-      return "IERB IERB Approvals";
+      return "IREB IREB Approvals";
     }
 
     return "Main Dashboard";

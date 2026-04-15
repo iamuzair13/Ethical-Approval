@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV_DATA } from "./data";
@@ -12,8 +13,22 @@ import Image from "next/image";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const { setIsOpen, isOpen, isMobile, toggleSidebar } = useSidebarContext();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const adminRole = session?.user?.adminRole;
+  const isAdministrator = adminRole === "administrator";
+
+  const visibleNavData = NAV_DATA.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => {
+      const href = item.url ?? "";
+      if (href === "/administrator" && !isAdministrator) {
+        return false;
+      }
+      return true;
+    }),
+  })).filter((section) => section.items.length > 0);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems((prev) => (prev.includes(title) ? [] : [title]));
@@ -26,7 +41,7 @@ export function Sidebar() {
 
   useEffect(() => {
     // Keep collapsible open, when it's subpage is active
-    NAV_DATA.some((section) => {
+    visibleNavData.some((section) => {
       return section.items.some((item) => {
         return item.items.some((subItem) => {
           if (subItem.url === pathname) {
@@ -40,7 +55,7 @@ export function Sidebar() {
         });
       });
     });
-  }, [pathname]);
+  }, [pathname, isAdministrator]);
 
   return (
     <>
@@ -104,7 +119,7 @@ export function Sidebar() {
 
           {/* Navigation */}
           <div className="custom-scrollbar mt-6 flex-1 overflow-y-auto pr-3 min-[850px]:mt-10">
-            {NAV_DATA.map((section) => (
+            {visibleNavData.map((section) => (
               <div key={section.label} className="mb-6">
                 <h2 className="mb-5 text-sm font-medium text-dark-4 dark:text-dark-6">
                   {section.label}

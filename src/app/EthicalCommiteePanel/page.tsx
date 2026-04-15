@@ -88,7 +88,7 @@ export default async function EthicalCommiteePanel({ searchParams }: PropsType) 
 
         <LeadsReport
           ethicalOnly
-          title="IERB Decision"
+          title="IREB Decision"
         />
       </div>
     </>

@@ -1,15 +1,11 @@
 "use client";
-import { EmailIcon, PasswordIcon } from "@/assets/icons";
 import Link from "next/link";
 import React, { useState } from "react";
-import InputGroup from "../FormElements/InputGroup";
-import { Checkbox } from "../FormElements/checkbox";
 
 export default function SigninWithPassword() {
   const [data, setData] = useState({
-    email: process.env.NEXT_PUBLIC_DEMO_USER_MAIL || "",
+    username: "",
     password: process.env.NEXT_PUBLIC_DEMO_USER_PASS || "",
-    remember: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -33,58 +29,56 @@ export default function SigninWithPassword() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <InputGroup
-        type="email"
-        label="Email"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your email"
-        name="email"
-        handleChange={handleChange}
-        value={data.email}
-        icon={<EmailIcon />}
-      />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-900">
+          User name
+        </label>
+        <div className="relative flex items-center">
+          <input
+            name="username"
+            type="text"
+            required
+            className="w-full rounded-md border border-slate-300 px-4 py-3 pr-8 text-sm text-slate-900 outline-blue-600"
+            placeholder="Enter user name"
+            value={data.username}
+            onChange={handleChange}
+          />
+        </div>
+      </div>
 
-      <InputGroup
-        type="password"
-        label="Password"
-        className="mb-5 [&_input]:py-[15px]"
-        placeholder="Enter your password"
-        name="password"
-        handleChange={handleChange}
-        value={data.password}
-        icon={<PasswordIcon />}
-      />
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-900">
+          Password
+        </label>
+        <div className="relative flex items-center">
+          <input
+            name="password"
+            type="password"
+            required
+            className="w-full rounded-md border border-slate-300 px-4 py-3 pr-8 text-sm text-slate-900 outline-blue-600"
+            placeholder="Enter password"
+            value={data.password}
+            onChange={handleChange}
+          />
+        </div>
+      </div>
 
-      <div className="mb-6 flex items-center justify-between gap-2 py-2 font-medium">
-        <Checkbox
-          label="Remember me"
-          name="remember"
-          withIcon="check"
-          minimal
-          radius="md"
-          onChange={(e) =>
-            setData({
-              ...data,
-              remember: e.target.checked,
-            })
-          }
-        />
-
+      <div className="text-right">
         <Link
           href="/auth/forgot-password"
-          className="hover:text-primary dark:text-white dark:hover:text-primary"
+          className="text-sm font-medium text-blue-600 hover:underline"
         >
-          Forgot Password?
+          Forgot your password?
         </Link>
       </div>
 
-      <div className="mb-4.5">
+      <div className="mt-8">
         <button
           type="submit"
-          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90"
+          className="w-full cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-[15px] font-medium text-white shadow-xl hover:bg-blue-700 focus:outline-none"
         >
-          Sign In
+          Sign in
           {loading && (
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent dark:border-primary dark:border-t-transparent" />
           )}

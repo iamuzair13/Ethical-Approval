@@ -14,7 +14,12 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { DownloadIcon } from "../icons";
 
-type LeadStatus = "Approved by Dean" | "Rejected by Dean" | "Approved by IERB" | "Rejected by IERB";
+type LeadStatus = "Approved by Dean" | "Rejected by Dean" | "Approved by IREB" | "Rejected by IREB";
+type NextLeadStatus =
+  | "Pending IREB Review"
+  | "Closed by Dean"
+  | "Final Approval Completed"
+  | "Returned to Student";
 
 type Lead = {
   name: string;
@@ -47,7 +52,7 @@ const LEADS: Lead[] = [
     email: "fatima.noor@uol.edu.pk",
     project: "20 Mar 2026 - 27 Mar 2026",
     duration: "7 days",
-    status: "Approved by IERB",
+    status: "Approved by IREB",
     avatar: "/images/user/user-19.png",
   },
   {
@@ -63,7 +68,7 @@ const LEADS: Lead[] = [
     email: "zainab.ahmed@uol.edu.pk",
     project: "15 May 2026 - 25 May 2026",
     duration: "10 days",
-    status: "Rejected by IERB",
+    status: "Rejected by IREB",
     avatar: "/images/user/user-21.png",
   },
 ];
@@ -86,12 +91,26 @@ export function LeadsReport({
   const leads = deanOnly
     ? LEADS.filter(({ status }) => status.includes("Dean"))
     : ethicalOnly
-      ? LEADS.filter(({ status }) => status.includes("IERB"))
+      ? LEADS.filter(({ status }) => status.includes("IREB"))
       : LEADS;
 
   const getDurationInDays = (duration: string) => {
     const days = Number.parseInt(duration, 10);
     return Number.isNaN(days) ? 0 : days;
+  };
+
+  const getDummyNextStatus = (status: LeadStatus): NextLeadStatus => {
+    switch (status) {
+      case "Approved by Dean":
+        return "Pending IREB Review";
+      case "Rejected by Dean":
+        return "Closed by Dean";
+      case "Approved by IREB":
+        return "Final Approval Completed";
+      case "Rejected by IREB":
+      default:
+        return "Returned to Student";
+    }
   };
 
   const overdueLeads = useMemo(
@@ -163,17 +182,21 @@ export function LeadsReport({
               <TableHead>Email</TableHead>
               <TableHead className="min-w-40">Response In</TableHead>
               <TableHead>Duration</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Passed Status</TableHead>
+              <TableHead>Current Status </TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
-            {visibleLeads.map((lead) => (
-              <TableRow
-                key={lead.email}
-                className="border-none text-base font-medium [&>td]:px-4 md:[&>td]:px-6 xl:[&>td]:px-7.5"
-              >
+            {visibleLeads.map((lead) => {
+              const nextStatus = getDummyNextStatus(lead.status);
+
+              return (
+                <TableRow
+                  key={lead.email}
+                  className="border-none text-base font-medium [&>td]:px-4 md:[&>td]:px-6 xl:[&>td]:px-7.5"
+                >
                 <TableCell>
                   <figure className="flex items-center gap-4.5">
                     <Image
@@ -198,6 +221,7 @@ export function LeadsReport({
                 <TableCell>{lead.project}</TableCell>
                 <TableCell>{lead.duration}</TableCell>
 
+                
                 <TableCell>
                   <span
                     className={cn(
@@ -206,13 +230,27 @@ export function LeadsReport({
                         ? "bg-[#10B981]/[0.08] text-green"
                         : lead.status === "Rejected by Dean"
                         ? "bg-[#FB5454]/[0.08] text-red"
-                        : lead.status === "Approved by IERB"
+                        : lead.status === "Approved by IREB"
                         ? "bg-[#10B981]/[0.08] text-green"
                         : "bg-[#FB5454]/[0.08] text-red",
                     )}
                   >
                     {lead.status}
                   </span>
+                </TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
+                        nextStatus === "Pending IREB Review" || nextStatus === "Final Approval Completed"
+                          ? "bg-[#10B981]/[0.08] text-green"
+                          : nextStatus === "Closed by Dean"
+                          ? "bg-[#FB5454]/[0.08] text-red"
+                          : "bg-amber-100 text-amber-700",
+                      )}
+                    >
+                      {nextStatus}
+                    </span>
                 </TableCell>
 
                 <TableCell className="text-center flex items-center justify-center gap-2">
@@ -225,11 +263,12 @@ export function LeadsReport({
                     <DownloadIcon />
                   </button>
                 </TableCell>
-              </TableRow>
-            ))}
+                </TableRow>
+              );
+            })}
             {visibleLeads.length === 0 && (
               <TableRow className="border-none">
-                <TableCell colSpan={6} className="text-center text-dark-5">
+                <TableCell colSpan={7} className="text-center text-dark-5">
                   No approval requests found for this tab.
                 </TableCell>
               </TableRow>

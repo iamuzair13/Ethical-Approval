@@ -11,15 +11,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 
 type RequestStage =
   | "Under Review by Dean"
   | "Approved by Dean"
   | "Rejected by Dean"
-  | "Under Review by IERB"
-  | "Approved by IERB"
-  | "Rejected by IERB";
+  | "Under Review by IREB"
+  | "Approved by IREB"
+  | "Rejected by IREB";
 
 type ApprovalRequest = {
   id: string;
@@ -34,18 +35,49 @@ const STAGES: RequestStage[] = [
   "Under Review by Dean",
   "Approved by Dean",
   "Rejected by Dean",
-  "Under Review by IERB",
-  "Approved by IERB",
-  "Rejected by IERB",
+  "Under Review by IREB",
+  "Approved by IREB",
+  "Rejected by IREB",
 ];
 
 export default function Page() {
-  const profile = {
-    name: "Ayesha Khan",
-    regNo: "UOL-2022-CS-184",
-    email: "ayesha.khan@uol.edu.pk",
-    department: "Computer Science",
-  };
+  const { data: session } = useSession();
+
+  const profile = useMemo(() => {
+    const rec = session?.user?.studentRecord;
+    const getStringField = (keys: string[]): string | null => {
+      if (!rec || typeof rec !== "object") return null;
+      for (const key of keys) {
+        const value = (rec as Record<string, unknown>)[key];
+        if (typeof value === "string" && value.trim()) {
+          return value.trim();
+        }
+      }
+      return null;
+    };
+
+    const dept =
+      getStringField(["DeptName", "Dept", "Department"]) ?? "—";
+    const faculty =
+      getStringField(["Faculty", "FacName", "FacultyName", "Campus"]) ?? "—";
+    const degreeTitle =
+      getStringField(["DegrTitle", "DegreeTitle", "Degree"]) ?? "—";
+    const reg =
+      rec && typeof rec === "object" && "RegNo" in rec && typeof (rec as { RegNo?: string }).RegNo === "string"
+        ? (rec as { RegNo: string }).RegNo
+        : session?.user?.sapId
+          ? `SAP ${session.user.sapId}`
+          : "—";
+
+    return {
+      name: session?.user?.name ?? "Student",
+      regNo: reg,
+      email: session?.user?.email ?? "—",
+      department: dept,
+      faculty,
+      degreeTitle,
+    };
+  }, [session]);
 
   const [isStepperOpen, setIsStepperOpen] = useState(false);
 
@@ -63,7 +95,7 @@ export default function Page() {
       title: "Final Year Project User Interviews",
       submittedOn: "2026-04-02",
       expectedResponseDays: 2,
-      currentStage: "Approved by IERB",
+      currentStage: "Approved by IREB",
       description: "Interviews with postgraduate students and supervisors.",
     },
   ]);
@@ -125,6 +157,9 @@ export default function Page() {
             {profile.regNo} · {profile.department}
           </p>
           <p className="text-body-sm">{profile.email}</p>
+          <p className="mt-1 text-body-sm">
+            Faculty: {profile.faculty} · Degree: {profile.degreeTitle}
+          </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
@@ -132,7 +167,7 @@ export default function Page() {
               <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inDean}</p>
             </div>
             <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
-              <p className="text-body-sm">Under Review by IERB</p>
+              <p className="text-body-sm">Under Review by IREB</p>
               <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inEthical}</p>
             </div>
             <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">

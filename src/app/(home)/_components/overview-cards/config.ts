@@ -9,10 +9,10 @@ export const OVERVIEW_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "profit", label: "Pending Approvals From Dean",  },
   {
     key: "products",
-    label: "Pending Approvals From IERB",
+    label: "Pending Approvals From IREB",
   },
   { key: "users", label: "Approved Requests From Dean" },
-  { key: "users", label: "Approved Requests From IERB" },
+  { key: "users", label: "Approved Requests From IREB" },
 ] ;
 
 export type OverviewMetricKey = "views" | "profit" | "products" | "users";

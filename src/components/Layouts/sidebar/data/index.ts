@@ -28,21 +28,9 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
-        title: "User Profile",
+        title: "Administrator",
         icon: Icons.User,
-        url: "/profile",
-        items: []
-      },
-      {
-        title: "Dean panel",
-        icon: Icons.User,
-        url: "/DeanPanel",
-        items: []
-      },
-      {
-        title: "IERB panel",
-        icon: Icons.User,
-        url: "/EthicalCommiteePanel",
+        url: "/administrator",
         items: []
       },
       // {

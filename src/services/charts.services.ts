@@ -16,12 +16,12 @@ export async function getDevicesUsedData(
       amount: 250,
     },
     {
-      name: "Approved by IERB",
+      name: "Approved by IREB",
       percentage: 0.2,
       amount: 500,
     },
     {
-      name: "Rejected by IERB",
+      name: "Rejected by IREB",
       percentage: 0.05,
       amount: 125,
     },

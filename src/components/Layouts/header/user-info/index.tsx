@@ -9,17 +9,27 @@ import {
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { LogOutIcon, SettingsIcon, UserIcon } from "./icons";
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session, status } = useSession();
 
   const USER = {
-    name: "Zaheer Ahmed",
-    email: "zaheer.ahmed@uol.edu.pk",
+    name: session?.user?.name ?? "Guest",
+    email: session?.user?.email ?? "",
     img: "/images/user/user-03.png",
   };
+
+  if (status === "loading") {
+    return (
+      <div className="flex size-12 items-center justify-center rounded-full border border-stroke bg-gray-2 dark:border-dark-3 dark:bg-dark-2">
+        <span className="inline-block size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
@@ -105,8 +115,12 @@ export function UserInfo() {
 
         <div className="p-2 text-base text-[#4B5563] dark:text-dark-6">
           <button
+            type="button"
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[9px] hover:bg-gray-2 hover:text-dark dark:hover:bg-dark-3 dark:hover:text-white"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setIsOpen(false);
+              void signOut({ callbackUrl: "/auth/sign-in" });
+            }}
           >
             <LogOutIcon />
 

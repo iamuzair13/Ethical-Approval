@@ -1,26 +1,24 @@
-import darkLogo from "/images/logo/UOL-Rebrand-ID_Final-01.png";
-import logo from "/images/logo/UOL-Rebrand-ID_Final-01.png";
 import Image from "next/image";
 
 export function Logo() {
   return (
-    <div className="relative h-8 max-w-[10.847rem]">
+    <div className="relative h-8 w-[10.847rem]">
       <Image
-        src={logo}
+        src="/images/logo/logo.svg"
         fill
-        className="dark:hidden"
-        alt="IERB Board"
+        className="object-contain object-left dark:hidden"
+        alt="IREB Board"
         role="presentation"
-        quality={100}
+        priority
       />
 
       <Image
-        src={darkLogo}
+        src="/images/logo/logo-dark.svg"
         fill
-        className="hidden dark:block"
-        alt="IERB Board "
+        className="hidden object-contain object-left dark:block"
+        alt="IREB Board"
         role="presentation"
-        quality={100}
+        priority
       />
     </div>
   );
