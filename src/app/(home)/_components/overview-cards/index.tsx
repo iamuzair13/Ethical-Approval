@@ -1,10 +1,13 @@
 import { compactFormat } from "@/lib/format-number";
-import { getOverviewData } from "../../fetch";
+import type { OverviewData } from "../../fetch";
 import { OverviewCard } from "./card";
 import { OVERVIEW_CARDS_CONFIG } from "./config";
 
-export async function OverviewCardsGroup() {
-  const overviewData = await getOverviewData();
+export async function OverviewCardsGroup({
+  overviewData,
+}: {
+  overviewData: OverviewData;
+}) {
   const items = OVERVIEW_CARDS_CONFIG.map(({ key, label, prefix }) => {
     const metric = overviewData[key];
 

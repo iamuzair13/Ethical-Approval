@@ -28,10 +28,18 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
-        title: "Administrator",
+        title: "Administration",
         icon: Icons.User,
-        url: "/administrator",
-        items: []
+        items: [
+          {
+            title: "Users",
+            url: "/users",
+          },
+          {
+            title: "Organizations",
+            url: "/organizations",
+          },
+        ]
       },
       // {
       //   title: "Calendar",

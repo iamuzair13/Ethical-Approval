@@ -22,8 +22,17 @@ export function Sidebar() {
   const visibleNavData = NAV_DATA.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
-      const href = item.url ?? "";
-      if (href === "/administrator" && !isAdministrator) {
+      const directHref = item.url ?? "";
+      const childHrefs = item.items.map((subItem) => subItem.url);
+      const hasAdminOnlyRoute =
+        directHref === "/users" ||
+        directHref === "/organizations" ||
+        directHref === "/administrator" ||
+        childHrefs.includes("/users") ||
+        childHrefs.includes("/organizations") ||
+        childHrefs.includes("/administrator");
+
+      if (hasAdminOnlyRoute && !isAdministrator) {
         return false;
       }
       return true;

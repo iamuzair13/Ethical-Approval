@@ -169,6 +169,16 @@ CREATE TABLE submission_attachments (
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Master faculty list for admin/dean/IREB assignment scopes
+CREATE TABLE IF NOT EXISTS faculties (
+  id BIGSERIAL PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- =========================
 -- INDEXES FOR DASHBOARD / FILTERS
 -- =========================
@@ -176,6 +186,7 @@ CREATE INDEX idx_submissions_type ON submissions(type);
 CREATE INDEX idx_submissions_domain ON submissions(domain);
 CREATE INDEX idx_submissions_status ON submissions(current_status);
 CREATE INDEX idx_applicant_department ON submission_applicant_snapshot(department);
+CREATE INDEX IF NOT EXISTS idx_faculties_active ON faculties(is_active);
 CREATE INDEX idx_approvals_submission_stage ON approval_decisions(submission_id, stage, decided_at DESC);
 CREATE INDEX idx_attachments_submission_stage ON submission_attachments(submission_id, upload_stage);
 CREATE INDEX idx_ethics_json_gin ON submission_ethics_payload USING GIN (ethics_json);

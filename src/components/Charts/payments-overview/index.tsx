@@ -5,7 +5,7 @@ import {
   OVERVIEW_CARDS_CONFIG,
   type OverviewCardConfig,
 } from "@/app/(home)/_components/overview-cards/config";
-import { getOverviewData } from "@/app/(home)/fetch";
+import { getOverviewData, type OverviewData } from "@/app/(home)/fetch";
 import { PaymentsOverviewChart } from "./chart";
 
 type PropsType = {
@@ -13,6 +13,7 @@ type PropsType = {
   className?: string;
   title?: string;
   cardsConfig?: OverviewCardConfig[];
+  overviewData?: OverviewData;
 };
 
 export async function PaymentsOverview({
@@ -20,8 +21,9 @@ export async function PaymentsOverview({
   className,
   title = "IREB Approvals",
   cardsConfig = OVERVIEW_CARDS_CONFIG,
+  overviewData: providedOverviewData,
 }: PropsType) {
-  const overviewData = await getOverviewData();
+  const overviewData = providedOverviewData ?? (await getOverviewData());
 
   const xAxis = timeFrame === "yearly" ? [2020, 2021, 2022, 2023, 2024] : [
     "Jan",

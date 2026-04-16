@@ -78,6 +78,7 @@ type PropsType = {
   deanOnly?: boolean;
   ethicalOnly?: boolean;
   title?: string;
+  leads?: Lead[];
 };
 
 export function LeadsReport({
@@ -85,14 +86,16 @@ export function LeadsReport({
   deanOnly = false,
   ethicalOnly = false,
   title = "Leads Report",
+  leads: providedLeads,
 }: PropsType) {
   const [activeTab, setActiveTab] = useState<"all" | "overdue">("all");
 
+  const sourceLeads = providedLeads ?? LEADS;
   const leads = deanOnly
-    ? LEADS.filter(({ status }) => status.includes("Dean"))
+    ? sourceLeads.filter(({ status }) => status.includes("Dean"))
     : ethicalOnly
-      ? LEADS.filter(({ status }) => status.includes("IREB"))
-      : LEADS;
+      ? sourceLeads.filter(({ status }) => status.includes("IREB"))
+      : sourceLeads;
 
   const getDurationInDays = (duration: string) => {
     const days = Number.parseInt(duration, 10);

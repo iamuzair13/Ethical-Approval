@@ -38,7 +38,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const adminRole = token.adminRole;
-  if (pathname.startsWith("/administrator")) {
+  if (
+    pathname.startsWith("/administrator") ||
+    pathname.startsWith("/users") ||
+    pathname.startsWith("/organizations")
+  ) {
     if (adminRole !== "administrator") {
       if (!adminRole) {
         const signIn = new URL("/admin/login", request.url);

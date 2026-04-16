@@ -314,18 +314,71 @@ type FacultyRow = {
   id: number;
   code: string;
   name: string;
+  is_active: boolean;
 };
 
-export async function listFaculties() {
+export async function listFaculties(options?: { includeInactive?: boolean }) {
+  const includeInactive = options?.includeInactive ?? false;
   const result = await db.query<FacultyRow>(
+    includeInactive
+      ? `
+      SELECT id, code, name, is_active
+      FROM faculties
+      ORDER BY name ASC
     `
-      SELECT id, code, name
+      : `
+      SELECT id, code, name, is_active
       FROM faculties
       WHERE is_active = TRUE
       ORDER BY name ASC
     `,
   );
   return result.rows;
+}
+
+export async function createFaculty(input: { code: string; name: string }) {
+  const result = await db.query<FacultyRow>(
+    `
+      INSERT INTO faculties (code, name, is_active)
+      VALUES ($1, $2, TRUE)
+      RETURNING id, code, name, is_active
+    `,
+    [input.code.trim().toUpperCase(), input.name.trim()],
+  );
+  return result.rows[0];
+}
+
+export async function updateFaculty(input: {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+}) {
+  const result = await db.query<FacultyRow & { is_active: boolean }>(
+    `
+      UPDATE faculties
+      SET code = $2,
+          name = $3,
+          is_active = $4,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, code, name, is_active
+    `,
+    [input.id, input.code.trim().toUpperCase(), input.name.trim(), input.isActive],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function deleteFaculty(id: number) {
+  const result = await db.query<{ id: number }>(
+    `
+      DELETE FROM faculties
+      WHERE id = $1
+      RETURNING id
+    `,
+    [id],
+  );
+  return result.rows[0] ?? null;
 }
 
 export async function listAdminUsersForManagement(): Promise<AdminManagementUser[]> {
