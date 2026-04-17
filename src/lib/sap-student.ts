@@ -1,3 +1,5 @@
+import { inferFacultyFromDepartment } from "@/lib/faculty-by-department";
+
 export type SapVerifyErrorCode =
   | "INVALID_EMAIL"
   | "NOT_FOUND"
@@ -20,6 +22,42 @@ export type SapVerifyResult = SapVerifySuccess | SapVerifyFailure;
 
 const SAP_BASE =
   "http://uolerp.uol.edu.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
+
+function getStringField(
+  rec: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = rec[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function enrichStudentRecordWithFaculty(
+  rec: Record<string, unknown>,
+): Record<string, unknown> {
+  const existingFaculty = getStringField(rec, [
+    "Faculty",
+    "FacName",
+    "FacultyName",
+  ]);
+  if (existingFaculty) return rec;
+
+  const department = getStringField(rec, ["DeptName", "Dept", "Department"]);
+  if (!department) return rec;
+
+  const inferredFaculty = inferFacultyFromDepartment(department);
+  if (!inferredFaculty) return rec;
+
+  return {
+    ...rec,
+    Faculty: inferredFaculty,
+    FacultyName: inferredFaculty,
+  };
+}
 
 function buildSapAuthHeader(): string | null {
   const username = process.env.SAP_BASIC_AUTH_USERNAME?.trim();
@@ -142,7 +180,7 @@ export async function verifyStudentByEmail(
       ok: true,
       sapId,
       email: email.trim().toLowerCase(),
-      studentRecord: rest,
+      studentRecord: enrichStudentRecordWithFaculty(rest),
       studentName,
     };
   } catch {

@@ -1,19 +1,30 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type FormEvent, type MouseEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 type RequestPayload = {
   title: string;
-  description: string;
-  expectedResponseDays: number;
+  objectives: string;
+  methodology: string;
+  type: "thesis" | "publication";
+  domain: "medical" | "non_medical";
+  ethics: Record<string, unknown>;
 };
 
 type ApprovalRequestStepperProps = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (payload: RequestPayload) => void;
+  onSubmit: (payload: RequestPayload) => Promise<{ ok: boolean; error?: string }>;
+  mode?: "create" | "view" | "edit";
+  submissionMeta?: Record<string, unknown> | null;
+  viewSubmissionData?: {
+    form?: Record<string, unknown>;
+    attachmentFiles?: Record<string, unknown>;
+    extraUploadFiles?: unknown[];
+    currentStep?: number;
+  } | null;
   applicantProfile?: {
     name: string;
     regNo: string;
@@ -157,6 +168,8 @@ type DraftData = {
   form: typeof INITIAL_FORM;
   currentStep: number;
   completedSteps: number[];
+  attachmentFiles: Record<string, string>;
+  extraUploadFiles: string[];
   savedAt: string;
 };
 
@@ -164,6 +177,9 @@ export default function ApprovalRequestStepper({
   open,
   onClose,
   onSubmit,
+  mode = "create",
+  submissionMeta = null,
+  viewSubmissionData = null,
   applicantProfile,
   requiredForm = null,
 }: ApprovalRequestStepperProps) {
@@ -174,6 +190,10 @@ export default function ApprovalRequestStepper({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<Record<string, string>>({});
   const [extraUploadFiles, setExtraUploadFiles] = useState<string[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isViewMode = mode === "view";
+  const isPreloadedMode = mode === "view" || mode === "edit";
 
   const isForm1Thesis =
     requiredForm?.label === "Form 1 Thesis form Other than Medical Sciences.docx";
@@ -204,7 +224,7 @@ export default function ApprovalRequestStepper({
   }, [open]);
 
   useEffect(() => {
-    if (!mounted || !open) return;
+    if (!mounted || !open || isPreloadedMode) return;
 
     const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!rawDraft) return;
@@ -218,14 +238,73 @@ export default function ApprovalRequestStepper({
           : 0,
       );
       setCompletedSteps(new Set(draft.completedSteps ?? []));
+      setAttachmentFiles(
+        draft.attachmentFiles && typeof draft.attachmentFiles === "object"
+          ? draft.attachmentFiles
+          : {},
+      );
+      setExtraUploadFiles(Array.isArray(draft.extraUploadFiles) ? draft.extraUploadFiles : []);
       setSaveMessage(`Restored draft from ${new Date(draft.savedAt).toLocaleString()}`);
     } catch {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
     }
-  }, [activeSteps.length, mounted, open]);
+  }, [activeSteps.length, isPreloadedMode, mounted, open]);
 
   useEffect(() => {
-    if (!open || !isForm1Thesis || !applicantProfile) return;
+    if (!open || isPreloadedMode) return;
+
+    // Autosave draft so a remount/navigation doesn't wipe progress (e.g., after file picker interactions).
+    const timer = window.setTimeout(() => {
+      const payload: DraftData = {
+        form,
+        currentStep,
+        completedSteps: Array.from(completedSteps),
+        attachmentFiles,
+        extraUploadFiles,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [attachmentFiles, completedSteps, currentStep, extraUploadFiles, form, isPreloadedMode, open]);
+
+  useEffect(() => {
+    if (!open || !isPreloadedMode || !viewSubmissionData) return;
+
+    const nextForm = {
+      ...INITIAL_FORM,
+      ...(viewSubmissionData.form ?? {}),
+    } as typeof INITIAL_FORM;
+    const nextAttachments =
+      viewSubmissionData.attachmentFiles && typeof viewSubmissionData.attachmentFiles === "object"
+        ? Object.fromEntries(
+            Object.entries(viewSubmissionData.attachmentFiles).map(([key, value]) => [
+              key,
+              typeof value === "string" ? value : String(value ?? ""),
+            ]),
+          )
+        : {};
+    const nextExtraUploads = Array.isArray(viewSubmissionData.extraUploadFiles)
+      ? viewSubmissionData.extraUploadFiles.map((item) =>
+          typeof item === "string" ? item : String(item ?? ""),
+        )
+      : [];
+    const safeStep = Number.isInteger(viewSubmissionData.currentStep)
+      ? Math.max(0, Math.min(activeSteps.length - 1, viewSubmissionData.currentStep ?? 0))
+      : 0;
+
+    setForm(nextForm);
+    setAttachmentFiles(nextAttachments);
+    setExtraUploadFiles(nextExtraUploads);
+    setCurrentStep(safeStep);
+    setCompletedSteps(new Set(Array.from({ length: safeStep }, (_, index) => index)));
+    setSaveMessage(null);
+    setSubmitError(null);
+  }, [activeSteps.length, isPreloadedMode, open, viewSubmissionData]);
+
+  useEffect(() => {
+    if (!open || isViewMode || !isForm1Thesis || !applicantProfile) return;
     setForm((prev) => ({
       ...prev,
       scholarName: applicantProfile.name,
@@ -235,7 +314,7 @@ export default function ApprovalRequestStepper({
       scholarDepartment: applicantProfile.department,
       scholarProgram: applicantProfile.program,
     }));
-  }, [applicantProfile, isForm1Thesis, open]);
+  }, [applicantProfile, isForm1Thesis, isViewMode, open]);
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -251,9 +330,29 @@ export default function ApprovalRequestStepper({
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
     };
 
-  const handleNext = () => {
-    setCompletedSteps((prev) => new Set(prev).add(currentStep));
-    if (currentStep < activeSteps.length - 1) setCurrentStep((prev) => prev + 1);
+  const handleNext = (e?: MouseEvent<HTMLButtonElement>) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    const nextStep = currentStep < activeSteps.length - 1 ? currentStep + 1 : currentStep;
+    const nextCompleted = new Set(completedSteps);
+    nextCompleted.add(currentStep);
+
+    setCompletedSteps(nextCompleted);
+    setCurrentStep(nextStep);
+
+    if (!isViewMode) {
+      // Persist immediately so an unexpected remount doesn't bounce users back to an empty form.
+      const payload: DraftData = {
+        form,
+        currentStep: nextStep,
+        completedSteps: Array.from(nextCompleted),
+        attachmentFiles,
+        extraUploadFiles,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    }
   };
 
   const handlePrev = () => {
@@ -265,16 +364,21 @@ export default function ApprovalRequestStepper({
     setCompletedSteps(new Set());
     setForm(INITIAL_FORM);
     setSaveMessage(null);
+    setSubmitError(null);
+    setIsSubmitting(false);
     setAttachmentFiles({});
     setExtraUploadFiles([]);
     onClose();
   };
 
   const handleSaveProgress = () => {
+    if (isViewMode) return;
     const payload: DraftData = {
       form,
       currentStep,
       completedSteps: Array.from(completedSteps),
+      attachmentFiles,
+      extraUploadFiles,
       savedAt: new Date().toISOString(),
     };
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
@@ -283,21 +387,65 @@ export default function ApprovalRequestStepper({
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    void (async () => {
+      if (isViewMode) return;
+      // Prevent accidental submit from intermediate steps (e.g., while uploading files).
+      if (currentStep < activeSteps.length - 1 || isSubmitting) return;
 
-    // Prevent accidental submit from intermediate steps (e.g., while uploading files).
-    if (currentStep < activeSteps.length - 1) return;
+      const title = isForm1Thesis ? form.thesisTitle.trim() : form.projectTitle.trim();
+      const objectives = isForm1Thesis
+        ? [
+            form.researchObjective1.trim(),
+            form.researchObjective2.trim(),
+            form.researchObjective3.trim(),
+            form.researchObjective4.trim(),
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : form.projectObjectives.trim();
+      const methodology = isForm1Thesis
+        ? form.methodology.trim()
+        : form.biomedicalDetails.trim() ||
+          form.riskMitigation.trim() ||
+          "Methodology not provided";
 
-    const title = isForm1Thesis ? form.thesisTitle.trim() : form.projectTitle.trim();
-    const description = isForm1Thesis
-      ? form.methodology.trim() || form.researchObjective1.trim()
-      : form.projectObjectives.trim();
-    const expectedResponseDays = Number.parseInt(form.expectedResponseDays, 10);
+      if (!title || !objectives || !methodology) {
+        setSubmitError("Please complete the required submission fields before submitting.");
+        return;
+      }
 
-    if (!title || !description || Number.isNaN(expectedResponseDays)) return;
+      setSubmitError(null);
+      setIsSubmitting(true);
 
-    onSubmit({ title, description, expectedResponseDays });
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
-    resetAndClose();
+      const result = await onSubmit({
+        title,
+        objectives,
+        methodology,
+        type: isForm1Thesis ? "thesis" : "publication",
+        domain:
+          requiredForm?.label?.toLowerCase().includes("medical sciences") ||
+          requiredForm?.label?.toLowerCase().includes("medical")
+            ? "medical"
+            : "non_medical",
+        ethics: {
+          form,
+          attachmentFiles,
+          extraUploadFiles,
+          requiredForm,
+          ...(submissionMeta ?? {}),
+        },
+      });
+
+      setIsSubmitting(false);
+
+      if (!result.ok) {
+        setSubmitError(result.error ?? "Unable to submit application. Please try again.");
+        return;
+      }
+
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      resetAndClose();
+    })();
   };
 
   const toggleCsvOption = (key: keyof typeof INITIAL_FORM, value: string) => {
@@ -386,6 +534,7 @@ export default function ApprovalRequestStepper({
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <fieldset disabled={isViewMode} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             {isForm1Thesis && currentStep === 0 && (
               <section className="grid gap-6">
@@ -1120,6 +1269,7 @@ export default function ApprovalRequestStepper({
               </section>
             )}
           </div>
+          </fieldset>
 
           <div className="flex items-center justify-between gap-3 border-t border-stroke px-6 py-4 dark:border-dark-3">
             <button
@@ -1132,29 +1282,48 @@ export default function ApprovalRequestStepper({
             </button>
 
             <div className="flex items-center gap-2">
+              {submitError && <span className="text-xs text-red-600 dark:text-red-400">{submitError}</span>}
               {saveMessage && <span className="text-xs text-body dark:text-dark-6">{saveMessage}</span>}
-              <button
-                type="button"
-                onClick={handleSaveProgress}
-                className="rounded-lg border border-primary px-4 py-2 font-medium text-primary transition hover:bg-primary/10"
-              >
-                Save Progress
-              </button>
-              {currentStep < activeSteps.length - 1 ? (
+              {!isViewMode && (
                 <button
                   type="button"
+                  onClick={handleSaveProgress}
+                  disabled={isSubmitting}
+                  className="rounded-lg border border-primary px-4 py-2 font-medium text-primary transition hover:bg-primary/10"
+                >
+                  Save Progress
+                </button>
+              )}
+              {currentStep < activeSteps.length - 1 ? (
+                <button
+                  key={`next-step-${currentStep}`}
+                  type="button"
                   onClick={handleNext}
+                  disabled={isSubmitting}
                   className="rounded-lg bg-primary px-4 py-2 font-medium text-white hover:bg-opacity-90"
                 >
                   Next
                 </button>
               ) : (
-                <button
-                  type="submit"
-                  className="rounded-lg bg-green px-4 py-2 font-medium text-white hover:bg-green/90"
-                >
-                  Submit Application
-                </button>
+                isViewMode ? (
+                  <button
+                    key="close-view-mode"
+                    type="button"
+                    onClick={resetAndClose}
+                    className="rounded-lg bg-primary px-4 py-2 font-medium text-white hover:bg-opacity-90"
+                  >
+                    Close
+                  </button>
+                ) : (
+                  <button
+                    key="submit-application"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-lg bg-green px-4 py-2 font-medium text-white hover:bg-green/90"
+                  >
+                    {isSubmitting ? "Submitting..." : "Submit Application"}
+                  </button>
+                )
               )}
             </div>
           </div>

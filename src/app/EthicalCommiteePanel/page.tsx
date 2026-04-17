@@ -1,14 +1,18 @@
 import { OverviewCard } from "@/app/(home)/_components/overview-cards/card";
 import type { OverviewCardConfig } from "@/app/(home)/_components/overview-cards/config";
-import { getOverviewData } from "@/app/(home)/fetch";
+import { getDashboardLeads, getOverviewData } from "@/app/(home)/fetch";
 import { PaymentsOverview } from "@/components/Charts/payments-overview";
 import {
   UsedDevices,
   type UsedDeviceDatum,
 } from "@/components/Charts/used-devices";
 import { LeadsReport } from "@/components/Tables/leads-report";
+import DashboardApiProbe from "@/components/debug/dashboard-api-probe";
+import DashboardLiveRefresh from "@/components/debug/dashboard-live-refresh";
 import { compactFormat } from "@/lib/format-number";
+import { authOptions } from "@/lib/auth-options";
 import { createTimeFrameExtractor } from "@/utils/timeframe-extractor";
+import { getServerSession } from "next-auth";
 
 type PropsType = {
   searchParams: Promise<{
@@ -18,15 +22,22 @@ type PropsType = {
 
 const ETHICAL_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "views", label: "Total Requests" },
-  { key: "products", label: "Pending Approvals" },
-  { key: "users", label: "Approved Requests" },
+  { key: "deanPending", label: "Pending Approvals From Dean" },
+  { key: "deanApproved", label: "Approved Requests From Dean" },
+  { key: "products", label: "Pending Approvals From IREB" },
+  { key: "users", label: "Approved Requests From IREB" },
   { key: "profit", label: "Rejected Requests" },
 ];
 
 export default async function EthicalCommiteePanel({ searchParams }: PropsType) {
   const { selected_time_frame } = await searchParams;
   const extractTimeFrame = createTimeFrameExtractor(selected_time_frame);
-  const overviewData = await getOverviewData();
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+  const [overviewData, leadsData] = await Promise.all([
+    getOverviewData(session),
+    getDashboardLeads(session),
+  ]);
 
   const items = ETHICAL_CARDS_CONFIG.map(({ key, label, prefix }) => {
     const metric = overviewData[key];
@@ -43,6 +54,7 @@ export default async function EthicalCommiteePanel({ searchParams }: PropsType) 
   const pending = overviewData.products.value;
   const approved = overviewData.users.value;
   const rejected = overviewData.profit.value;
+  const usedDevicesTitle = "IREB Request Breakdown";
   const total = Math.max(pending + approved + rejected, 1);
   const ethicalBreakdown: UsedDeviceDatum[] = [
     {
@@ -64,6 +76,8 @@ export default async function EthicalCommiteePanel({ searchParams }: PropsType) 
 
   return (
     <>
+      <DashboardApiProbe tag="ireb" />
+      <DashboardLiveRefresh />
       <div className="grid gap-4 sm:gap-6 2xl:gap-7.5">
         <OverviewCard items={items} />
       </div>
@@ -81,7 +95,7 @@ export default async function EthicalCommiteePanel({ searchParams }: PropsType) 
           className="col-span-12 xl:col-span-5"
           key={extractTimeFrame("ethical_used_devices")}
           timeFrame={extractTimeFrame("ethical_used_devices")?.split(":")[1]}
-          title="Decision Breakdown"
+          title={usedDevicesTitle}
           sectionKey="ethical_used_devices"
           data={ethicalBreakdown}
         />
@@ -89,6 +103,8 @@ export default async function EthicalCommiteePanel({ searchParams }: PropsType) 
         <LeadsReport
           ethicalOnly
           title="IREB Decision"
+          leads={leadsData}
+          currentRole="ireb"
         />
       </div>
     </>

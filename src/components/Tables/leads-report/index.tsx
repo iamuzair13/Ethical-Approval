@@ -1,6 +1,5 @@
 "use client";
 
-import { TrashIcon } from "@/assets/icons";
 import {
   Table,
   TableBody,
@@ -11,64 +10,91 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { DownloadIcon } from "../icons";
 
-type LeadStatus = "Approved by Dean" | "Rejected by Dean" | "Approved by IREB" | "Rejected by IREB";
-type NextLeadStatus =
-  | "Pending IREB Review"
-  | "Closed by Dean"
-  | "Final Approval Completed"
-  | "Returned to Student";
+type LeadStatus =
+  | "Submitted"
+  | "Under Review by Dean"
+  | "Approved by Dean"
+  | "Rejected by Dean"
+  | "Under Review by IREB"
+  | "Approved by IREB"
+  | "Rejected by IREB";
 
 type Lead = {
+  id: number;
   name: string;
   email: string;
+  faculty: string;
   project: string;
   duration: string;
-  status: LeadStatus;
+  passedStatus: LeadStatus;
+  currentStatus: LeadStatus;
+  stage: "dean" | "ireb" | "completed";
   avatar: string;
 };
 
 const LEADS: Lead[] = [
   {
+    id: 1,
     name: "Ayesha Khan",
     email: "ayesha.khan@uol.edu.pk",
+    faculty: "Faculty",
     project: "12 Jan 2026 - 18 Jan 2026",
     duration: "6 days",
-    status: "Rejected by Dean",
+    passedStatus: "Submitted",
+    currentStatus: "Rejected by Dean",
+    stage: "completed",
     avatar: "/images/user/user-17.png",
   },
   {
+    id: 2,
     name: "Muhammad Ali",
     email: "m.ali@uol.edu.pk",
+    faculty: "Faculty",
     project: "03 Feb 2026 - 4 Feb 2026",
     duration: "1 days",
-    status: "Approved by Dean",
+    passedStatus: "Approved by Dean",
+    currentStatus: "Under Review by IREB",
+    stage: "ireb",
     avatar: "/images/user/user-15.png",
   },
   {
+    id: 3,
     name: "Fatima Noor",
     email: "fatima.noor@uol.edu.pk",
+    faculty: "Faculty",
     project: "20 Mar 2026 - 27 Mar 2026",
     duration: "7 days",
-    status: "Approved by IREB",
+    passedStatus: "Approved by Dean",
+    currentStatus: "Approved by IREB",
+    stage: "completed",
     avatar: "/images/user/user-19.png",
   },
   {
+    id: 4,
     name: "Hassan Raza",
     email: "hassan.raza@uol.edu.pk",
+    faculty: "Faculty",
     project: "01 Apr 2026 - 04 Apr 2026",
     duration: "3 days",
-    status: "Rejected by Dean",
+    passedStatus: "Submitted",
+    currentStatus: "Under Review by Dean",
+    stage: "dean",
     avatar: "/images/user/user-14.png",
   },
   {
+    id: 5,
     name: "Zainab Ahmed",
     email: "zainab.ahmed@uol.edu.pk",
+    faculty: "Faculty",
     project: "15 May 2026 - 25 May 2026",
     duration: "10 days",
-    status: "Rejected by IREB",
+    passedStatus: "Approved by Dean",
+    currentStatus: "Rejected by IREB",
+    stage: "completed",
     avatar: "/images/user/user-21.png",
   },
 ];
@@ -79,7 +105,11 @@ type PropsType = {
   ethicalOnly?: boolean;
   title?: string;
   leads?: Lead[];
+  currentRole?: "administrator" | "dean" | "ireb" | null;
 };
+
+type DecisionAction = "approved" | "rejected";
+type AdminOption = { id: string; name: string; role: "dean" | "ireb" };
 
 export function LeadsReport({
   className,
@@ -87,33 +117,33 @@ export function LeadsReport({
   ethicalOnly = false,
   title = "Leads Report",
   leads: providedLeads,
+  currentRole = null,
 }: PropsType) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"all" | "overdue">("all");
+  const [busyLeadId, setBusyLeadId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [decisionLead, setDecisionLead] = useState<Lead | null>(null);
+  const [decisionAction, setDecisionAction] = useState<DecisionAction>("approved");
+  const [decisionComment, setDecisionComment] = useState("");
+  const [adminOptions, setAdminOptions] = useState<{
+    deanOption: AdminOption | null;
+    irebOptions: AdminOption[];
+  }>({ deanOption: null, irebOptions: [] });
+  const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
 
   const sourceLeads = providedLeads ?? LEADS;
-  const leads = deanOnly
-    ? sourceLeads.filter(({ status }) => status.includes("Dean"))
-    : ethicalOnly
-      ? sourceLeads.filter(({ status }) => status.includes("IREB"))
-      : sourceLeads;
+  const leads = providedLeads
+    ? sourceLeads
+    : deanOnly
+      ? sourceLeads.filter(({ stage }) => stage === "dean")
+      : ethicalOnly
+        ? sourceLeads.filter(({ stage }) => stage === "ireb")
+        : sourceLeads;
 
   const getDurationInDays = (duration: string) => {
     const days = Number.parseInt(duration, 10);
     return Number.isNaN(days) ? 0 : days;
-  };
-
-  const getDummyNextStatus = (status: LeadStatus): NextLeadStatus => {
-    switch (status) {
-      case "Approved by Dean":
-        return "Pending IREB Review";
-      case "Rejected by Dean":
-        return "Closed by Dean";
-      case "Approved by IREB":
-        return "Final Approval Completed";
-      case "Rejected by IREB":
-      default:
-        return "Returned to Student";
-    }
   };
 
   const overdueLeads = useMemo(
@@ -122,6 +152,116 @@ export function LeadsReport({
   );
 
   const visibleLeads = activeTab === "overdue" ? overdueLeads : leads;
+
+  useEffect(() => {
+    if (!decisionLead || currentRole !== "administrator") return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/submissions/${decisionLead.id}/action-options`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as {
+          ok: boolean;
+          deanOption?: AdminOption | null;
+          irebOptions?: AdminOption[];
+        };
+        if (!response.ok || !payload.ok || cancelled) return;
+        setAdminOptions({
+          deanOption: payload.deanOption ?? null,
+          irebOptions: payload.irebOptions ?? [],
+        });
+        if (decisionLead.stage === "dean" && payload.deanOption?.id) {
+          setSelectedOnBehalfOf(payload.deanOption.id);
+        }
+        if (decisionLead.stage === "ireb" && payload.irebOptions?.[0]?.id) {
+          setSelectedOnBehalfOf(payload.irebOptions[0].id);
+        }
+      } catch {
+        if (!cancelled) setActionError("Unable to load approval options.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRole, decisionLead]);
+
+  const resetDecisionModal = () => {
+    setDecisionLead(null);
+    setDecisionComment("");
+    setSelectedOnBehalfOf("");
+    setAdminOptions({ deanOption: null, irebOptions: [] });
+  };
+
+  const openDecisionModal = (lead: Lead, action: DecisionAction) => {
+    setActionError(null);
+    setDecisionAction(action);
+    setDecisionComment("");
+    setSelectedOnBehalfOf("");
+    setAdminOptions({ deanOption: null, irebOptions: [] });
+    setDecisionLead(lead);
+  };
+
+  const handleDownload = async (lead: Lead) => {
+    setBusyLeadId(lead.id);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/submissions/${lead.id}`, { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        setActionError(payload?.error ?? "Unable to download submission.");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(payload.submission, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `submission-${lead.id}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setActionError("Network error while downloading submission.");
+    } finally {
+      setBusyLeadId(null);
+    }
+  };
+
+  const handleDecisionSubmit = async () => {
+    if (!decisionLead) return;
+    if (currentRole === "administrator" && !selectedOnBehalfOf) {
+      setActionError("Please select who this action is on behalf of.");
+      return;
+    }
+
+    setBusyLeadId(decisionLead.id);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/submissions/${decisionLead.id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision: decisionAction,
+          comment: decisionComment,
+          onBehalfOfAdminId: currentRole === "administrator" ? selectedOnBehalfOf : undefined,
+        }),
+      });
+      const payload = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !payload.ok) {
+        setActionError(payload.error ?? "Unable to save decision.");
+        return;
+      }
+      resetDecisionModal();
+      router.refresh();
+    } catch {
+      setActionError("Network error while saving decision.");
+    } finally {
+      setBusyLeadId(null);
+    }
+  };
 
   return (
     <div className={cn("col-span-12", className)}>
@@ -176,6 +316,11 @@ export function LeadsReport({
               to within 2 days.
             </div>
           )}
+          {actionError && (
+            <div className="mt-3 rounded-md border border-red/35 bg-red/10 px-3 py-2 text-sm font-medium text-red dark:border-red/50 dark:bg-red/15">
+              {actionError}
+            </div>
+          )}
         </div>
 
         <Table>
@@ -193,11 +338,9 @@ export function LeadsReport({
 
           <TableBody>
             {visibleLeads.map((lead) => {
-              const nextStatus = getDummyNextStatus(lead.status);
-
               return (
                 <TableRow
-                  key={lead.email}
+                  key={lead.id}
                   className="border-none text-base font-medium [&>td]:px-4 md:[&>td]:px-6 xl:[&>td]:px-7.5"
                 >
                 <TableCell>
@@ -229,42 +372,73 @@ export function LeadsReport({
                   <span
                     className={cn(
                       "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
-                      lead.status === "Approved by Dean"
+                      lead.passedStatus === "Approved by Dean" ||
+                        lead.passedStatus === "Approved by IREB"
                         ? "bg-[#10B981]/[0.08] text-green"
-                        : lead.status === "Rejected by Dean"
+                        : lead.passedStatus === "Rejected by Dean" ||
+                            lead.passedStatus === "Rejected by IREB"
                         ? "bg-[#FB5454]/[0.08] text-red"
-                        : lead.status === "Approved by IREB"
-                        ? "bg-[#10B981]/[0.08] text-green"
-                        : "bg-[#FB5454]/[0.08] text-red",
+                        : "bg-amber-100 text-amber-700",
                     )}
                   >
-                    {lead.status}
+                    {lead.passedStatus}
                   </span>
                 </TableCell>
                   <TableCell>
                     <span
                       className={cn(
                         "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
-                        nextStatus === "Pending IREB Review" || nextStatus === "Final Approval Completed"
+                        lead.currentStatus === "Approved by Dean" ||
+                          lead.currentStatus === "Approved by IREB"
                           ? "bg-[#10B981]/[0.08] text-green"
-                          : nextStatus === "Closed by Dean"
+                          : lead.currentStatus === "Rejected by Dean" ||
+                              lead.currentStatus === "Rejected by IREB"
                           ? "bg-[#FB5454]/[0.08] text-red"
                           : "bg-amber-100 text-amber-700",
                       )}
                     >
-                      {nextStatus}
+                      {lead.currentStatus}
                     </span>
                 </TableCell>
 
-                <TableCell className="text-center flex items-center justify-center gap-2">
-                  <button title="Delete" className="hover:text-rose-500">
-                    <span className="sr-only">Delete row</span>
-                    <TrashIcon />
-                  </button>
-                  <button title="Download" className="hover:text-green-500">
-                    <span className="sr-only">Download</span>
-                    <DownloadIcon />
-                  </button>
+                <TableCell>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/admin/submissions/${lead.id}/profile`)}
+                      className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyLeadId === lead.id}
+                      onClick={() => void handleDownload(lead)}
+                      className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10 disabled:opacity-60"
+                    >
+                      Download
+                    </button>
+                    {lead.stage !== "completed" && currentRole && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busyLeadId === lead.id}
+                          onClick={() => openDecisionModal(lead, "approved")}
+                          className="rounded-md bg-green px-3 py-1.5 text-xs font-medium text-white transition hover:bg-green/90 disabled:opacity-60"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyLeadId === lead.id}
+                          onClick={() => openDecisionModal(lead, "rejected")}
+                          className="rounded-md bg-red px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red/90 disabled:opacity-60"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </TableCell>
                 </TableRow>
               );
@@ -279,6 +453,108 @@ export function LeadsReport({
           </TableBody>
         </Table>
       </div>
+
+      {decisionLead && (
+        <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-heading-6 font-bold text-dark dark:text-white">
+                  {decisionAction === "approved" ? "Approve Request" : "Reject Request"}
+                </h3>
+                <p className="mt-1 text-sm text-body">
+                  {decisionLead.name} · {decisionLead.faculty}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetDecisionModal}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Close
+              </button>
+            </div>
+
+            {currentRole === "administrator" && (
+              <div className="mt-5 grid gap-4">
+                {decisionLead.stage === "dean" && (
+                  <div className="rounded-lg border border-stroke p-4 dark:border-dark-3">
+                    <p className="text-sm font-semibold text-dark dark:text-white">On behalf of dean</p>
+                    <select
+                      value={selectedOnBehalfOf}
+                      onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
+                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    >
+                      <option value="">Select dean</option>
+                      {adminOptions.deanOption && (
+                        <option value={adminOptions.deanOption.id}>
+                          {adminOptions.deanOption.name}
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                {decisionLead.stage === "ireb" && (
+                  <div className="rounded-lg border border-stroke p-4 dark:border-dark-3">
+                    <p className="text-sm font-semibold text-dark dark:text-white">On behalf of IREB member</p>
+                    <select
+                      value={selectedOnBehalfOf}
+                      onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
+                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    >
+                      <option value="">Select IREB member</option>
+                      {adminOptions.irebOptions.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-5">
+              <label className="mb-2 block text-sm font-semibold text-dark dark:text-white">
+                {decisionAction === "rejected" ? "Rejection Comment" : "Comment (optional)"}
+              </label>
+              <textarea
+                value={decisionComment}
+                onChange={(e) => setDecisionComment(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                placeholder={
+                  decisionAction === "rejected"
+                    ? "Provide reason for rejection"
+                    : "Optional note"
+                }
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={resetDecisionModal}
+                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyLeadId === decisionLead.id}
+                onClick={() => void handleDecisionSubmit()}
+                className={cn(
+                  "rounded-md px-4 py-2 text-sm font-medium text-white transition disabled:opacity-60",
+                  decisionAction === "approved" ? "bg-green hover:bg-green/90" : "bg-red hover:bg-red/90",
+                )}
+              >
+                {decisionAction === "approved" ? "Confirm Approval" : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

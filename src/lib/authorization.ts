@@ -2,6 +2,19 @@ import { db } from "@/lib/db";
 import type { AuthenticatedAdmin } from "@/lib/admin-auth";
 import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 
+function normalizeNumericIds(values: Array<number | string>): number[] {
+  return values
+    .map((value) => {
+      if (typeof value === "number" && Number.isInteger(value)) return value;
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number.parseInt(value.trim(), 10);
+        return Number.isInteger(parsed) ? parsed : null;
+      }
+      return null;
+    })
+    .filter((value): value is number => value !== null);
+}
+
 export type SubmissionRow = {
   id: number;
   type: "thesis" | "publication";
@@ -38,9 +51,12 @@ export async function canAccessFacultySnapshot(
   if (admin.role === "administrator") return true;
   if (admin.scopeMode === "all") return true;
 
-  const facultyIds = await resolveFacultyIdsFromSnapshotValue(snapshotFaculty);
-  if (facultyIds.length === 0) return false;
-  return facultyIds.some((id) => admin.facultyIds.includes(id));
+  const snapshotFacultyIds = normalizeNumericIds(
+    (await resolveFacultyIdsFromSnapshotValue(snapshotFaculty)) as Array<number | string>,
+  );
+  const adminFacultyIds = normalizeNumericIds(admin.facultyIds as Array<number | string>);
+  if (snapshotFacultyIds.length === 0 || adminFacultyIds.length === 0) return false;
+  return snapshotFacultyIds.some((id) => adminFacultyIds.includes(id));
 }
 
 export async function getScopedSubmissions(admin: AuthenticatedAdmin) {

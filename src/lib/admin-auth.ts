@@ -13,6 +13,23 @@ export type AuthenticatedAdmin = {
   tokenVersion: number;
 };
 
+export function normalizeFacultyIds(rawFacultyIds: unknown): number[] {
+  if (!Array.isArray(rawFacultyIds)) return [];
+
+  const normalized = rawFacultyIds
+    .map((id) => {
+      if (typeof id === "number" && Number.isInteger(id)) return id;
+      if (typeof id === "string" && id.trim()) {
+        const parsed = Number.parseInt(id.trim(), 10);
+        return Number.isInteger(parsed) ? parsed : null;
+      }
+      return null;
+    })
+    .filter((id): id is number => id !== null);
+
+  return Array.from(new Set(normalized));
+}
+
 function parseAdminFromToken(token: JWT | null): AuthenticatedAdmin | null {
   if (!token?.adminId || !token.adminRole || !token.adminStatus) {
     return null;
@@ -31,9 +48,7 @@ function parseAdminFromToken(token: JWT | null): AuthenticatedAdmin | null {
     role: token.adminRole,
     status: token.adminStatus === "inactive" ? "inactive" : "active",
     scopeMode: token.adminScopeMode === "restricted" ? "restricted" : "all",
-    facultyIds: Array.isArray(token.adminFacultyIds)
-      ? token.adminFacultyIds.filter((id): id is number => Number.isInteger(id))
-      : [],
+    facultyIds: normalizeFacultyIds(token.adminFacultyIds),
     tokenVersion:
       typeof token.adminTokenVersion === "number" ? token.adminTokenVersion : 0,
   };

@@ -12,9 +12,10 @@ import type { PropsWithChildren } from "react";
 export function ConditionalAppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const isAuthRoute = pathname?.startsWith("/auth") ?? false;
+  const isAdminLoginRoute = pathname?.startsWith("/admin/login") ?? false;
   const isStudentProfileRoute = pathname?.startsWith("/profile") ?? false;
 
-  if (isAuthRoute) {
+  if (isAuthRoute || isAdminLoginRoute) {
     return <>{children}</>;
   }
 

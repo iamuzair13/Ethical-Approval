@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { inferFacultyFromDepartment } from "@/lib/faculty-by-department";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
@@ -24,9 +25,10 @@ type RequestStage =
 
 type ApprovalRequest = {
   id: string;
+  numericId: number;
+  revisionNumber: number;
   title: string;
   submittedOn: string;
-  expectedResponseDays: number;
   currentStage: RequestStage;
   description: string;
 };
@@ -46,6 +48,26 @@ type ProfileSubmissionApiRow = {
   submitted_at: string;
   title: string | null;
   objectives: string | null;
+  ethics_json?: unknown;
+};
+
+type ProfileSubmissionDetail = {
+  id: number;
+  type: "thesis" | "publication";
+  domain: "medical" | "non_medical";
+  current_status: SubmissionStatus;
+  submitted_at: string;
+  title: string | null;
+  objectives: string | null;
+  methodology: string | null;
+  participants_range: string | null;
+  research_population: string | null;
+  applicant_name: string;
+  applicant_email: string;
+  applicant_faculty: string;
+  applicant_department: string;
+  applicant_program: string | null;
+  ethics_json: unknown;
 };
 
 type ApplicationType = "thesis" | "research-publication";
@@ -83,8 +105,10 @@ export default function Page() {
 
     const dept =
       getStringField(["DeptName", "Dept", "Department"]) ?? "—";
-    const faculty =
-      getStringField(["Faculty", "FacName", "FacultyName", "Campus"]) ?? "—";
+    const facultyFromRecord =
+      getStringField(["Faculty", "FacName", "FacultyName", "Campus"]) ?? null;
+    const inferredFaculty = dept !== "—" ? inferFacultyFromDepartment(dept) : null;
+    const faculty = facultyFromRecord ?? inferredFaculty ?? "—";
     const degreeTitle =
       getStringField(["DegrTitle", "DegreeTitle", "Degree"]) ?? "—";
     const reg =
@@ -105,11 +129,21 @@ export default function Page() {
   }, [session]);
 
   const [isStepperOpen, setIsStepperOpen] = useState(false);
+  const [stepperMode, setStepperMode] = useState<"create" | "view" | "edit">("create");
+  const [stepperSubmissionMeta, setStepperSubmissionMeta] = useState<Record<string, unknown> | null>(null);
+  const [stepperViewData, setStepperViewData] = useState<{
+    form?: Record<string, unknown>;
+    attachmentFiles?: Record<string, unknown>;
+    extraUploadFiles?: unknown[];
+    currentStep?: number;
+  } | null>(null);
   const [isApplicationPickerOpen, setIsApplicationPickerOpen] = useState(false);
   const [requiredForm, setRequiredForm] = useState<RequiredForm | null>(null);
 
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [isLoadingSubmission, setIsLoadingSubmission] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const mapStatusToStage = (status: SubmissionStatus): RequestStage => {
     switch (status) {
@@ -156,14 +190,23 @@ export default function Page() {
 
         if (!payload.ok || !payload.submissions || !isMounted) return;
 
-        const mapped: ApprovalRequest[] = payload.submissions.map((item) => ({
-          id: `REQ-${item.id}`,
+        const mapped: ApprovalRequest[] = payload.submissions.map((item) => {
+          const revisionNumber =
+            item.ethics_json &&
+            typeof item.ethics_json === "object" &&
+            typeof (item.ethics_json as Record<string, unknown>).revisionNumber === "number"
+              ? ((item.ethics_json as Record<string, unknown>).revisionNumber as number)
+              : 0;
+          return {
+          id: revisionNumber > 0 ? `REQ-${item.id} (rev-${revisionNumber})` : `REQ-${item.id}`,
+          numericId: item.id,
+          revisionNumber,
           title: item.title?.trim() || `Submission #${item.id}`,
           description: item.objectives?.trim() || "No objectives provided.",
-          expectedResponseDays: 2,
           submittedOn: new Date(item.submitted_at).toISOString().slice(0, 10),
           currentStage: mapStatusToStage(item.current_status),
-        }));
+          };
+        });
         setRequests(mapped);
       } finally {
         if (isMounted) setIsLoadingRequests(false);
@@ -181,23 +224,76 @@ export default function Page() {
 
   const handleCreateRequest = ({
     title,
-    description,
-    expectedResponseDays,
+    objectives,
+    methodology,
+    type,
+    domain,
+    ethics,
   }: {
     title: string;
-    description: string;
-    expectedResponseDays: number;
+    objectives: string;
+    methodology: string;
+    type: "thesis" | "publication";
+    domain: "medical" | "non_medical";
+    ethics: Record<string, unknown>;
   }) => {
-    const newRequest: ApprovalRequest = {
-      id: `REQ-${1000 + requests.length + 1}`,
-      title,
-      description,
-      expectedResponseDays,
-      submittedOn: new Date().toISOString().slice(0, 10),
-      currentStage: "Under Review by Dean",
-    };
+    return (async () => {
+      try {
+        const response = await fetch("/api/profile/submissions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title,
+            objectives,
+            methodology,
+            type,
+            domain,
+            ethics,
+            applicantProfile: {
+              name: profile.name,
+              sapId: session?.user?.sapId ?? "",
+              email: profile.email,
+              faculty: profile.faculty,
+              department: profile.department,
+              program: profile.degreeTitle,
+            },
+          }),
+        });
 
-    setRequests((prev) => [newRequest, ...prev]);
+        const payload = (await response.json()) as {
+          ok: boolean;
+          error?: string;
+          submission?: ProfileSubmissionApiRow;
+        };
+
+        if (!response.ok || !payload.ok || !payload.submission) {
+          return {
+            ok: false,
+            error: payload.error ?? "Failed to save submission.",
+          };
+        }
+
+        const savedRequest: ApprovalRequest = {
+          id: `REQ-${payload.submission.id}`,
+          numericId: payload.submission.id,
+          revisionNumber: 0,
+          title: payload.submission.title?.trim() || title,
+          description: payload.submission.objectives?.trim() || objectives,
+          submittedOn: new Date(payload.submission.submitted_at).toISOString().slice(0, 10),
+          currentStage: mapStatusToStage(payload.submission.current_status),
+        };
+
+        setRequests((prev) => [savedRequest, ...prev.filter((item) => item.id !== savedRequest.id)]);
+        return { ok: true };
+      } catch {
+        return {
+          ok: false,
+          error: "Network error while saving submission.",
+        };
+      }
+    })();
   };
 
   const requestStats = useMemo(() => {
@@ -273,6 +369,9 @@ export default function Page() {
   };
 
   const handleOpenApplicationFlow = () => {
+    setStepperMode("create");
+    setStepperSubmissionMeta(null);
+    setStepperViewData(null);
     if (isStudentEmail) {
       setIsApplicationPickerOpen(true);
       return;
@@ -283,9 +382,125 @@ export default function Page() {
   };
 
   const handleSelectApplicationType = (applicationType: ApplicationType) => {
+    setStepperMode("create");
+    setStepperSubmissionMeta(null);
+    setStepperViewData(null);
     setRequiredForm(getRequiredForm(applicationType));
     setIsApplicationPickerOpen(false);
     setIsStepperOpen(true);
+  };
+
+  const handleOpenRevision = async (request: ApprovalRequest) => {
+    setIsLoadingSubmission(true);
+    setSubmissionError(null);
+
+    try {
+      const response = await fetch(`/api/profile/submissions/${request.numericId}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        submission?: ProfileSubmissionDetail;
+      };
+
+      if (!response.ok || !payload.ok || !payload.submission) {
+        setSubmissionError(payload.error ?? "Unable to load submission for revision.");
+        return;
+      }
+      const ethics =
+        payload.submission.ethics_json && typeof payload.submission.ethics_json === "object"
+          ? (payload.submission.ethics_json as Record<string, unknown>)
+          : null;
+      const incomingRequiredForm =
+        ethics?.requiredForm && typeof ethics.requiredForm === "object"
+          ? (ethics.requiredForm as RequiredForm)
+          : null;
+
+      setRequiredForm(incomingRequiredForm);
+      setStepperMode("edit");
+      setStepperSubmissionMeta({
+        revisionOfSubmissionId: payload.submission.id,
+        revisionNumber: request.revisionNumber + 1,
+      });
+      setStepperViewData({
+        form:
+          ethics?.form && typeof ethics.form === "object"
+            ? (ethics.form as Record<string, unknown>)
+            : {},
+        attachmentFiles:
+          ethics?.attachmentFiles &&
+          typeof ethics.attachmentFiles === "object" &&
+          !Array.isArray(ethics.attachmentFiles)
+            ? (ethics.attachmentFiles as Record<string, unknown>)
+            : {},
+        extraUploadFiles: Array.isArray(ethics?.extraUploadFiles)
+          ? (ethics.extraUploadFiles as unknown[])
+          : [],
+        currentStep: 0,
+      });
+      setIsStepperOpen(true);
+    } catch {
+      setSubmissionError("Network error while opening revision.");
+    } finally {
+      setIsLoadingSubmission(false);
+    }
+  };
+
+  const handleViewSubmission = async (requestId: string) => {
+    const submissionId = requestId.replace("REQ-", "");
+    setIsLoadingSubmission(true);
+    setSubmissionError(null);
+
+    try {
+      const response = await fetch(`/api/profile/submissions/${submissionId}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        submission?: ProfileSubmissionDetail;
+      };
+
+      if (!response.ok || !payload.ok || !payload.submission) {
+        setSubmissionError(payload.error ?? "Unable to load application details.");
+        return;
+      }
+      const ethics =
+        payload.submission.ethics_json && typeof payload.submission.ethics_json === "object"
+          ? (payload.submission.ethics_json as Record<string, unknown>)
+          : null;
+      const incomingRequiredForm =
+        ethics?.requiredForm && typeof ethics.requiredForm === "object"
+          ? (ethics.requiredForm as RequiredForm)
+          : null;
+
+      setRequiredForm(incomingRequiredForm);
+      setStepperMode("view");
+      setStepperViewData({
+        form:
+          ethics?.form && typeof ethics.form === "object"
+            ? (ethics.form as Record<string, unknown>)
+            : {},
+        attachmentFiles:
+          ethics?.attachmentFiles &&
+          typeof ethics.attachmentFiles === "object" &&
+          !Array.isArray(ethics.attachmentFiles)
+            ? (ethics.attachmentFiles as Record<string, unknown>)
+            : {},
+        extraUploadFiles: Array.isArray(ethics?.extraUploadFiles)
+          ? (ethics.extraUploadFiles as unknown[])
+          : [],
+        currentStep: 0,
+      });
+      setIsStepperOpen(true);
+    } catch {
+      setSubmissionError("Network error while loading application details.");
+    } finally {
+      setIsLoadingSubmission(false);
+    }
   };
 
   return (
@@ -352,6 +567,7 @@ export default function Page() {
                 <TableHead>Submitted</TableHead>
                 <TableHead>Expected Response</TableHead>
                 <TableHead>Current Stage</TableHead>
+                <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -362,19 +578,42 @@ export default function Page() {
                     <p className="text-body-sm">{request.id}</p>
                   </TableCell>
                   <TableCell>{request.submittedOn}</TableCell>
-                  <TableCell>{request.expectedResponseDays} days</TableCell>
+                  <TableCell>2 days</TableCell>
                   <TableCell>{request.currentStage}</TableCell>
+                  <TableCell>
+                    {request.currentStage.includes("Rejected") ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenRevision(request)}
+                        className="rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-600 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                      >
+                        Submit Revision
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleViewSubmission(request.id)}
+                        className="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
+                      >
+                        View Application
+                      </button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-body-sm">
+                  <TableCell colSpan={5} className="text-body-sm">
                     No submissions found yet.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+
+          {submissionError && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submissionError}</p>
+          )}
 
           <div className="mt-6 grid gap-4">
             {requests.map((request) => (
@@ -418,8 +657,19 @@ export default function Page() {
 
       <ApprovalRequestStepper
         open={isStepperOpen}
-        onClose={() => setIsStepperOpen(false)}
+        onClose={() => {
+          setIsStepperOpen(false);
+          if (stepperMode === "view" || stepperMode === "edit") {
+            setStepperViewData(null);
+            setStepperSubmissionMeta(null);
+            setStepperMode("create");
+            setRequiredForm(null);
+          }
+        }}
         onSubmit={handleCreateRequest}
+        mode={stepperMode}
+        submissionMeta={stepperSubmissionMeta}
+        viewSubmissionData={stepperViewData}
         requiredForm={requiredForm}
         applicantProfile={{
           name: profile.name,
@@ -471,6 +721,7 @@ export default function Page() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

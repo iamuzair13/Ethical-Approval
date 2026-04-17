@@ -123,7 +123,7 @@ export async function resolveFacultyIdsFromSnapshotValue(
   sapFacultyValue: string,
 ): Promise<number[]> {
   const normalized = normalizeSapFacultyValue(sapFacultyValue);
-  const result = await db.query<{ faculty_id: number }>(
+  const aliasResult = await db.query<{ faculty_id: number }>(
     `
       SELECT faculty_id
       FROM faculty_sap_aliases
@@ -131,7 +131,45 @@ export async function resolveFacultyIdsFromSnapshotValue(
     `,
     [normalized],
   );
-  return result.rows.map((row: { faculty_id: number }) => row.faculty_id);
+  if (aliasResult.rowCount && aliasResult.rowCount > 0) {
+    return aliasResult.rows.map((row: { faculty_id: number }) => row.faculty_id);
+  }
+
+  // Fallback: match snapshot faculty text against master faculties table even when
+  // alias rows are not seeded (e.g., "Faculty of Pharmacy" vs "Pharmacy").
+  const faculties = await db.query<{ id: number; name: string; code: string }>(
+    `
+      SELECT f.id, f.name, f.code
+      FROM faculties f
+      WHERE f.is_active = TRUE
+    `,
+  );
+
+  const normalizeLoose = (value: string) =>
+    normalizeSapFacultyValue(value)
+      .replace(/^FACULTY OF\s+/i, "")
+      .replace(/^FACULTY\s+/i, "")
+      .trim();
+
+  const snapshotValue = normalizeLoose(normalized);
+  const matchedIds = new Set<number>();
+
+  for (const row of faculties.rows) {
+    const byName = normalizeLoose(row.name);
+    const byCode = normalizeLoose(row.code);
+    const variants = [byName, byCode].filter(Boolean);
+
+    const isMatch = variants.some(
+      (candidate) =>
+        candidate === snapshotValue ||
+        candidate.includes(snapshotValue) ||
+        snapshotValue.includes(candidate),
+    );
+
+    if (isMatch) matchedIds.add(row.id);
+  }
+
+  return Array.from(matchedIds);
 }
 
 export async function createAdminUser(input: {

@@ -6,6 +6,7 @@ import { createTimeFrameExtractor } from "@/utils/timeframe-extractor";
 import { authOptions } from "@/lib/auth-options";
 import { OverviewCardsGroup } from "./_components/overview-cards";
 import { getDashboardLeads, getOverviewData, getUsedDevicesData } from "./fetch";
+import DashboardApiProbe from "@/components/debug/dashboard-api-probe";
 
 type PropsType = {
   searchParams: Promise<{
@@ -26,9 +27,16 @@ export default async function Home({ searchParams }: PropsType) {
     getUsedDevicesData(session),
     getDashboardLeads(session),
   ]);
+  const usedDevicesTitle =
+    session.user.adminRole === "dean"
+      ? "Dean Request Breakdown"
+      : session.user.adminRole === "ireb"
+        ? "IREB Request Breakdown"
+        : "Request Status Breakdown";
 
   return (
     <>
+      <DashboardApiProbe tag="home" />
       <OverviewCardsGroup overviewData={overviewData} />
 
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-9 2xl:gap-7.5">
@@ -43,10 +51,11 @@ export default async function Home({ searchParams }: PropsType) {
           className="col-span-12 xl:col-span-5"
           key={extractTimeFrame("used_devices")}
           timeFrame={extractTimeFrame("used_devices")?.split(":")[1]}
+          title={usedDevicesTitle}
           data={usedDevicesData}
         />
 
-        <LeadsReport leads={leadsData} />
+        <LeadsReport leads={leadsData} currentRole={session.user.adminRole ?? null} />
       </div>
     </>
   );

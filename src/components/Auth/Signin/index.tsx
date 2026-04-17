@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useCallback, useMemo, useState } from "react";
+import Image from "next/image";
 
 function validateStudentEmailFormat(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
@@ -144,11 +145,11 @@ export default function Signin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#3b5bdb] via-[#4c6ef5] to-[#364fc7] px-4 py-10 sm:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#3b5bdb] via-[#4c6ef5] to-[#364fc7] flex sm:px-8">
       <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1fr_420px] lg:items-center lg:gap-12">
         <div className="text-white max-lg:text-center">
           <Link href="/" className="inline-block">
-            <Logo />
+            <Image src="/images/logo/logo-white.png" alt="Logo" width={200} height={100} />
           </Link>
           <h1 className="mt-10 text-4xl font-semibold tracking-tight sm:text-5xl">
             Ethical Approval System

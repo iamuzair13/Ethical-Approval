@@ -43,29 +43,17 @@ export async function PaymentsOverview({
   const series = cardsConfig.map(({ key, label }) => {
     const metric = overviewData[key];
     const base = metric.value;
-    const growthFactor = 1 + metric.growthRate / 100;
 
-    const lineData = xAxis.map((x, index) => {
-      const progress = (index + 1) / xAxis.length;
-      const y = Math.max(0, Math.round(base * (1 + (growthFactor - 1) * progress)));
-
-      return { x, y };
-    });
+    const lineData = xAxis.map((x) => ({
+      x,
+      y: Math.max(0, Math.round(base)),
+    }));
 
     return {
       name: label,
       data: lineData,
     };
   });
-
-  const total = series.reduce(
-    (acc, current) => acc + current.data[current.data.length - 1].y,
-    0,
-  );
-  const growingCount = cardsConfig.filter(
-    ({ key }) => overviewData[key].growthRate >= 0,
-  ).length;
-  const decliningCount = cardsConfig.length - growingCount;
 
   return (
     <div
@@ -87,9 +75,9 @@ export async function PaymentsOverview({
       <dl className="grid divide-stroke text-center dark:divide-dark-3 sm:grid-cols-2 sm:divide-x [&>div]:flex [&>div]:flex-col-reverse [&>div]:gap-1">
         <div className="dark:border-dark-3 max-sm:mb-3 max-sm:border-b max-sm:pb-3">
           <dt className="text-xl font-bold text-dark dark:text-white">
-            {series.reduce((acc, cur) => acc + cur.data.reduce((a, p) => a + p.y, 0), 0)}
+            {standardFormat(overviewData.views.value)}
           </dt>
-          <dd className="font-medium dark:text-dark-6">Total Chart Value</dd>
+          <dd className="font-medium dark:text-dark-6">Current Total Requests</dd>
         </div>
         
       </dl>
