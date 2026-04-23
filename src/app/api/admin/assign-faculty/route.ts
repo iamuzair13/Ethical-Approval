@@ -5,12 +5,15 @@ import {
   assignIrebFaculties,
   getAdminUserById,
 } from "@/lib/admin-repository";
+import { db } from "@/lib/db";
 
 type AssignFacultyBody = {
   adminUserId?: string;
   role?: "dean" | "ireb";
   facultyId?: number;
   facultyIds?: number[];
+  departmentId?: number;
+  departmentIds?: number[];
 };
 
 export async function POST(request: NextRequest) {
@@ -39,25 +42,41 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.role === "dean") {
-    if (typeof body.facultyId !== "number") {
+    if (typeof body.facultyId !== "number" || typeof body.departmentId !== "number") {
       return NextResponse.json(
-        { ok: false, error: "facultyId is required for dean assignment." },
+        { ok: false, error: "facultyId and departmentId are required for dean assignment." },
         { status: 400 },
       );
     }
     await assignDeanFaculty({
       adminUserId: body.adminUserId,
       facultyId: body.facultyId,
+      departmentId: body.departmentId,
       assignedBy: actor.adminId,
     });
     return NextResponse.json({ ok: true });
   }
 
-  const facultyIds = Array.isArray(body.facultyIds) ? body.facultyIds : [];
+  const departmentIds = Array.isArray(body.departmentIds) ? body.departmentIds : [];
+  let assignments: { facultyId: number; departmentId: number }[] = [];
+  if (departmentIds.length > 0) {
+    const mapped = await db.query<{ id: number; faculty_id: number }>(
+      `
+        SELECT id, faculty_id
+        FROM departments
+        WHERE id = ANY($1::bigint[])
+      `,
+      [departmentIds],
+    );
+    assignments = mapped.rows.map((row) => ({
+      facultyId: row.faculty_id,
+      departmentId: row.id,
+    }));
+  }
   await assignIrebFaculties({
     adminUserId: body.adminUserId,
-    facultyIds,
+    assignments,
     assignedBy: actor.adminId,
   });
-  return NextResponse.json({ ok: true, scopeMode: facultyIds.length ? "restricted" : "all" });
+  return NextResponse.json({ ok: true, scopeMode: assignments.length ? "restricted" : "all" });
 }

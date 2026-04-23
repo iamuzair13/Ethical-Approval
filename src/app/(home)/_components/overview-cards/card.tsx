@@ -12,12 +12,22 @@ type PropsType = {
   items: OverviewCardItem[];
 };
 
+function getStatusColorClass(label: string): string {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("rejected")) return "text-red";
+  if (normalized.includes("approved")) return "text-green";
+  if (normalized.includes("pending")) return "text-amber-600";
+  if (normalized.includes("total")) return "text-dark dark:text-white";
+  return "text-primary";
+}
+
 export function OverviewCard({ items }: PropsType) {
   return (
     <div className="col-span-12 rounded-[10px] bg-white py-5 shadow-1 dark:bg-gray-dark dark:shadow-card">
       <div className="flex flex-wrap justify-start px-5 gap-5 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
         {items.map(({ label, data }) => {
           const isDecreasing = data.growthRate < 0;
+          const statusColorClass = getStatusColorClass(label);
 
           return (
             <div
@@ -26,13 +36,13 @@ export function OverviewCard({ items }: PropsType) {
             >
               <div className="py-2">
                 <div className="flex items-center gap-4.5">
-                  <h4 className="text-xl font-bold text-dark dark:text-white md:text-heading-5">
+                  <h4 className={cn("text-xl font-bold md:text-heading-5", statusColorClass)}>
                     {data.value}
                   </h4>
                   <div
                     className={cn(
                       "flex items-center gap-1 text-body-sm font-medium",
-                      isDecreasing ? "text-yellow-dark" : "text-green",
+                      statusColorClass,
                     )}
                   >
                     <svg

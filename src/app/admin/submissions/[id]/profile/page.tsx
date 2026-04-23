@@ -114,6 +114,9 @@ export default async function AdminSubmissionProfilePage({
           <h2 className="text-heading-6 font-bold text-dark dark:text-white">
             {submission.applicant_name}
           </h2>
+          <p className="mt-1 font-mono text-sm font-semibold text-primary">
+            Application ID: {submission.application_id}
+          </p>
           <p className="mt-1 text-body-sm">{submission.applicant_email}</p>
           <p className="mt-1 text-body-sm">
             Faculty: {submission.applicant_faculty} · Department: {submission.applicant_department}

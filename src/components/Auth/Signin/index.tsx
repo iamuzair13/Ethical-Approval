@@ -97,10 +97,6 @@ export default function Signin() {
     }
 
     const formatError = validateStudentEmailFormat(email);
-    if (formatError) {
-      setFormError(formatError);
-      return;
-    }
 
     setLoadingManual(true);
     try {
@@ -120,7 +116,11 @@ export default function Signin() {
         const verifyBody = (await verifyRes.json().catch(() => null)) as
           | { errorCode?: string }
           | null;
-        setFormError(mapSapError(verifyBody?.errorCode ?? null));
+        if (formatError && verifyBody?.errorCode === "INVALID_EMAIL") {
+          setFormError(formatError);
+        } else {
+          setFormError(mapSapError(verifyBody?.errorCode ?? null));
+        }
         return;
       }
 
@@ -251,6 +251,13 @@ export default function Signin() {
             </p>
 
             <p className="mt-4 text-center text-sm text-slate-600 dark:text-dark-6">
+              <Link
+                href="/admin/login"
+                className="mb-2 inline-flex rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/10"
+              >
+                Admin Login
+              </Link>
+              <br />
               <Link
                 href="/"
                 className="font-medium text-primary hover:underline"

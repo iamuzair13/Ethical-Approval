@@ -25,12 +25,20 @@ type ManagedUser = {
   facultyScope: string;
   status: AdminStatus;
   facultyIds: number[];
+  departmentIds: number[];
 };
 
 type Faculty = {
   id: number;
   code: string;
   name: string;
+};
+
+type Department = {
+  id: number;
+  faculty_id: number;
+  name: string;
+  faculty_name?: string;
 };
 
 type CreateUserForm = {
@@ -41,6 +49,8 @@ type CreateUserForm = {
   sapId: string;
   facultyId: number | "";
   facultyIds: number[];
+  departmentId: number | "";
+  departmentIds: number[];
 };
 
 type EditUserForm = {
@@ -95,12 +105,15 @@ function Badge({
 export default function UsersPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [selectedAssignUser, setSelectedAssignUser] = useState<string>("");
   const [assignFacultyId, setAssignFacultyId] = useState<number | "">("");
   const [assignFacultyIds, setAssignFacultyIds] = useState<number[]>([]);
+  const [assignDepartmentId, setAssignDepartmentId] = useState<number | "">("");
+  const [assignDepartmentIds, setAssignDepartmentIds] = useState<number[]>([]);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editingUser, setEditingUser] = useState<EditUserForm | null>(null);
@@ -112,15 +125,18 @@ export default function UsersPage() {
     sapId: "",
     facultyId: "",
     facultyIds: [],
+    departmentId: "",
+    departmentIds: [],
   });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [usersRes, facultiesRes] = await Promise.all([
+      const [usersRes, facultiesRes, departmentsRes] = await Promise.all([
         fetch("/api/admin/users", { cache: "no-store" }),
         fetch("/api/admin/faculties", { cache: "no-store" }),
+        fetch("/api/admin/departments?all=1", { cache: "no-store" }),
       ]);
 
       const usersBody = (await usersRes.json()) as {
@@ -133,6 +149,11 @@ export default function UsersPage() {
         faculties?: Faculty[];
         error?: string;
       };
+      const departmentsBody = (await departmentsRes.json()) as {
+        ok: boolean;
+        departments?: Department[];
+        error?: string;
+      };
 
       if (!usersRes.ok || !usersBody.ok) {
         throw new Error(usersBody.error ?? "Unable to load users.");
@@ -140,9 +161,13 @@ export default function UsersPage() {
       if (!facultiesRes.ok || !facultiesBody.ok) {
         throw new Error(facultiesBody.error ?? "Unable to load faculties.");
       }
+      if (!departmentsRes.ok || !departmentsBody.ok) {
+        throw new Error(departmentsBody.error ?? "Unable to load departments.");
+      }
 
       setUsers(usersBody.users ?? []);
       setFaculties(facultiesBody.faculties ?? []);
+      setDepartments(departmentsBody.departments ?? []);
     } catch (fetchError) {
       setError(
         fetchError instanceof Error ? fetchError.message : "Failed to load data.",
@@ -174,6 +199,8 @@ export default function UsersPage() {
       sapId: "",
       facultyId: "",
       facultyIds: [],
+      departmentId: "",
+      departmentIds: [],
     });
   };
 
@@ -204,6 +231,11 @@ export default function UsersPage() {
           ? createForm.facultyId
           : null,
       facultyIds: createForm.role === "ireb" ? createForm.facultyIds : [],
+      departmentId:
+        createForm.role === "dean" && createForm.departmentId !== ""
+          ? createForm.departmentId
+          : null,
+      departmentIds: createForm.role === "ireb" ? createForm.departmentIds : [],
     };
 
     const response = await fetch("/api/admin/create-user", {
@@ -235,11 +267,13 @@ export default function UsersPage() {
             adminUserId: selectedUser.id,
             role: "dean",
             facultyId: assignFacultyId,
+            departmentId: assignDepartmentId,
           }
         : {
             adminUserId: selectedUser.id,
             role: "ireb",
             facultyIds: assignFacultyIds,
+            departmentIds: assignDepartmentIds,
           };
 
     const response = await fetch("/api/admin/assign-faculty", {
@@ -281,6 +315,35 @@ export default function UsersPage() {
     setEditingUser(null);
     await fetchData();
   };
+
+  const deanCreateDepartments = useMemo(
+    () =>
+      typeof createForm.facultyId === "number"
+        ? departments.filter((dep) => dep.faculty_id === createForm.facultyId)
+        : [],
+    [departments, createForm.facultyId],
+  );
+  const irebCreateDepartments = useMemo(
+    () =>
+      createForm.facultyIds.length > 0
+        ? departments.filter((dep) => createForm.facultyIds.includes(dep.faculty_id))
+        : [],
+    [departments, createForm.facultyIds],
+  );
+  const deanAssignDepartments = useMemo(
+    () =>
+      typeof assignFacultyId === "number"
+        ? departments.filter((dep) => dep.faculty_id === assignFacultyId)
+        : [],
+    [departments, assignFacultyId],
+  );
+  const irebAssignDepartments = useMemo(
+    () =>
+      assignFacultyIds.length > 0
+        ? departments.filter((dep) => assignFacultyIds.includes(dep.faculty_id))
+        : [],
+    [departments, assignFacultyIds],
+  );
 
   const toggleStatus = async (user: ManagedUser) => {
     setBusyUserId(user.id);
@@ -404,6 +467,8 @@ export default function UsersPage() {
                     role: e.target.value as AdminRole,
                     facultyId: "",
                     facultyIds: [],
+                    departmentId: "",
+                    departmentIds: [],
                   }))
                 }
                 className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
@@ -421,42 +486,83 @@ export default function UsersPage() {
                 placeholder="SAP ID (optional)"
               />
               {createForm.role === "dean" && (
-                <select
-                  value={createForm.facultyId}
-                  onChange={(e) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      facultyId: e.target.value ? Number(e.target.value) : "",
-                    }))
-                  }
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
-                >
-                  <option value="">Select dean faculty</option>
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={createForm.facultyId}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        facultyId: e.target.value ? Number(e.target.value) : "",
+                        departmentId: "",
+                      }))
+                    }
+                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                  >
+                    <option value="">Select dean faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={createForm.departmentId}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        departmentId: e.target.value ? Number(e.target.value) : "",
+                      }))
+                    }
+                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    disabled={deanCreateDepartments.length === 0}
+                  >
+                    <option value="">Select dean department</option>
+                    {deanCreateDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
               {createForm.role === "ireb" && (
-                <select
-                  multiple
-                  value={createForm.facultyIds.map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions).map(
-                      (option) => Number(option.value),
-                    );
-                    setCreateForm((prev) => ({ ...prev, facultyIds: values }));
-                  }}
-                  className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
-                >
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    multiple
+                    value={createForm.facultyIds.map(String)}
+                    onChange={(e) => {
+                      const values = Array.from(e.target.selectedOptions).map(
+                        (option) => Number(option.value),
+                      );
+                      setCreateForm((prev) => ({ ...prev, facultyIds: values, departmentIds: [] }));
+                    }}
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                  >
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    multiple
+                    value={createForm.departmentIds.map(String)}
+                    onChange={(e) => {
+                      const values = Array.from(e.target.selectedOptions).map(
+                        (option) => Number(option.value),
+                      );
+                      setCreateForm((prev) => ({ ...prev, departmentIds: values }));
+                    }}
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    disabled={irebCreateDepartments.length === 0}
+                  >
+                    {irebCreateDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
             </div>
             <button
@@ -481,6 +587,8 @@ export default function UsersPage() {
                   setSelectedAssignUser(e.target.value);
                   setAssignFacultyId("");
                   setAssignFacultyIds([]);
+                  setAssignDepartmentId("");
+                  setAssignDepartmentIds([]);
                 }}
                 className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
               >
@@ -495,43 +603,81 @@ export default function UsersPage() {
               </select>
 
               {selectedUser?.role === "dean" && (
-                <select
-                  value={assignFacultyId}
-                  onChange={(e) =>
-                    setAssignFacultyId(
-                      e.target.value ? Number(e.target.value) : "",
-                    )
-                  }
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
-                >
-                  <option value="">Select dean faculty</option>
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={assignFacultyId}
+                    onChange={(e) => {
+                      setAssignFacultyId(e.target.value ? Number(e.target.value) : "");
+                      setAssignDepartmentId("");
+                    }}
+                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  >
+                    <option value="">Select dean faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={assignDepartmentId}
+                    onChange={(e) =>
+                      setAssignDepartmentId(e.target.value ? Number(e.target.value) : "")
+                    }
+                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    disabled={deanAssignDepartments.length === 0}
+                  >
+                    <option value="">Select dean department</option>
+                    {deanAssignDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
 
               {selectedUser?.role === "ireb" && (
-                <select
-                  multiple
-                  value={assignFacultyIds.map(String)}
-                  onChange={(e) =>
-                    setAssignFacultyIds(
-                      Array.from(e.target.selectedOptions).map((option) =>
-                        Number(option.value),
-                      ),
-                    )
-                  }
-                  className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
-                >
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    multiple
+                    value={assignFacultyIds.map(String)}
+                    onChange={(e) => {
+                      setAssignFacultyIds(
+                        Array.from(e.target.selectedOptions).map((option) =>
+                          Number(option.value),
+                        ),
+                      );
+                      setAssignDepartmentIds([]);
+                    }}
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  >
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    multiple
+                    value={assignDepartmentIds.map(String)}
+                    onChange={(e) =>
+                      setAssignDepartmentIds(
+                        Array.from(e.target.selectedOptions).map((option) =>
+                          Number(option.value),
+                        ),
+                      )
+                    }
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    disabled={irebAssignDepartments.length === 0}
+                  >
+                    {irebAssignDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
 
               <button
@@ -699,6 +845,14 @@ export default function UsersPage() {
                         );
                         setAssignFacultyIds(
                           user.role === "ireb" ? user.facultyIds : [],
+                        );
+                        setAssignDepartmentId(
+                          user.role === "dean" && user.departmentIds[0]
+                            ? user.departmentIds[0]
+                            : "",
+                        );
+                        setAssignDepartmentIds(
+                          user.role === "ireb" ? user.departmentIds : [],
                         );
                       }}
                       className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"

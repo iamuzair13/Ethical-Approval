@@ -26,9 +26,11 @@ export function Sidebar() {
       const childHrefs = item.items.map((subItem) => subItem.url);
       const hasAdminOnlyRoute =
         directHref === "/users" ||
+        directHref === "/activity-logs" ||
         directHref === "/organizations" ||
         directHref === "/administrator" ||
         childHrefs.includes("/users") ||
+        childHrefs.includes("/activity-logs") ||
         childHrefs.includes("/organizations") ||
         childHrefs.includes("/administrator");
 

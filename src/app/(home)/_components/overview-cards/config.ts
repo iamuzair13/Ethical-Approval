@@ -13,6 +13,8 @@ export const OVERVIEW_CARDS_CONFIG: OverviewCardConfig[] = [
   },
   { key: "users", label: "Approved Requests From Dean" },
   { key: "customers", label: "Approved Requests From IREB" },
+  { key: "deanRejected", label: "Rejected by Dean" },
+  { key: "irebRejected", label: "Rejected by IREB" },
 ] ;
 
 export type OverviewMetricKey =
@@ -22,4 +24,6 @@ export type OverviewMetricKey =
   | "users"
   | "customers"
   | "deanPending"
-  | "deanApproved";
+  | "deanApproved"
+  | "deanRejected"
+  | "irebRejected";

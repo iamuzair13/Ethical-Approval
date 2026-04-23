@@ -6,6 +6,7 @@ import {
   createAdminUser,
   getAdminUserByEmail,
 } from "@/lib/admin-repository";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { isAdminRole } from "@/lib/admin-rbac";
 
@@ -17,6 +18,8 @@ type CreateAdminBody = {
   sapId?: string | null;
   facultyId?: number | null;
   facultyIds?: number[];
+  departmentId?: number | null;
+  departmentIds?: number[];
 };
 
 export async function POST(request: NextRequest) {
@@ -41,6 +44,12 @@ export async function POST(request: NextRequest) {
   if (!isAdminRole(body.role)) {
     return NextResponse.json({ ok: false, error: "Invalid role." }, { status: 400 });
   }
+  if (body.role === "dean" && (typeof body.facultyId !== "number" || typeof body.departmentId !== "number")) {
+    return NextResponse.json(
+      { ok: false, error: "Dean requires faculty and department selection." },
+      { status: 400 },
+    );
+  }
 
   const existing = await getAdminUserByEmail(body.email);
   if (existing) {
@@ -61,18 +70,34 @@ export async function POST(request: NextRequest) {
     createdBy: actor.adminId,
   });
 
-  if (created.role === "dean" && body.facultyId) {
+  if (created.role === "dean" && body.facultyId && body.departmentId) {
     await assignDeanFaculty({
       adminUserId: created.id,
       facultyId: body.facultyId,
+      departmentId: body.departmentId,
       assignedBy: actor.adminId,
     });
   }
 
-  if (created.role === "ireb" && Array.isArray(body.facultyIds)) {
+  if (created.role === "ireb" && Array.isArray(body.departmentIds)) {
+    let assignments: { facultyId: number; departmentId: number }[] = [];
+    if (body.departmentIds.length > 0) {
+      const mapped = await db.query<{ id: number; faculty_id: number }>(
+        `
+          SELECT id, faculty_id
+          FROM departments
+          WHERE id = ANY($1::bigint[])
+        `,
+        [body.departmentIds],
+      );
+      assignments = mapped.rows.map((row) => ({
+        facultyId: row.faculty_id,
+        departmentId: row.id,
+      }));
+    }
     await assignIrebFaculties({
       adminUserId: created.id,
-      facultyIds: body.facultyIds,
+      assignments,
       assignedBy: actor.adminId,
     });
   }

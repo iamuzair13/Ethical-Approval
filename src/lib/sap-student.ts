@@ -77,8 +77,18 @@ function extractSapIdFromEmail(email: string): string | null {
   const at = trimmed.indexOf("@");
   if (at <= 0) return null;
   const local = trimmed.slice(0, at);
-  if (!local || !/^[a-zA-Z0-9_-]+$/.test(local)) return null;
-  return local;
+  if (!local) return null;
+
+  // Preferred path: local part is already a SAP-safe identifier.
+  if (/^[a-zA-Z0-9_-]+$/.test(local)) {
+    return local;
+  }
+
+  // Fallback path: tolerate formatting noise and still try SAP lookup.
+  // This supports addresses like "70088579.some-text@..." by extracting
+  // the likely SAP identifier from the local part.
+  const normalized = local.replace(/[^a-zA-Z0-9_-]/g, "");
+  return normalized || null;
 }
 
 function isEmptyODataPayload(d: unknown): boolean {

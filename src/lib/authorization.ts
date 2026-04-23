@@ -17,10 +17,12 @@ function normalizeNumericIds(values: Array<number | string>): number[] {
 
 export type SubmissionRow = {
   id: number;
+  application_id: string;
   type: "thesis" | "publication";
   domain: "medical" | "non_medical";
   applicant_role: "student" | "faculty";
   current_status:
+    | "draft"
     | "submitted"
     | "under_dean_review"
     | "dean_approved"
@@ -64,6 +66,7 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
     `
       SELECT
         s.id,
+        s.application_id,
         s.type,
         s.domain,
         s.applicant_role,
@@ -75,6 +78,7 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
         sas.email AS applicant_email
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+      WHERE s.current_status <> 'draft'
       ORDER BY s.submitted_at DESC
     `,
   );

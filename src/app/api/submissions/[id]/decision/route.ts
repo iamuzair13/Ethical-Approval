@@ -76,10 +76,11 @@ export async function POST(
     );
   }
 
-  let effectiveAdmin = await getAdminUserById(actor.adminId);
-  if (!effectiveAdmin) {
+  const actingAdmin = await getAdminUserById(actor.adminId);
+  if (!actingAdmin) {
     return NextResponse.json({ ok: false, error: "Acting admin not found." }, { status: 404 });
   }
+  let effectiveAdmin = actingAdmin;
 
   if (actor.role === "administrator") {
     if (!body.onBehalfOfAdminId) {
@@ -118,7 +119,7 @@ export async function POST(
 
   const auditNote =
     actor.role === "administrator" && actor.adminId !== effectiveAdmin.id
-      ? `Action performed by administrator ${actor.adminId} on behalf of ${effectiveAdmin.name}.`
+      ? `Action performed by administrator ${actingAdmin.name} on behalf of ${effectiveAdmin.name}.`
       : null;
   const finalComment = [body.comment?.trim(), auditNote].filter(Boolean).join("\n\n") || null;
 

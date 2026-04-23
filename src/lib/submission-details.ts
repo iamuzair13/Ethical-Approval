@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 
 export type SubmissionDetail = {
   id: number;
+  application_id: string;
   type: "thesis" | "publication";
   domain: "medical" | "non_medical";
   current_status:
@@ -32,6 +33,7 @@ export async function getSubmissionDetailById(submissionId: number) {
     `
       SELECT
         s.id,
+        s.application_id,
         s.type,
         s.domain,
         s.current_status,

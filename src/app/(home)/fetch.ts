@@ -11,6 +11,8 @@ export type OverviewData = {
   customers: { value: number; growthRate: number };
   deanPending: { value: number; growthRate: number };
   deanApproved: { value: number; growthRate: number };
+  deanRejected: { value: number; growthRate: number };
+  irebRejected: { value: number; growthRate: number };
 };
 
 type LeadStatus =
@@ -24,6 +26,8 @@ type LeadStatus =
 
 export type DashboardLead = {
   id: number;
+  /** 6-digit public application reference */
+  applicationId: string;
   name: string;
   email: string;
   faculty: string;
@@ -33,15 +37,20 @@ export type DashboardLead = {
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
   avatar: string;
+  latestFeedbackComment: string | null;
+  latestAuditNote: string | null;
+  latestActionTrace: string | null;
 };
 
 type SubmissionScopeRow = {
   id: number;
+  application_id: string;
   submitted_at: Date;
   applicant_name: string;
   applicant_email: string;
   faculty: string;
   current_status:
+    | "draft"
     | "submitted"
     | "under_dean_review"
     | "dean_approved"
@@ -49,7 +58,158 @@ type SubmissionScopeRow = {
     | "under_ireb_review"
     | "approved"
     | "rejected";
+  latest_feedback_comment: string | null;
+  latest_audit_note: string | null;
+  latest_actor_name: string | null;
+  latest_decision: "approved" | "rejected" | null;
+  latest_decision_stage: "dean" | "ireb" | null;
+  latest_decided_by_name: string | null;
 };
+
+function splitFeedbackAndAudit(
+  comment: string | null,
+  actorName?: string | null,
+): {
+  latestFeedbackComment: string | null;
+  latestAuditNote: string | null;
+} {
+  if (!comment) {
+    return { latestFeedbackComment: null, latestAuditNote: null };
+  }
+  const auditMatch = comment.match(/((?:Action performed by administrator\s+)+.*?on behalf of .*?\.)/);
+  let latestAuditNote = auditMatch?.[1]?.trim() || null;
+  if (latestAuditNote) {
+    const normalized = latestAuditNote.match(
+      /(?:Action performed by administrator\s+)+(.+?)\s+on behalf of\s+(.+?)\./,
+    );
+    if (normalized) {
+      const actorRaw = normalized[1].trim();
+      const onBehalfName = normalized[2].trim();
+      const actorLooksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        actorRaw,
+      );
+      const resolvedActorName = actorLooksLikeUuid && actorName?.trim() ? actorName.trim() : actorRaw;
+      latestAuditNote = `Action performed by administrator ${resolvedActorName} on behalf of ${onBehalfName}.`;
+    }
+  }
+  const latestFeedbackComment = comment.replace(auditMatch?.[0] ?? "", "").trim() || null;
+  return { latestFeedbackComment, latestAuditNote };
+}
+
+function buildActionTrace(input: {
+  latestDecision: "approved" | "rejected" | null;
+  latestDecisionStage: "dean" | "ireb" | null;
+  latestDecidedByName: string | null;
+  latestAuditNote: string | null;
+}): string | null {
+  if (input.latestAuditNote) return input.latestAuditNote;
+  if (!input.latestDecision || !input.latestDecisionStage || !input.latestDecidedByName) return null;
+  const stageLabel = input.latestDecisionStage === "dean" ? "Dean" : "IREB";
+  const decisionLabel = input.latestDecision === "approved" ? "approved" : "rejected";
+  return `${stageLabel} ${decisionLabel} by ${input.latestDecidedByName}.`;
+}
+
+async function getLatestFeedbackBySubmissionIds(
+  submissionIds: number[],
+): Promise<Map<number, { comment: string | null; actorName: string | null }>> {
+  if (submissionIds.length === 0) return new Map();
+  const feedbackResult = await db.query<{
+    submission_id: number;
+    latest_feedback_comment: string | null;
+    latest_actor_name: string | null;
+  }>(
+    `
+      SELECT
+        ad.submission_id,
+        ad.comment AS latest_feedback_comment,
+        actor.name AS latest_actor_name
+      FROM (
+        SELECT DISTINCT ON (submission_id)
+          submission_id,
+          comment,
+          decided_at
+        FROM approval_decisions
+        WHERE submission_id = ANY($1::bigint[])
+          AND comment IS NOT NULL
+          AND LENGTH(TRIM(comment)) > 0
+        ORDER BY submission_id, decided_at DESC
+      ) ad
+      LEFT JOIN admin_users actor
+        ON actor.id::text = (regexp_match(
+          ad.comment,
+          '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})'
+        ))[1]
+    `,
+    [submissionIds],
+  );
+
+  const feedbackMap = new Map<number, { comment: string | null; actorName: string | null }>();
+  for (const row of feedbackResult.rows) {
+    feedbackMap.set(row.submission_id, {
+      comment: row.latest_feedback_comment,
+      actorName: row.latest_actor_name,
+    });
+  }
+  return feedbackMap;
+}
+
+async function getLatestDecisionBySubmissionIds(
+  submissionIds: number[],
+): Promise<
+  Map<
+    number,
+    {
+      latestDecision: "approved" | "rejected" | null;
+      latestDecisionStage: "dean" | "ireb" | null;
+      latestDecidedByName: string | null;
+    }
+  >
+> {
+  if (submissionIds.length === 0) return new Map();
+  const decisionResult = await db.query<{
+    submission_id: number;
+    latest_decision: "approved" | "rejected";
+    latest_decision_stage: "dean" | "ireb";
+    latest_decided_by_name: string | null;
+  }>(
+    `
+      SELECT
+        ad.submission_id,
+        ad.decision AS latest_decision,
+        ad.stage AS latest_decision_stage,
+        ad.decided_by_name AS latest_decided_by_name
+      FROM (
+        SELECT DISTINCT ON (submission_id)
+          submission_id,
+          decision,
+          stage,
+          decided_by_name,
+          decided_at
+        FROM approval_decisions
+        WHERE submission_id = ANY($1::bigint[])
+        ORDER BY submission_id, decided_at DESC
+      ) ad
+    `,
+    [submissionIds],
+  );
+
+  const decisionMap = new Map<
+    number,
+    {
+      latestDecision: "approved" | "rejected" | null;
+      latestDecisionStage: "dean" | "ireb" | null;
+      latestDecidedByName: string | null;
+    }
+  >();
+  for (const row of decisionResult.rows) {
+    decisionMap.set(row.submission_id, {
+      latestDecision: row.latest_decision ?? null,
+      latestDecisionStage: row.latest_decision_stage ?? null,
+      latestDecidedByName: row.latest_decided_by_name ?? null,
+    });
+  }
+  return decisionMap;
+}
 
 type DecisionAggregateRow = {
   stage: "dean" | "ireb";
@@ -77,13 +237,51 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       `
         SELECT
           s.id,
+          s.application_id,
           s.submitted_at,
           sas.name AS applicant_name,
           sas.email AS applicant_email,
           sas.faculty,
-          s.current_status
+          s.current_status,
+          afd.latest_feedback_comment,
+          afd.latest_audit_note,
+          afd.latest_actor_name,
+          ld.latest_decision,
+          ld.latest_decision_stage,
+          ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+        LEFT JOIN LATERAL (
+          SELECT
+            ad.comment AS latest_feedback_comment,
+            (regexp_match(
+              ad.comment,
+              'Action performed by administrator .*? on behalf of .*?\\.'
+            ))[1] AS latest_audit_note,
+            actor.name AS latest_actor_name
+          FROM approval_decisions ad
+          LEFT JOIN admin_users actor
+            ON actor.id::text = (regexp_match(
+              ad.comment,
+              '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})'
+            ))[1]
+          WHERE ad.submission_id = s.id
+            AND ad.comment IS NOT NULL
+            AND LENGTH(TRIM(ad.comment)) > 0
+          ORDER BY ad.decided_at DESC
+          LIMIT 1
+        ) afd ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT
+            ad.decision AS latest_decision,
+            ad.stage AS latest_decision_stage,
+            ad.decided_by_name AS latest_decided_by_name
+          FROM approval_decisions ad
+          WHERE ad.submission_id = s.id
+          ORDER BY ad.decided_at DESC
+          LIMIT 1
+        ) ld ON TRUE
+        WHERE s.current_status <> 'draft'
         ORDER BY s.submitted_at DESC
       `,
     );
@@ -93,13 +291,22 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
   const admin = toAdminScope(session);
   if (admin) {
     const rows = await getScopedSubmissions(admin);
+    const feedbackMap = await getLatestFeedbackBySubmissionIds(rows.map((row) => row.id));
+    const decisionMap = await getLatestDecisionBySubmissionIds(rows.map((row) => row.id));
     return rows.map((row) => ({
       id: row.id,
+      application_id: row.application_id,
       submitted_at: row.submitted_at,
       applicant_name: row.applicant_name,
       applicant_email: row.applicant_email,
       faculty: row.faculty,
       current_status: row.current_status,
+      latest_feedback_comment: feedbackMap.get(row.id)?.comment ?? null,
+      latest_audit_note: null,
+      latest_actor_name: feedbackMap.get(row.id)?.actorName ?? null,
+      latest_decision: decisionMap.get(row.id)?.latestDecision ?? null,
+      latest_decision_stage: decisionMap.get(row.id)?.latestDecisionStage ?? null,
+      latest_decided_by_name: decisionMap.get(row.id)?.latestDecidedByName ?? null,
     }));
   }
 
@@ -108,14 +315,51 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       `
         SELECT
           s.id,
+          s.application_id,
           s.submitted_at,
           sas.name AS applicant_name,
           sas.email AS applicant_email,
           sas.faculty,
-          s.current_status
+          s.current_status,
+          afd.latest_feedback_comment,
+          afd.latest_audit_note,
+          afd.latest_actor_name,
+          ld.latest_decision,
+          ld.latest_decision_stage,
+          ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
-        WHERE sas.sap_id = $1
+        LEFT JOIN LATERAL (
+          SELECT
+            ad.comment AS latest_feedback_comment,
+            (regexp_match(
+              ad.comment,
+              'Action performed by administrator .*? on behalf of .*?\\.'
+            ))[1] AS latest_audit_note,
+            actor.name AS latest_actor_name
+          FROM approval_decisions ad
+          LEFT JOIN admin_users actor
+            ON actor.id::text = (regexp_match(
+              ad.comment,
+              '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})'
+            ))[1]
+          WHERE ad.submission_id = s.id
+            AND ad.comment IS NOT NULL
+            AND LENGTH(TRIM(ad.comment)) > 0
+          ORDER BY ad.decided_at DESC
+          LIMIT 1
+        ) afd ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT
+            ad.decision AS latest_decision,
+            ad.stage AS latest_decision_stage,
+            ad.decided_by_name AS latest_decided_by_name
+          FROM approval_decisions ad
+          WHERE ad.submission_id = s.id
+          ORDER BY ad.decided_at DESC
+          LIMIT 1
+        ) ld ON TRUE
+        WHERE sas.sap_id = $1 AND s.current_status <> 'draft'
         ORDER BY s.submitted_at DESC
       `,
       [session.user.sapId],
@@ -160,6 +404,8 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
       customers: { value: 0, growthRate: 0 },
       deanPending: { value: 0, growthRate: 0 },
       deanApproved: { value: 0, growthRate: 0 },
+      deanRejected: { value: 0, growthRate: 0 },
+      irebRejected: { value: 0, growthRate: 0 },
     };
   }
 
@@ -202,6 +448,8 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
       customers: { value: irebApproved, growthRate: toRate(irebApproved) },
       deanPending: { value: pendingDean, growthRate: toRate(pendingDean) },
       deanApproved: { value: deanApproved, growthRate: toRate(deanApproved) },
+      deanRejected: { value: deanRejected, growthRate: toRate(deanRejected) },
+      irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
     };
   }
 
@@ -214,6 +462,8 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
       customers: { value: deanRejected, growthRate: toRate(deanRejected) },
       deanPending: { value: pendingDean, growthRate: toRate(pendingDean) },
       deanApproved: { value: deanApproved, growthRate: toRate(deanApproved) },
+      deanRejected: { value: deanRejected, growthRate: toRate(deanRejected) },
+      irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
     };
   }
 
@@ -225,6 +475,8 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
     customers: { value: irebApproved, growthRate: toRate(irebApproved) },
     deanPending: { value: pendingDean, growthRate: toRate(pendingDean) },
     deanApproved: { value: deanApproved, growthRate: toRate(deanApproved) },
+    deanRejected: { value: deanRejected, growthRate: toRate(deanRejected) },
+    irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
   };
 }
 
@@ -287,9 +539,12 @@ export async function getUsedDevicesData(session: Session) {
               amount: statusMap.get("approved") ?? 0,
             },
             {
-              name: "Rejected Requests",
-              amount:
-                (statusMap.get("dean_rejected") ?? 0) + (statusMap.get("rejected") ?? 0),
+              name: "Rejected by Dean",
+              amount: statusMap.get("dean_rejected") ?? 0,
+            },
+            {
+              name: "Rejected by IREB",
+              amount: statusMap.get("rejected") ?? 0,
             },
           ];
 
@@ -348,8 +603,11 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
     const to = new Date(from.getTime() + 2 * 24 * 60 * 60 * 1000);
     const project = `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`;
 
+    const feedbackAndAudit = splitFeedbackAndAudit(row.latest_feedback_comment, row.latest_actor_name);
     return {
+      ...feedbackAndAudit,
       id: row.id,
+      applicationId: row.application_id,
       name: row.applicant_name,
       email: row.applicant_email,
       faculty: row.faculty,
@@ -359,6 +617,12 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       currentStatus,
       stage,
       avatar: "/images/user/user-17.png",
+      latestActionTrace: buildActionTrace({
+        latestDecision: row.latest_decision,
+        latestDecisionStage: row.latest_decision_stage,
+        latestDecidedByName: row.latest_decided_by_name,
+        latestAuditNote: feedbackAndAudit.latestAuditNote,
+      }),
     };
   });
 }

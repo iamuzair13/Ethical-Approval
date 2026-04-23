@@ -44,6 +44,8 @@ export async function UsedDevices({
       <div className="grid place-items-center">
         <DonutChart data={chartData} />
       </div>
+
+
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { assignDeanFaculty, createAdminUser, getAdminUserByEmail } from "@/lib/admin-repository";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 
 type DeanSeedInput = {
@@ -8,6 +9,7 @@ type DeanSeedInput = {
   email: string;
   password: string;
   facultyId: number;
+  departmentId?: number;
   sapId?: string | null;
 };
 
@@ -42,6 +44,29 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
+    const resolvedDepartmentId =
+      typeof dean.departmentId === "number" && Number.isInteger(dean.departmentId) && dean.departmentId > 0
+        ? dean.departmentId
+        : await (async () => {
+            const deptResult = await db.query<{ id: number }>(
+              `
+                SELECT id
+                FROM departments
+                WHERE faculty_id = $1
+                  AND deleted_at IS NULL
+                ORDER BY id ASC
+                LIMIT 1
+              `,
+              [dean.facultyId],
+            );
+            return deptResult.rows[0]?.id ?? null;
+          })();
+
+    if (resolvedDepartmentId == null) {
+      skipped.push(`${dean.email} (no department found for faculty ${dean.facultyId})`);
+      continue;
+    }
+
     const user = await createAdminUser({
       name: dean.name,
       email: dean.email,
@@ -55,6 +80,7 @@ export async function POST(request: NextRequest) {
     await assignDeanFaculty({
       adminUserId: user.id,
       facultyId: dean.facultyId,
+      departmentId: resolvedDepartmentId,
       assignedBy: admin.adminId,
     });
     created.push(dean.email);

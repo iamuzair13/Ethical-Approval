@@ -6,6 +6,7 @@ CREATE TYPE submission_domain AS ENUM ('medical', 'non_medical');
 CREATE TYPE applicant_role AS ENUM ('student', 'faculty');
 
 CREATE TYPE submission_status AS ENUM (
+  'draft',
   'submitted',
   'under_dean_review',
   'dean_approved',
@@ -35,6 +36,10 @@ CREATE TYPE participant_source AS ENUM ('internal_erp', 'external');
 -- =========================
 CREATE TABLE submissions (
   id BIGSERIAL PRIMARY KEY,
+
+  -- Human-facing 6-digit reference (100000–999999), unique across all submissions
+  application_id CHAR(6) NOT NULL UNIQUE
+    CHECK (application_id ~ '^[0-9]{6}$'),
 
   type submission_type NOT NULL,
   domain submission_domain NOT NULL,
@@ -179,6 +184,29 @@ CREATE TABLE IF NOT EXISTS faculties (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Parent-child departments under faculties for RBAC scope filters
+CREATE TABLE IF NOT EXISTS departments (
+  id BIGSERIAL PRIMARY KEY,
+  faculty_id BIGINT NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (faculty_id, name)
+);
+
+-- Department-level admin scope (dean primary / ireb scope)
+CREATE TABLE IF NOT EXISTS admin_department_assignments (
+  id BIGSERIAL PRIMARY KEY,
+  admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  faculty_id BIGINT NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
+  department_id BIGINT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('dean_primary', 'ireb_scope')),
+  assigned_by UUID REFERENCES admin_users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+
 -- =========================
 -- INDEXES FOR DASHBOARD / FILTERS
 -- =========================
@@ -187,6 +215,11 @@ CREATE INDEX idx_submissions_domain ON submissions(domain);
 CREATE INDEX idx_submissions_status ON submissions(current_status);
 CREATE INDEX idx_applicant_department ON submission_applicant_snapshot(department);
 CREATE INDEX IF NOT EXISTS idx_faculties_active ON faculties(is_active);
+CREATE INDEX IF NOT EXISTS idx_departments_faculty ON departments(faculty_id);
+CREATE INDEX IF NOT EXISTS idx_departments_active ON departments(is_active);
+CREATE INDEX IF NOT EXISTS idx_admin_department_assignments_admin
+  ON admin_department_assignments(admin_user_id, assignment_type)
+  WHERE deleted_at IS NULL;
 CREATE INDEX idx_approvals_submission_stage ON approval_decisions(submission_id, stage, decided_at DESC);
 CREATE INDEX idx_attachments_submission_stage ON submission_attachments(submission_id, upload_stage);
 CREATE INDEX idx_ethics_json_gin ON submission_ethics_payload USING GIN (ethics_json);

@@ -1,6 +1,16 @@
 "use client";
 
 import {
+  inferFormIdFromLegacyRequiredForm,
+  type ApprovalFormId,
+} from "@/app/profile/_components/forms/form-registry";
+import { resolveAttachmentSlotLabels } from "@/app/profile/_components/forms/attachment-lists-by-form";
+import { describeEthicsAttachmentValue } from "@/lib/ethics-attachment-meta";
+import {
+  buildApplicationReportHtml,
+  type SubmissionReportInput,
+} from "@/lib/application-report-html";
+import {
   Table,
   TableBody,
   TableCell,
@@ -8,11 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dropdown,
+  DropdownClose,
+  DropdownContent,
+  DropdownTrigger,
+} from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { DownloadIcon } from "../icons";
 
 type LeadStatus =
   | "Submitted"
@@ -25,6 +40,8 @@ type LeadStatus =
 
 type Lead = {
   id: number;
+  /** 6-digit application reference */
+  applicationId: string;
   name: string;
   email: string;
   faculty: string;
@@ -34,11 +51,15 @@ type Lead = {
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
   avatar: string;
+  latestFeedbackComment?: string | null;
+  latestAuditNote?: string | null;
+  latestActionTrace?: string | null;
 };
 
 const LEADS: Lead[] = [
   {
     id: 1,
+    applicationId: "482913",
     name: "Ayesha Khan",
     email: "ayesha.khan@uol.edu.pk",
     faculty: "Faculty",
@@ -51,6 +72,7 @@ const LEADS: Lead[] = [
   },
   {
     id: 2,
+    applicationId: "571204",
     name: "Muhammad Ali",
     email: "m.ali@uol.edu.pk",
     faculty: "Faculty",
@@ -63,6 +85,7 @@ const LEADS: Lead[] = [
   },
   {
     id: 3,
+    applicationId: "639847",
     name: "Fatima Noor",
     email: "fatima.noor@uol.edu.pk",
     faculty: "Faculty",
@@ -75,6 +98,7 @@ const LEADS: Lead[] = [
   },
   {
     id: 4,
+    applicationId: "204815",
     name: "Hassan Raza",
     email: "hassan.raza@uol.edu.pk",
     faculty: "Faculty",
@@ -87,6 +111,7 @@ const LEADS: Lead[] = [
   },
   {
     id: 5,
+    applicationId: "918376",
     name: "Zainab Ahmed",
     email: "zainab.ahmed@uol.edu.pk",
     faculty: "Faculty",
@@ -111,6 +136,66 @@ type PropsType = {
 type DecisionAction = "approved" | "rejected";
 type AdminOption = { id: string; name: string; role: "dean" | "ireb" };
 
+type SlotFileInfo = { displayName: string | null; hasStoredFile: boolean };
+
+function parseAttachmentSlotMap(raw: unknown): Record<string, SlotFileInfo | null> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, SlotFileInfo | null> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const d = describeEthicsAttachmentValue(v);
+    out[k] = d ? { displayName: d.displayName, hasStoredFile: d.hasStoredFile } : null;
+  }
+  return out;
+}
+
+function listExtraUploadSlots(raw: unknown): { index: number; displayName: string; hasStoredFile: boolean }[] {
+  if (!Array.isArray(raw)) return [];
+  const out: { index: number; displayName: string; hasStoredFile: boolean }[] = [];
+  raw.forEach((item, index) => {
+    const d = describeEthicsAttachmentValue(item);
+    if (d) {
+      out.push({ index, displayName: d.displayName, hasStoredFile: d.hasStoredFile });
+    }
+  });
+  return out;
+}
+
+function saveTextDownload(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function inferFormIdFromEthics(ethics: Record<string, unknown> | null): ApprovalFormId | null {
+  if (!ethics) return null;
+  const rf = ethics.requiredForm;
+  if (rf && typeof rf === "object" && !Array.isArray(rf)) {
+    const o = rf as { id?: string; label?: string; applicationType?: string };
+    if (o.id && typeof o.id === "string") {
+      const id = o.id as ApprovalFormId;
+      const valid: ApprovalFormId[] = [
+        "form1-thesis-non-medical",
+        "form2-publication-non-medical",
+        "form3-thesis-medical",
+        "form4-publication-medical",
+        "form5-publication-faculty-staff",
+      ];
+      if (valid.includes(id)) return id;
+    }
+    if (o.label && o.applicationType) {
+      return inferFormIdFromLegacyRequiredForm({
+        label: o.label,
+        applicationType: o.applicationType as "thesis" | "research-publication",
+      });
+    }
+  }
+  return null;
+}
+
 export function LeadsReport({
   className,
   deanOnly = false,
@@ -122,6 +207,7 @@ export function LeadsReport({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"all" | "overdue">("all");
   const [busyLeadId, setBusyLeadId] = useState<number | null>(null);
+  const [actionMenuLeadId, setActionMenuLeadId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [decisionLead, setDecisionLead] = useState<Lead | null>(null);
   const [decisionAction, setDecisionAction] = useState<DecisionAction>("approved");
@@ -131,15 +217,43 @@ export function LeadsReport({
     irebOptions: AdminOption[];
   }>({ deanOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const [attachmentModalLead, setAttachmentModalLead] = useState<Lead | null>(null);
+  const [attachmentModalPayload, setAttachmentModalPayload] = useState<unknown>(null);
+  const [attachmentModalLoading, setAttachmentModalLoading] = useState(false);
+  const [attachmentModalError, setAttachmentModalError] = useState<string | null>(null);
+  const [attachmentViewTarget, setAttachmentViewTarget] = useState<{
+    label: string;
+    fileName: string;
+    hasStoredFile: boolean;
+    downloadUrl?: string;
+  } | null>(null);
+  const [feedbackModalLead, setFeedbackModalLead] = useState<Lead | null>(null);
+  const [actionTraceModalLead, setActionTraceModalLead] = useState<Lead | null>(null);
 
   const sourceLeads = providedLeads ?? LEADS;
-  const leads = providedLeads
-    ? sourceLeads
-    : deanOnly
-      ? sourceLeads.filter(({ stage }) => stage === "dean")
-      : ethicalOnly
-        ? sourceLeads.filter(({ stage }) => stage === "ireb")
-        : sourceLeads;
+  const scopeFilteredLeads = useMemo(() => {
+    if (providedLeads) return sourceLeads;
+    if (deanOnly) return sourceLeads.filter(({ stage }) => stage === "dean");
+    if (ethicalOnly) return sourceLeads.filter(({ stage }) => stage === "ireb");
+    return sourceLeads;
+  }, [providedLeads, deanOnly, ethicalOnly, sourceLeads]);
+
+  const leads = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return scopeFilteredLeads;
+    return scopeFilteredLeads.filter((lead) => {
+      const app = lead.applicationId.toLowerCase();
+      return (
+        app.includes(q) ||
+        lead.name.toLowerCase().includes(q) ||
+        lead.email.toLowerCase().includes(q) ||
+        lead.faculty.toLowerCase().includes(q)
+      );
+    });
+  }, [scopeFilteredLeads, searchQuery]);
 
   const getDurationInDays = (duration: string) => {
     const days = Number.parseInt(duration, 10);
@@ -152,6 +266,21 @@ export function LeadsReport({
   );
 
   const visibleLeads = activeTab === "overdue" ? overdueLeads : leads;
+  const totalPages = Math.max(1, Math.ceil(visibleLeads.length / pageSize));
+  const paginatedLeads = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visibleLeads.slice(start, start + pageSize);
+  }, [visibleLeads, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, deanOnly, ethicalOnly, providedLeads]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     if (!decisionLead || currentRole !== "administrator") return;
@@ -204,31 +333,129 @@ export function LeadsReport({
     setDecisionLead(lead);
   };
 
-  const handleDownload = async (lead: Lead) => {
-    setBusyLeadId(lead.id);
-    setActionError(null);
+  const closeAttachmentModal = () => {
+    setAttachmentModalLead(null);
+    setAttachmentModalPayload(null);
+    setAttachmentModalError(null);
+    setAttachmentViewTarget(null);
+  };
+
+  const closeFeedbackModal = () => {
+    setFeedbackModalLead(null);
+  };
+  const closeActionTraceModal = () => {
+    setActionTraceModalLead(null);
+  };
+
+  const openAttachmentModal = async (lead: Lead) => {
+    setAttachmentModalLead(lead);
+    setAttachmentModalPayload(null);
+    setAttachmentModalError(null);
+    setAttachmentViewTarget(null);
+    setAttachmentModalLoading(true);
     try {
       const response = await fetch(`/api/submissions/${lead.id}`, { cache: "no-store" });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) {
-        setActionError(payload?.error ?? "Unable to download submission.");
+      const payload = (await response.json()) as { ok?: boolean; error?: string; submission?: unknown };
+      if (!response.ok || !payload?.ok || !payload.submission) {
+        setAttachmentModalError(payload?.error ?? "Unable to load submission.");
         return;
       }
-      const blob = new Blob([JSON.stringify(payload.submission, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `submission-${lead.id}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
+      setAttachmentModalPayload(payload);
     } catch {
-      setActionError("Network error while downloading submission.");
+      setAttachmentModalError("Network error while loading submission.");
     } finally {
-      setBusyLeadId(null);
+      setAttachmentModalLoading(false);
     }
   };
+
+  const downloadFullApplicationReport = () => {
+    if (!attachmentModalLead || !attachmentModalPayload || typeof attachmentModalPayload !== "object") return;
+    const p = attachmentModalPayload as { submission?: SubmissionReportInput };
+    if (!p.submission) return;
+    const html = buildApplicationReportHtml(p.submission);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `application-${attachmentModalLead.applicationId}-${attachmentModalLead.id}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadNameOnlyReference = (slotLabel: string, fileName: string) => {
+    if (!attachmentModalLead) return;
+    const safe = fileName.replace(/[^\w.\-()+ ]/g, "_").slice(0, 120) || "file";
+    const body = [
+      `Application ID: ${attachmentModalLead.applicationId}`,
+      `Submission record id: ${attachmentModalLead.id}`,
+      `Document slot: ${slotLabel}`,
+      `File name as selected by applicant: ${fileName}`,
+      "",
+      "Note: For this submission only the file name was recorded (legacy). The document binary was not stored on the server.",
+      "Contact the applicant if you need the actual document.",
+    ].join("\n");
+    saveTextDownload(`${attachmentModalLead.applicationId}-${safe}-reference.txt`, body);
+  };
+
+  /**
+   * Always tries the attachment API first when `url` is present. Falls back to the legacy
+   * `.txt` reference only when the server has no binary (404) or the value was name-only.
+   */
+  const downloadAttachmentFromApi = async (
+    url: string,
+    fileName: string,
+    slotLabelForFallback: string,
+  ) => {
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (res.status === 401 || res.status === 403) {
+        return;
+      }
+      const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+      if (res.ok && !ct.includes("application/json")) {
+        const blob = await res.blob();
+        if (blob.size === 0) {
+          downloadNameOnlyReference(slotLabelForFallback, fileName);
+          return;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = fileName.replace(/[\r\n"]/g, "_");
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      downloadNameOnlyReference(slotLabelForFallback, fileName);
+    } catch {
+      downloadNameOnlyReference(slotLabelForFallback, fileName);
+    }
+  };
+
+  const attachmentModalEthics = useMemo(() => {
+    if (!attachmentModalPayload || typeof attachmentModalPayload !== "object") return null;
+    const sub = (attachmentModalPayload as { submission?: { ethics_json?: unknown } }).submission;
+    const ej = sub?.ethics_json;
+    return ej && typeof ej === "object" && !Array.isArray(ej) ? (ej as Record<string, unknown>) : null;
+  }, [attachmentModalPayload]);
+
+  const attachmentModalSlots = useMemo(() => {
+    if (!attachmentModalEthics) {
+      return {
+        labels: [] as string[],
+        files: {} as Record<string, SlotFileInfo | null>,
+        extras: [] as { index: number; displayName: string; hasStoredFile: boolean }[],
+      };
+    }
+    const files = parseAttachmentSlotMap(attachmentModalEthics.attachmentFiles);
+    const displayOnly = Object.fromEntries(
+      Object.entries(files).map(([k, v]) => [k, v?.displayName ?? ""]),
+    );
+    const formId = inferFormIdFromEthics(attachmentModalEthics);
+    const labels = resolveAttachmentSlotLabels(formId, displayOnly);
+    const extras = listExtraUploadSlots(attachmentModalEthics.extraUploadFiles);
+    return { labels, files, extras };
+  }, [attachmentModalEthics]);
 
   const handleDecisionSubmit = async () => {
     if (!decisionLead) return;
@@ -284,6 +511,18 @@ export function LeadsReport({
         </div>
 
         <div className="px-4 pb-4 sm:px-6 xl:px-7.5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex w-full max-w-md flex-col gap-1.5 text-sm sm:shrink-0">
+              <span className="font-medium text-dark dark:text-white">Search</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Application ID, name, email, faculty…"
+                className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark placeholder:text-dark-5 dark:border-dark-3 dark:text-white"
+              />
+            </label>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               className={cn(
@@ -294,7 +533,7 @@ export function LeadsReport({
               )}
               onClick={() => setActiveTab("all")}
             >
-              All Requests ({leads.length})
+              All Requests ({scopeFilteredLeads.length})
             </button>
             <button
               className={cn(
@@ -323,26 +562,34 @@ export function LeadsReport({
           )}
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b text-base [&>th]:px-4 md:[&>th]:px-6 xl:[&>th]:px-7.5">
-              <TableHead className="min-w-40">Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead className="min-w-40">Response In</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Passed Status</TableHead>
-              <TableHead>Current Status </TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+        <div className="max-h-[560px] overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-dark">
+              <TableRow className="border-b text-base [&>th]:px-4 md:[&>th]:px-6 xl:[&>th]:px-7.5">
+                <TableHead className="min-w-[7rem] whitespace-nowrap">Application ID</TableHead>
+                <TableHead className="min-w-40">Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead className="min-w-40">Response In</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Passed Status</TableHead>
+                <TableHead>Current Status </TableHead>
+                <TableHead className="sticky right-0 z-20 w-[9.5rem] min-w-[9.5rem] bg-white shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-          <TableBody>
-            {visibleLeads.map((lead) => {
+            <TableBody>
+              {paginatedLeads.map((lead, index) => {
+              const openUpward = index >= paginatedLeads.length - 2;
               return (
                 <TableRow
                   key={lead.id}
                   className="border-none text-base font-medium [&>td]:px-4 md:[&>td]:px-6 xl:[&>td]:px-7.5"
                 >
+                <TableCell className="whitespace-nowrap font-mono text-sm font-semibold">
+                  {lead.applicationId}
+                </TableCell>
                 <TableCell>
                   <figure className="flex items-center gap-4.5">
                     <Image
@@ -401,58 +648,422 @@ export function LeadsReport({
                     </span>
                 </TableCell>
 
-                <TableCell>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/admin/submissions/${lead.id}/profile`)}
-                      className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                <TableCell
+                  className={cn(
+                    "sticky right-0 w-[9.5rem] min-w-[9.5rem] bg-white align-top shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark",
+                    actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
+                  )}
+                >
+                  <Dropdown
+                    isOpen={actionMenuLeadId === lead.id}
+                    setIsOpen={(next) => {
+                      const isCurrent = actionMenuLeadId === lead.id;
+                      const resolved = typeof next === "function" ? next(isCurrent) : next;
+                      setActionMenuLeadId(resolved ? lead.id : null);
+                    }}
+                  >
+                    <DropdownTrigger className="w-full rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2">
+                      Actions
+                    </DropdownTrigger>
+                    <DropdownContent
+                      align="end"
+                      className={cn(
+                        "w-[9.5rem] overflow-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2",
+                        openUpward ? "bottom-full mb-1" : "top-full mt-1",
+                      )}
                     >
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyLeadId === lead.id}
-                      onClick={() => void handleDownload(lead)}
-                      className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10 disabled:opacity-60"
-                    >
-                      Download
-                    </button>
-                    {lead.stage !== "completed" && currentRole && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={busyLeadId === lead.id}
-                          onClick={() => openDecisionModal(lead, "approved")}
-                          className="rounded-md bg-green px-3 py-1.5 text-xs font-medium text-white transition hover:bg-green/90 disabled:opacity-60"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyLeadId === lead.id}
-                          onClick={() => openDecisionModal(lead, "rejected")}
-                          className="rounded-md bg-red px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red/90 disabled:opacity-60"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      <div className="grid gap-1">
+                        <DropdownClose>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/admin/submissions/${lead.id}/profile`)}
+                            className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
+                          >
+                            View
+                          </button>
+                        </DropdownClose>
+                        <DropdownClose>
+                          <button
+                            type="button"
+                            disabled={busyLeadId === lead.id}
+                            onClick={() => void openAttachmentModal(lead)}
+                            className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-primary transition hover:bg-primary/10 disabled:opacity-60"
+                          >
+                            Download
+                          </button>
+                        </DropdownClose>
+                        {lead.latestFeedbackComment && (
+                          <DropdownClose>
+                            <button
+                              type="button"
+                              onClick={() => setFeedbackModalLead(lead)}
+                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-primary transition hover:bg-primary/10"
+                            >
+                              View Feedback
+                            </button>
+                          </DropdownClose>
+                        )}
+                        {lead.latestActionTrace && (
+                          <DropdownClose>
+                            <button
+                              type="button"
+                              onClick={() => setActionTraceModalLead(lead)}
+                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
+                            >
+                              View Action Trace
+                            </button>
+                          </DropdownClose>
+                        )}
+                        {lead.stage !== "completed" && currentRole && (
+                          <>
+                            <DropdownClose>
+                              <button
+                                type="button"
+                                disabled={busyLeadId === lead.id}
+                                onClick={() => openDecisionModal(lead, "approved")}
+                                className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-green transition hover:bg-green/10 disabled:opacity-60"
+                              >
+                                Approve
+                              </button>
+                            </DropdownClose>
+                            <DropdownClose>
+                              <button
+                                type="button"
+                                disabled={busyLeadId === lead.id}
+                                onClick={() => openDecisionModal(lead, "rejected")}
+                                className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-red transition hover:bg-red/10 disabled:opacity-60"
+                              >
+                                Reject
+                              </button>
+                            </DropdownClose>
+                          </>
+                        )}
+                      </div>
+                    </DropdownContent>
+                  </Dropdown>
                 </TableCell>
                 </TableRow>
               );
-            })}
-            {visibleLeads.length === 0 && (
-              <TableRow className="border-none">
-                <TableCell colSpan={7} className="text-center text-dark-5">
-                  No approval requests found for this tab.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              })}
+              {visibleLeads.length === 0 && (
+                <TableRow className="border-none">
+                  <TableCell colSpan={8} className="text-center text-dark-5">
+                    No approval requests found for this tab.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        {visibleLeads.length > 0 && (
+          <div className="flex items-center justify-between border-t border-stroke px-4 py-3 dark:border-dark-3 md:px-6 xl:px-7.5">
+            <p className="text-sm text-body">
+              Showing {(currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, visibleLeads.length)} of {visibleLeads.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-body">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {attachmentModalLead && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div className="flex h-auto max-h-[min(58vh,480px)] w-full max-w-3xl flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-stroke px-5 py-4 dark:border-dark-3">
+              <div>
+                <h3 className="text-heading-6 font-bold text-dark dark:text-white">
+                  Application documents
+                </h3>
+                <p className="mt-1 text-sm text-body">
+                  Application ID{" "}
+                  <span className="font-mono font-semibold text-primary">
+                    {attachmentModalLead.applicationId}
+                  </span>{" "}
+                  · {attachmentModalLead.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAttachmentModal}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-4 [scrollbar-gutter:stable]">
+              {attachmentModalLoading && (
+                <p className="text-sm text-body">Loading submission…</p>
+              )}
+              {attachmentModalError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{attachmentModalError}</p>
+              )}
+              {!attachmentModalLoading &&
+                !attachmentModalError &&
+                attachmentModalPayload != null &&
+                typeof attachmentModalPayload === "object" && (
+                <>
+                  <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <button
+                      type="button"
+                      onClick={downloadFullApplicationReport}
+                      className="shrink-0 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-opacity-90"
+                    >
+                      Download application report
+                    </button>
+                    <p className="text-body-sm max-w-xl text-body">
+                      Opens as a clean, printable HTML document with every stepper section (scholar, supervisor,
+                      thesis/project or publication details, ethics, institutional, declaration) plus attachment file
+                      names. Use Print or &quot;Save as PDF&quot; from your browser if needed.
+                    </p>
+                  </div>
+
+                  <h4 className="mb-3 text-sm font-semibold text-dark dark:text-white">
+                    Required attachment slots
+                  </h4>
+                  <ul className="mb-8 grid gap-3">
+                    {attachmentModalSlots.labels.length === 0 && (
+                      <li className="rounded-lg border border-stroke px-4 py-3 text-sm text-body dark:border-dark-3">
+                        No attachment checklist could be inferred for this submission. If the JSON download includes
+                        attachment file names, they may use labels not listed in the template.
+                      </li>
+                    )}
+                    {attachmentModalSlots.labels.map((label) => {
+                      const slotInfo = attachmentModalSlots.files[label];
+                      const fileName = slotInfo?.displayName ?? null;
+                      const attached = Boolean(fileName);
+                      const slotUrl =
+                        attachmentModalLead && attached && fileName
+                          ? `/api/submissions/${attachmentModalLead.id}/attachment?slot=${encodeURIComponent(label)}`
+                          : null;
+                      return (
+                        <li
+                          key={label}
+                          className="rounded-lg border border-stroke px-4 py-3 dark:border-dark-3"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-dark dark:text-white">{label}</p>
+                              {attached ? (
+                                <p className="mt-1 truncate font-mono text-xs text-body" title={fileName ?? ""}>
+                                  File: {fileName}
+                                </p>
+                              ) : (
+                                <p className="mt-1 text-xs text-dark-5">No file name recorded for this slot.</p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 flex-wrap items-center gap-2">
+                              <span
+                                className={cn(
+                                  "rounded-md px-2.5 py-1 text-xs font-semibold",
+                                  attached
+                                    ? "bg-green/15 text-green"
+                                    : "bg-gray-2 text-dark-5 dark:bg-dark-2 dark:text-body",
+                                )}
+                              >
+                                {attached ? "Attached" : "Not attached"}
+                              </span>
+                              {attached && fileName && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (slotUrl) {
+                                        window.open(slotUrl, "_blank", "noopener,noreferrer");
+                                        return;
+                                      }
+                                      setAttachmentViewTarget({
+                                        label,
+                                        fileName,
+                                        hasStoredFile: false,
+                                      });
+                                    }}
+                                    className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (slotUrl) {
+                                        void downloadAttachmentFromApi(slotUrl, fileName, label);
+                                        return;
+                                      }
+                                      downloadNameOnlyReference(label, fileName);
+                                    }}
+                                    className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                                  >
+                                    Download
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {attachmentModalSlots.extras.length > 0 && (
+                    <>
+                      <h4 className="mb-3 text-sm font-semibold text-dark dark:text-white">
+                        Additional documents
+                      </h4>
+                      <ul className="grid gap-3">
+                        {attachmentModalSlots.extras.map((extra) => {
+                          const extraUrl = attachmentModalLead
+                            ? `/api/submissions/${attachmentModalLead.id}/attachment?extra=${extra.index}`
+                            : null;
+                          return (
+                          <li
+                            key={`extra-${extra.index}-${extra.displayName}`}
+                            className="rounded-lg border border-stroke px-4 py-3 dark:border-dark-3"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-dark dark:text-white">
+                                  Additional upload {extra.index + 1}
+                                </p>
+                                <p className="mt-1 truncate font-mono text-xs text-body" title={extra.displayName}>
+                                  {extra.displayName}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-md bg-green/15 px-2.5 py-1 text-xs font-semibold text-green">
+                                  Attached
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (extraUrl) {
+                                      window.open(extraUrl, "_blank", "noopener,noreferrer");
+                                      return;
+                                    }
+                                    setAttachmentViewTarget({
+                                      label: `Additional upload ${extra.index + 1}`,
+                                      fileName: extra.displayName,
+                                      hasStoredFile: false,
+                                    });
+                                  }}
+                                  className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (extraUrl) {
+                                      void downloadAttachmentFromApi(
+                                        extraUrl,
+                                        extra.displayName,
+                                        `Additional upload ${extra.index + 1}`,
+                                      );
+                                      return;
+                                    }
+                                    downloadNameOnlyReference(
+                                      `Additional upload ${extra.index + 1}`,
+                                      extra.displayName,
+                                    );
+                                  }}
+                                  className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                                >
+                                  Download
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attachmentViewTarget && attachmentModalLead && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div className="w-full max-w-lg rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+            <h4 className="text-lg font-bold text-dark dark:text-white">{attachmentViewTarget.label}</h4>
+            <p className="mt-3 break-all font-mono text-sm text-dark dark:text-white">
+              {attachmentViewTarget.fileName}
+            </p>
+            <p className="mt-4 text-sm text-body">
+              {attachmentViewTarget.hasStoredFile && attachmentViewTarget.downloadUrl
+                ? "This file is stored on the server. Use Open to view it in a new tab, or Download to save a copy."
+                : "For this slot only the file name was recorded (legacy submission). Download saves a short text summary; contact the applicant for the actual file."}
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAttachmentViewTarget(null)}
+                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Close
+              </button>
+              {attachmentViewTarget.hasStoredFile && attachmentViewTarget.downloadUrl ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(attachmentViewTarget.downloadUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                  >
+                    Open file
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void downloadAttachmentFromApi(
+                        attachmentViewTarget.downloadUrl!,
+                        attachmentViewTarget.fileName,
+                        attachmentViewTarget.label,
+                      );
+                    }}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
+                  >
+                    Download file
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadNameOnlyReference(attachmentViewTarget.label, attachmentViewTarget.fileName);
+                  }}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
+                >
+                  Download summary
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {decisionLead && (
         <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
@@ -463,7 +1074,8 @@ export function LeadsReport({
                   {decisionAction === "approved" ? "Approve Request" : "Reject Request"}
                 </h3>
                 <p className="mt-1 text-sm text-body">
-                  {decisionLead.name} · {decisionLead.faculty}
+                  Application ID {decisionLead.applicationId} · {decisionLead.name} ·{" "}
+                  {decisionLead.faculty}
                 </p>
               </div>
               <button
@@ -551,6 +1163,63 @@ export function LeadsReport({
               >
                 {decisionAction === "approved" ? "Confirm Approval" : "Confirm Rejection"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {feedbackModalLead && (
+        <div className="fixed inset-0 z-[99997] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-heading-6 font-bold text-dark dark:text-white">Application Feedback</h3>
+                <p className="mt-1 text-sm text-body">
+                  Application ID {feedbackModalLead.applicationId} · {feedbackModalLead.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeFeedbackModal}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-stroke bg-gray-1/40 p-4 dark:border-dark-3 dark:bg-dark-2/40">
+              <p className="whitespace-pre-wrap text-sm text-dark dark:text-white">
+                {feedbackModalLead.latestFeedbackComment}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {actionTraceModalLead && (
+        <div className="fixed inset-0 z-[99997] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-heading-6 font-bold text-dark dark:text-white">Action Trace</h3>
+                <p className="mt-1 text-sm text-body">
+                  Application ID {actionTraceModalLead.applicationId} · {actionTraceModalLead.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeActionTraceModal}
+                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <p className="whitespace-pre-wrap text-sm text-dark dark:text-white">
+                {actionTraceModalLead.latestActionTrace}
+              </p>
             </div>
           </div>
         </div>

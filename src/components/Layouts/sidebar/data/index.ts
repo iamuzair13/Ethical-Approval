@@ -36,6 +36,10 @@ export const NAV_DATA: NavSection[] = [
             url: "/users",
           },
           {
+            title: "Activity logs",
+            url: "/activity-logs",
+          },
+          {
             title: "Organizations",
             url: "/organizations",
           },
