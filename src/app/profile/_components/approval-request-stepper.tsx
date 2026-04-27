@@ -434,6 +434,7 @@ export default function ApprovalRequestStepper({
   >({});
   const attachmentFileBlobsRef = useRef<Partial<Record<string, File>>>({});
   const extraUploadFileBlobsRef = useRef<Map<number, File>>(new Map());
+  const formElementRef = useRef<HTMLFormElement | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -792,11 +793,282 @@ export default function ApprovalRequestStepper({
     (key: keyof typeof INITIAL_FORM) =>
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
+      setSubmitError(null);
     };
+
+  const hasValue = (value: string) => value.trim().length > 0;
+  const hasSelectedCsvValue = (value: string) =>
+    value
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean).length > 0;
+  const hasRequiredAttachmentUpload = (label: string) =>
+    Boolean(
+      attachmentFileBlobsRef.current[label] ?? attachmentPersistedMeta[label] ?? attachmentFiles[label],
+    );
+  const RequiredMark = () => (
+    <span
+      aria-hidden="true"
+      className="ml-1 inline-flex items-center rounded  px-1.5 py-0.5 text-lg font-extrabold leading-none text-red-700  dark:text-red-600"
+    >
+      *
+    </span>
+  );
+  const validateVisibleStepFields = (): string | null => {
+    const formElement = formElementRef.current;
+    if (!formElement) return null;
+
+    const allControls = Array.from(
+      formElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+        "input, textarea, select",
+      ),
+    );
+    const controls = allControls.filter((control) => {
+      if (control.disabled) return false;
+      if (control instanceof HTMLInputElement) {
+        if (control.readOnly) return false;
+        if (
+          control.type === "hidden" ||
+          control.type === "button" ||
+          control.type === "submit" ||
+          control.type === "file"
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const radioGroups = new Map<string, HTMLInputElement[]>();
+    for (const control of controls) {
+      if (!(control instanceof HTMLInputElement) || control.type !== "radio") continue;
+      const groupName = control.name?.trim();
+      if (!groupName) {
+        if (!control.checked) return "Please complete all required fields before proceeding.";
+        continue;
+      }
+      const group = radioGroups.get(groupName) ?? [];
+      group.push(control);
+      radioGroups.set(groupName, group);
+    }
+    for (const group of radioGroups.values()) {
+      if (!group.some((radio) => radio.checked)) {
+        return "Please complete all required fields before proceeding.";
+      }
+    }
+
+    for (const control of controls) {
+      if (control instanceof HTMLInputElement) {
+        if (control.type === "radio") continue;
+        if (control.type === "checkbox") {
+          continue;
+        }
+        if (!hasValue(control.value)) {
+          return "Please complete all required fields before proceeding.";
+        }
+        continue;
+      }
+      if (!hasValue(control.value)) {
+        return "Please complete all required fields before proceeding.";
+      }
+    }
+
+    return null;
+  };
+
+  const validateCurrentStep = (): string | null => {
+    const visibleStepValidationError = validateVisibleStepFields();
+    if (visibleStepValidationError) return visibleStepValidationError;
+    if (formMode !== "form1-thesis") return null;
+
+    if (currentStep === 0) {
+      const supervisorRequired = [
+        form.supervisorSapId,
+        form.supervisorName,
+        form.supervisorEmail,
+        form.supervisorFaculty,
+        form.supervisorDepartment,
+      ].every(hasValue);
+      if (!supervisorRequired) {
+        return "Please complete all required Supervisor(s)'s Information fields.";
+      }
+
+      const coSupervisorRequired =
+        form.coSupervisorType === "UOL"
+          ? [
+              form.uolCoSupervisorSapId,
+              form.uolCoSupervisorName,
+              form.uolCoSupervisorEmail,
+              form.uolCoSupervisorFaculty,
+              form.uolCoSupervisorDepartment,
+            ].every(hasValue)
+          : [
+              form.externalCoSupervisorName,
+              form.externalCoSupervisorRegNo,
+              form.externalCoSupervisorEmail,
+              form.externalUniversity,
+              form.externalFaculty,
+              form.externalDepartment,
+            ].every(hasValue);
+      if (!coSupervisorRequired) {
+        return "Please complete all required Co-supervisor fields.";
+      }
+
+      const thesisDetailsRequired = [
+        form.thesisTitle,
+        form.expectedStartDate,
+        form.expectedEndDate,
+        form.researchLocations,
+        form.researchObjective1,
+      ].every(hasValue);
+      if (!thesisDetailsRequired) {
+        return "Please complete all required Thesis/Project Details fields.";
+      }
+
+      if (!hasSelectedCsvValue(form.sdgs)) {
+        return "Please select at least one Sustainable Development Goal (f).";
+      }
+      if (!hasValue(form.dataCollectionMethod)) {
+        return "Please select Data collection method (h).";
+      }
+      if (!hasValue(form.researchPopulation)) {
+        return "Please select Research population (i).";
+      }
+      if (!hasValue(form.methodology)) {
+        return "Please complete Research Methodology (j).";
+      }
+      if (!hasValue(form.participantsEstimate)) {
+        return "Please select participants estimate (k).";
+      }
+      return null;
+    }
+
+    if (currentStep === 1) {
+      const baseRequired = [
+        form.involveHumanParticipants,
+        form.collectPii,
+        form.informedConsentType,
+        form.preApprovalDataCollected,
+        form.canWithdraw,
+        form.compensation,
+        form.vulnerablePopulation,
+        form.sensitiveTopics,
+        form.potentialRisks,
+        form.dataRetentionYears,
+        form.conflictOfInterest,
+        form.recordsWithoutConsent,
+      ].every(hasValue);
+      if (!baseRequired) {
+        return "Please complete all required fields in Step 2: Ethical Considerations.";
+      }
+      if (!hasSelectedCsvValue(form.recruitmentChannels)) {
+        return "Please select at least one recruitment channel in Step 2.";
+      }
+      if (!hasSelectedCsvValue(form.confidentialityOptions)) {
+        return "Please select at least one confidentiality option in Step 2.";
+      }
+      if (form.collectPii === "Yes" && !hasValue(form.piiTypes)) {
+        return "Please provide PII types in Step 2.";
+      }
+      if (
+        hasSelectedCsvValue(form.confidentialityOptions) &&
+        hasCsvOption("confidentialityOptions", "Others") &&
+        !hasValue(form.confidentialityOtherDetails)
+      ) {
+        return "Please provide details for confidentiality 'Others' option.";
+      }
+      if (form.vulnerablePopulation === "Yes" && !hasValue(form.vulnerableSafeguards)) {
+        return "Please describe safeguards for vulnerable populations.";
+      }
+      if (form.sensitiveTopics === "Yes") {
+        if (!hasSelectedCsvValue(form.sensitiveTopicTypes)) {
+          return "Please select at least one sensitive topic type.";
+        }
+        if (
+          hasSelectedCsvValue(form.sensitiveTopicTypes) &&
+          hasCsvOption("sensitiveTopicTypes", "Others") &&
+          !hasValue(form.sensitiveTopicOtherDetails)
+        ) {
+          return "Please provide details for sensitive topic 'Others' option.";
+        }
+      }
+      if (form.potentialRisks === "Yes" && !hasValue(form.potentialRiskDetails)) {
+        return "Please provide potential adverse effects details.";
+      }
+      if (form.dataRetentionYears === "More than 16 years" && !hasValue(form.longRetentionReason)) {
+        return "Please explain the long data retention reason.";
+      }
+      if (form.conflictOfInterest === "Yes" && !hasValue(form.conflictManagement)) {
+        return "Please provide conflict of interest management details.";
+      }
+      if (
+        form.recordsWithoutConsent === "Yes" &&
+        !hasValue(form.recordsWithoutConsentJustification)
+      ) {
+        return "Please justify access to records without consent.";
+      }
+      return null;
+    }
+
+    if (currentStep === 2) {
+      const baseRequired = [
+        form.institutionalFunding,
+        form.externalFunding,
+        form.internationalCollaboration,
+        form.conductedAbroad,
+      ].every(hasValue);
+      if (!baseRequired) {
+        return "Please complete all required fields in Step 3: Institutional Approvals & Collaboration.";
+      }
+      if (
+        form.internationalCollaboration === "Yes" &&
+        !hasValue(form.internationalCollaborationDetails)
+      ) {
+        return "Please provide international collaboration details.";
+      }
+      return null;
+    }
+
+    if (currentStep === 3) {
+      const allAttachmentsSelected = FORM_1_REQUIRED_ATTACHMENTS.every((label) =>
+        hasCsvOption("requiredAttachments", label),
+      );
+      if (!allAttachmentsSelected) {
+        return "Please select all required attachments in Step 4.";
+      }
+      const allAttachmentsUploaded = FORM_1_REQUIRED_ATTACHMENTS.every((label) =>
+        hasRequiredAttachmentUpload(label),
+      );
+      if (!allAttachmentsUploaded) {
+        return "Please upload all required attachments in Step 4.";
+      }
+      return null;
+    }
+
+    if (currentStep === 4) {
+      const declarationRequired = [
+        form.declaration,
+        form.applicantName,
+        form.submissionDate,
+      ].every(hasValue);
+      if (!declarationRequired || form.declarationAccepted !== "yes") {
+        return "Please complete all required fields in Step 5: Declaration and Submission.";
+      }
+      return null;
+    }
+
+    return null;
+  };
 
   const handleNext = (e?: MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     e?.stopPropagation();
+    const validationError = validateCurrentStep();
+    if (validationError) {
+      setSubmitError(validationError);
+      return;
+    }
+    setSubmitError(null);
 
     const nextStep = currentStep < activeSteps.length - 1 ? currentStep + 1 : currentStep;
     const nextCompleted = new Set(completedSteps);
@@ -1175,7 +1447,7 @@ export default function ApprovalRequestStepper({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form ref={formElementRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <fieldset disabled={isViewMode} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             <ActiveFormWrapper>
@@ -1198,55 +1470,61 @@ export default function ApprovalRequestStepper({
                 </div>
 
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
-                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.2 Supervisor(s)&apos;s Information</h4>
-                  <input value={form.supervisorSapId} onChange={onFieldChange("supervisorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.supervisorName} onChange={onFieldChange("supervisorName")} placeholder="Supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.supervisorEmail} onChange={onFieldChange("supervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
+                    1.2 Supervisor(s)&apos;s Information <RequiredMark />
+                  </h4>
+                  <input required value={form.supervisorSapId} onChange={onFieldChange("supervisorSapId")} placeholder="SAP ID *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required value={form.supervisorName} onChange={onFieldChange("supervisorName")} placeholder="Supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required value={form.supervisorEmail} onChange={onFieldChange("supervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} placeholder="Faculty *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} placeholder="Department *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                 </div>
 
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-                  <h4 className="font-semibold text-dark dark:text-white">1.3 Co-supervisor</h4>
-                  <select value={form.coSupervisorType} onChange={onFieldChange("coSupervisorType")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+                  <h4 className="font-semibold text-dark dark:text-white">
+                    1.3 Co-supervisor <RequiredMark />
+                  </h4>
+                  <select required value={form.coSupervisorType} onChange={onFieldChange("coSupervisorType")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
                     <option value="UOL">Option 1: UOL</option>
                     <option value="External">Option 2: External</option>
                   </select>
                   <div className="grid gap-4 md:grid-cols-2">
                     {form.coSupervisorType === "UOL" ? (
                       <>
-                        <input value={form.uolCoSupervisorSapId} onChange={onFieldChange("uolCoSupervisorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.uolCoSupervisorName} onChange={onFieldChange("uolCoSupervisorName")} placeholder="Supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.uolCoSupervisorEmail} onChange={onFieldChange("uolCoSupervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.uolCoSupervisorFaculty} onChange={onFieldChange("uolCoSupervisorFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.uolCoSupervisorDepartment} onChange={onFieldChange("uolCoSupervisorDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.uolCoSupervisorSapId} onChange={onFieldChange("uolCoSupervisorSapId")} placeholder="SAP ID *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.uolCoSupervisorName} onChange={onFieldChange("uolCoSupervisorName")} placeholder="Supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.uolCoSupervisorEmail} onChange={onFieldChange("uolCoSupervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.uolCoSupervisorFaculty} onChange={onFieldChange("uolCoSupervisorFaculty")} placeholder="Faculty *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.uolCoSupervisorDepartment} onChange={onFieldChange("uolCoSupervisorDepartment")} placeholder="Department *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                       </>
                     ) : (
                       <>
-                        <input value={form.externalCoSupervisorName} onChange={onFieldChange("externalCoSupervisorName")} placeholder="Co-supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.externalCoSupervisorRegNo} onChange={onFieldChange("externalCoSupervisorRegNo")} placeholder="Reg. No." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.externalCoSupervisorEmail} onChange={onFieldChange("externalCoSupervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.externalUniversity} onChange={onFieldChange("externalUniversity")} placeholder="University" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.externalFaculty} onChange={onFieldChange("externalFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.externalDepartment} onChange={onFieldChange("externalDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalCoSupervisorName} onChange={onFieldChange("externalCoSupervisorName")} placeholder="Co-supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalCoSupervisorRegNo} onChange={onFieldChange("externalCoSupervisorRegNo")} placeholder="Reg. No. *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalCoSupervisorEmail} onChange={onFieldChange("externalCoSupervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalUniversity} onChange={onFieldChange("externalUniversity")} placeholder="University *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalFaculty} onChange={onFieldChange("externalFaculty")} placeholder="Faculty *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required value={form.externalDepartment} onChange={onFieldChange("externalDepartment")} placeholder="Department *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                       </>
                     )}
                   </div>
                 </div>
 
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
-                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.4 Thesis/Project Details</h4>
-                  <input value={form.thesisTitle} onChange={onFieldChange("thesisTitle")} placeholder="Thesis / Project Title" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <input type="date" value={form.expectedStartDate} onChange={onFieldChange("expectedStartDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input type="date" value={form.expectedEndDate} onChange={onFieldChange("expectedEndDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.researchLocations} onChange={onFieldChange("researchLocations")} placeholder="Research Location(s)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} placeholder="Research Objective 1" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
+                    1.4 Thesis/Project Details <RequiredMark />
+                  </h4>
+                  <input required value={form.thesisTitle} onChange={onFieldChange("thesisTitle")} placeholder="Thesis / Project Title *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <input required type="date" value={form.expectedStartDate} onChange={onFieldChange("expectedStartDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required type="date" value={form.expectedEndDate} onChange={onFieldChange("expectedEndDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input required value={form.researchLocations} onChange={onFieldChange("researchLocations")} placeholder="Research Location(s) *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea required value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} placeholder="Research Objective 1 *" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective2} onChange={onFieldChange("researchObjective2")} placeholder="Research Objective 2" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective3} onChange={onFieldChange("researchObjective3")} placeholder="Research Objective 3" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective4} onChange={onFieldChange("researchObjective4")} placeholder="Research Objective 4" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      f) Sustainable Development Goals (multi-select)
+                      f) Sustainable Development Goals (multi-select) <RequiredMark />
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {[
@@ -1308,7 +1586,7 @@ export default function ApprovalRequestStepper({
 
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      h) Data collection method (single-select)
+                      h) Data collection method (single-select) <RequiredMark />
                     </p>
                     <div className="grid gap-2">
                       {[
@@ -1337,7 +1615,7 @@ export default function ApprovalRequestStepper({
 
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      i) Research population (single-select)
+                      i) Research population (single-select) <RequiredMark />
                     </p>
                     <div className="grid gap-2">
                       {[
@@ -1364,7 +1642,7 @@ export default function ApprovalRequestStepper({
                   </div>
                   <div className="md:col-span-2">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      j) Research Methodology (Methods and Materials)
+                      j) Research Methodology (Methods and Materials) <RequiredMark />
                     </p>
                     <textarea
                       value={form.methodology}
@@ -1376,7 +1654,8 @@ export default function ApprovalRequestStepper({
                   </div>
                   <div className="md:col-span-2">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      k) How many participants will you be recruiting? (estimated range)
+                      k) How many participants will you be recruiting? (estimated range){" "}
+                      <RequiredMark />
                     </p>
                     <select
                       value={form.participantsEstimate}
@@ -1401,7 +1680,9 @@ export default function ApprovalRequestStepper({
 
             {formMode === "form1-thesis" && currentStep === 1 && (
               <section className="grid gap-4">
-                <h3 className="text-xl font-bold text-dark dark:text-white">Step 2: Ethical Considerations</h3>
+                <h3 className="text-xl font-bold text-dark dark:text-white">
+                  Step 2: Ethical Considerations <RequiredMark />
+                </h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <select value={form.involveHumanParticipants} onChange={onFieldChange("involveHumanParticipants")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.1 Human participants?</option><option>Yes</option><option>No</option></select>
                   <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.2 Collect PII?</option><option>Yes</option><option>No</option></select>
@@ -1576,7 +1857,7 @@ export default function ApprovalRequestStepper({
             {formMode === "form1-thesis" && currentStep === 2 && (
               <section className="grid gap-4 md:grid-cols-2">
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-                  Step 3: Institutional Approvals & Collaboration
+                  Step 3: Institutional Approvals & Collaboration <RequiredMark />
                 </h3>
                 <select value={form.institutionalFunding} onChange={onFieldChange("institutionalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">3.1 Institutional funding?</option><option>Yes</option><option>No</option></select>
                 <select value={form.externalFunding} onChange={onFieldChange("externalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">3.2 External funding?</option><option>Yes</option><option>No</option></select>
@@ -1602,7 +1883,9 @@ export default function ApprovalRequestStepper({
 
             {formMode === "form1-thesis" && currentStep === 3 && (
               <section className="grid gap-4">
-                <h3 className="text-xl font-bold text-dark dark:text-white">Step 4: Required Attachments</h3>
+                <h3 className="text-xl font-bold text-dark dark:text-white">
+                  Step 4: Required Attachments <RequiredMark />
+                </h3>
                 <p className="text-sm">
                   Please attach the following documents (check all that apply):
                 </p>
@@ -1673,34 +1956,27 @@ export default function ApprovalRequestStepper({
 
             {formMode === "form1-thesis" && currentStep === 4 && (
               <section className="grid gap-4">
-                <h3 className="text-xl font-bold text-dark dark:text-white">Step 5: Declaration and Submission</h3>
+                <h3 className="text-xl font-bold text-dark dark:text-white">
+                  Step 5: Declaration and Submission <RequiredMark />
+                </h3>
                 <textarea
+                  required
                   value={form.declaration}
                   onChange={onFieldChange("declaration")}
                   rows={5}
-                  placeholder="Declaration text / acknowledgement"
+                  placeholder="Declaration text / acknowledgement *"
                   className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
                 />
-                <label className="flex items-center gap-2 rounded border border-stroke px-3 py-2 dark:border-dark-3">
-                  <input
-                    type="checkbox"
-                    checked={form.declarationAccepted === "yes"}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        declarationAccepted: e.target.checked ? "yes" : "",
-                      }))
-                    }
-                  />
-                  <span className="text-sm">I certify the information is accurate and I will follow approved protocols.</span>
-                </label>
+                
                 <input
+                  required
                   value={form.applicantName}
                   onChange={onFieldChange("applicantName")}
-                  placeholder="Applicant Name"
+                  placeholder="Applicant Name *"
                   className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
                 />
                 <input
+                  required
                   type="date"
                   value={form.submissionDate}
                   onChange={onFieldChange("submissionDate")}
