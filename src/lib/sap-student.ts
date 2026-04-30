@@ -21,7 +21,7 @@ export type SapVerifyFailure = {
 export type SapVerifyResult = SapVerifySuccess | SapVerifyFailure;
 
 const SAP_BASE =
-  "http://hub.uol.pk/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
+  "http://hub.uol.edu.pk/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
 
 function getStringField(
   rec: Record<string, unknown>, 
