@@ -21,7 +21,7 @@ export type SapVerifyFailure = {
 export type SapVerifyResult = SapVerifySuccess | SapVerifyFailure;
 
 const SAP_BASE =
-  "http://uolerp.uol.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
+  "http://hub.uol.pk/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
 
 function getStringField(
   rec: Record<string, unknown>, 
@@ -133,8 +133,8 @@ export async function verifyStudentByEmail(
     return { ok: false, errorCode: "INVALID_EMAIL" };
   }
 
-  // const url = `${SAP_BASE}('${encodeURIComponent(sapId)}')?$format=json`;
-const url = "http://uolerp.uol.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet('70078151')";
+  const url = `${SAP_BASE}('${encodeURIComponent(sapId)}')?$format=json`;
+  
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -142,6 +142,7 @@ const url = "http://uolerp.uol.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studen
     const authHeader = buildSapAuthHeader();
     const headers: HeadersInit = {
       Accept: "application/json",
+
     };
     if (authHeader) {
       headers.Authorization = authHeader;
