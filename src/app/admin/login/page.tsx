@@ -52,7 +52,7 @@ function AdminLoginForm() {
             <Image src="/images/logo/logo-white.png" alt="Logo" width={200} height={100} />
           </Link>
           <h1 className="mt-10 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Ethical Approval System
+            Ethical Approval Process
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-100 max-lg:mx-auto">
             Admin portal access for administrators, deans, and IREB members.

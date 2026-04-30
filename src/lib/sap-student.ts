@@ -21,10 +21,10 @@ export type SapVerifyFailure = {
 export type SapVerifyResult = SapVerifySuccess | SapVerifyFailure;
 
 const SAP_BASE =
-  "http://uolerp.uol.edu.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
+  "http://10.1.1.18:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet";
 
 function getStringField(
-  rec: Record<string, unknown>,
+  rec: Record<string, unknown>, 
   keys: string[],
 ): string | null {
   for (const key of keys) {
