@@ -133,7 +133,8 @@ export async function verifyStudentByEmail(
     return { ok: false, errorCode: "INVALID_EMAIL" };
   }
 
-  const url = `${SAP_BASE}('${encodeURIComponent(sapId)}')?$format=json`;
+  // const url = `${SAP_BASE}('${encodeURIComponent(sapId)}')?$format=json`;
+const url = "http://uolerp.uol.pk:8000/sap/opu/odata/sap/ZSTUDENTHMIS_SRV/studentSet('70078151')";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
