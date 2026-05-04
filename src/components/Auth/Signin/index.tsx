@@ -81,11 +81,24 @@ export default function Signin() {
     setFormError(null);
     setLoadingGoogle(true);
     try {
-      await signIn("google", { callbackUrl, redirect: true });
+      const { signInStudentViaGoogleBrowserToken } = await import("@/lib/student-google-browser-signin");
+      const res = await signInStudentViaGoogleBrowserToken(signIn, callbackUrl);
+      if (!res.ok) {
+        if (res.errorCode === "Configuration") {
+          setFormError(res.message ?? mapAuthError("Configuration"));
+        } else if (res.errorCode) {
+          setFormError(mapSapError(res.errorCode));
+        } else {
+          setFormError(res.message ?? "Google sign-in failed.");
+        }
+        return;
+      }
+      router.push(res.redirectUrl);
+      router.refresh();
     } finally {
       setLoadingGoogle(false);
     }
-  }, [callbackUrl]);
+  }, [callbackUrl, router, signIn]);
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

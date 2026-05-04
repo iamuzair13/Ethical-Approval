@@ -1,6 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
@@ -14,11 +13,6 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/sign-in",
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      authorization: { params: { prompt: "select_account" } },
-    }),
     CredentialsProvider({
       id: "student-email",
       name: "Student email (testing)",
@@ -81,29 +75,6 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
-        const email =
-          user.email ?? (profile as { email?: string } | undefined)?.email;
-        if (!email) {
-          return "/auth/sign-in?error=MissingEmail";
-        }
-
-        const result = await verifyStudentByEmail(email);
-        if (!result.ok) {
-          const params = new URLSearchParams({ error: result.errorCode });
-          return `/auth/sign-in?${params.toString()}`;
-        }
-
-        user.sapId = result.sapId;
-        user.studentRecord = result.studentRecord;
-        if (result.studentName) {
-          user.name = result.studentName;
-        }
-        return true;
-      }
-      return true;
-    },
     async redirect({ url, baseUrl }) {
       // Always keep redirects on same-origin.
       const safeUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
