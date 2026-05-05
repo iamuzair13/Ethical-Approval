@@ -21,6 +21,7 @@ import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { inferFacultyFromDepartment } from "@/lib/faculty-by-department";
 import { cn } from "@/lib/utils";
 import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type RequestStage =
@@ -135,6 +136,7 @@ function newApprovalDraftSessionId(): string {
 }
 
 export default function Page() {
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   const profile = useMemo(() => {
@@ -779,7 +781,17 @@ export default function Page() {
   };
 
   const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl: "/profile", redirect: true });
+    const { signInStudentViaGoogleBrowserToken } = await import("@/lib/student-google-browser-signin");
+    const res = await signInStudentViaGoogleBrowserToken(signIn, "/profile");
+    if (res.ok) {
+      router.push(res.redirectUrl);
+      router.refresh();
+      return;
+    }
+    const ec = res.errorCode ?? "AccessDenied";
+    router.push(
+      `/auth/sign-in?error=${encodeURIComponent(ec)}&callbackUrl=${encodeURIComponent("/profile")}`,
+    );
   };
 
   if (status === "loading") {
