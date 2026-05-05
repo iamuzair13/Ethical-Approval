@@ -156,9 +156,9 @@ export function Form3ThesisMedicalForm({
     return (
       <section className="grid gap-6">
         <div>
-          <h3 className="text-xl font-bold text-dark dark:text-white">
+        <h3 className="text-xl font-bold text-dark dark:text-white">
             Step 1: Researcher (s) and Thesis/Project Information
-          </h3>
+        </h3>
           <p className="mt-1 text-sm text-body">
             Students&apos; Thesis/Projects (for Medical Sciences)
           </p>
@@ -823,7 +823,7 @@ export function Form3ThesisMedicalForm({
           onChange={onFieldChange("conflictOfInterest")}
           className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
         >
-          <option value="">2.13 Do you have any conflict of interest?</option>
+          <option value="">2.13 Do you have any real or perceived conflict of interest that could bias the research?</option>
           <option>Yes</option>
           <option>No</option>
           <option>Undecided</option>
@@ -1090,7 +1090,7 @@ export function Form3ThesisMedicalForm({
           onChange={onFieldChange("dataRetentionYears")}
           className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 max-w-xl"
         >
-          <option value="">4.5 Data retention period and destruction period:  *</option>
+          <option value="">4.5 How long will personal data be retained, please select the estimated time:  *</option>
           <option>1-5 years</option>
           <option>6-10 years</option>
           <option>11-15 years</option>

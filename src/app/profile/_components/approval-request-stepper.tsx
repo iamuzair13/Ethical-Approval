@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { Form1ThesisForm } from "./forms/form1-thesis-form";
 import { Form4ResearchPublicationMedicalForm } from "./forms/form4-research-publication-medical-form";
 import { GenericApprovalForm } from "./forms/generic-approval-form";
@@ -151,15 +152,11 @@ const FORM_5_RESEARCH_PUBLICATION_FACULTY_STAFF_STEPS = [
   "Declaration and Submission",
 ];
 
-const FORM_1_REQUIRED_ATTACHMENTS = [
-  "Complete Research Proposal/Protocol",
-  "Research Questionnaire/Interview Guide (i.e., focus group guide)",
-  "Participant Information Letter (Cover Letter)",
-  "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
-  "Participant Information Letter Only (Quantitative research)",
-  "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
-  "Other Institutional Approval Letter(s) (If applicable)",
-];
+// Keep this checklist aligned with Thesis Form #3 (medical).
+const FORM_1_REQUIRED_ATTACHMENTS = [...FORM_3_MEDICAL_ATTACHMENT_LABELS];
+const FORM_3_MANDATORY_ATTACHMENT_SET = new Set<string>(
+  FORM_3_MANDATORY_ATTACHMENTS as readonly string[],
+);
 
 const FORM_4_REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
@@ -652,7 +649,9 @@ export default function ApprovalRequestStepper({
       }
       return out;
     });
-    setSaveMessage(`Restored draft from ${new Date(draft.savedAt).toLocaleString()}`);
+    const restoredMessage = `Restored draft from ${new Date(draft.savedAt).toLocaleString()}`;
+    setSaveMessage(restoredMessage);
+    toast.info(restoredMessage);
   }, [activeSteps.length, draftSessionId, isPreloadedMode, mounted, open, userStorageId]);
 
   useEffect(() => {
@@ -1318,17 +1317,27 @@ export default function ApprovalRequestStepper({
     }
 
     if (currentStep === 3) {
-      const allAttachmentsSelected = FORM_1_REQUIRED_ATTACHMENTS.every((label) =>
+      const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
+        (label) =>
+          !hasCsvOption("requiredAttachments", label) && !hasRequiredAttachmentUpload(label),
+      );
+      if (missingRequiredSelection) {
+        return "Please select all required attachment items in Step 4.";
+      }
+      const missingRequiredUpload = FORM_3_MANDATORY_ATTACHMENTS.some(
+        (label) => !hasRequiredAttachmentUpload(label),
+      );
+      if (missingRequiredUpload) {
+        return "Please upload files for all required attachment items in Step 4.";
+      }
+      const selectedLabels = FORM_1_REQUIRED_ATTACHMENTS.filter((label) =>
         hasCsvOption("requiredAttachments", label),
       );
-      if (!allAttachmentsSelected) {
-        return "Please select all required attachments in Step 4.";
-      }
-      const allAttachmentsUploaded = FORM_1_REQUIRED_ATTACHMENTS.every((label) =>
-        hasRequiredAttachmentUpload(label),
+      const missingUploadForSelectedOptional = selectedLabels.some(
+        (label) => !hasRequiredAttachmentUpload(label),
       );
-      if (!allAttachmentsUploaded) {
-        return "Please upload all required attachments in Step 4.";
+      if (missingUploadForSelectedOptional) {
+        return "Please upload files for the attachment item(s) you selected in Step 4.";
       }
       return null;
     }
@@ -1438,12 +1447,16 @@ export default function ApprovalRequestStepper({
       }
 
       if (isRevisionMode) {
-        setSaveMessage("Progress saved locally");
+        const message = "Progress saved locally";
+        setSaveMessage(message);
+        toast.success(message);
         return;
       }
 
       if (!persistDraft || !applicantProfile) {
-        setSaveMessage("Progress saved");
+        const message = "Progress saved";
+        setSaveMessage(message);
+        toast.success(message);
         return;
       }
 
@@ -1505,7 +1518,9 @@ export default function ApprovalRequestStepper({
       setIsSavingDraft(false);
 
       if (!result.ok) {
-        setSaveMessage(result.error ?? "Could not save to server");
+        const message = result.error ?? "Could not save to server";
+        setSaveMessage(message);
+        toast.error(message);
         return;
       }
 
@@ -1513,7 +1528,9 @@ export default function ApprovalRequestStepper({
         setResolvedDraftSubmissionId(result.submissionId);
         onServerDraftSaved?.(result.submissionId);
       }
-      setSaveMessage("Progress saved");
+      const message = "Progress saved";
+      setSaveMessage(message);
+      toast.success(message);
     })();
   };
 
@@ -1524,20 +1541,25 @@ export default function ApprovalRequestStepper({
       // Prevent accidental submit from intermediate steps (e.g., while uploading files).
       if (currentStep < activeSteps.length - 1 || isSubmitting) return;
       if (isSavingDraft) {
-        setSubmitError("Please wait for draft save to finish, then submit.");
+        const message = "Please wait for draft save to finish, then submit.";
+        setSubmitError(message);
+        toast.warning(message);
         return;
       }
 
       const submissionStepError = validateCurrentStep();
       if (submissionStepError) {
         setSubmitError(submissionStepError);
+        toast.warning(submissionStepError);
         return;
       }
 
       const { title, objectives, methodology, type, domain } = getCoreTextFields(false);
 
       if (!title || !objectives || !methodology) {
-        setSubmitError("Please complete the required submission fields before submitting.");
+        const message = "Please complete the required submission fields before submitting.";
+        setSubmitError(message);
+        toast.warning(message);
         return;
       }
 
@@ -1619,7 +1641,9 @@ export default function ApprovalRequestStepper({
       setIsSubmitting(false);
 
       if (!result.ok) {
-        setSubmitError(result.error ?? "Unable to submit application. Please try again.");
+        const message = result.error ?? "Unable to submit application. Please try again.";
+        setSubmitError(message);
+        toast.error(message);
         return;
       }
 
@@ -1632,6 +1656,7 @@ export default function ApprovalRequestStepper({
           /* ignore */
         }
       }
+      toast.success("Application submitted successfully.");
       resetAndClose();
     })();
   };
@@ -1899,7 +1924,7 @@ export default function ApprovalRequestStepper({
 
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      h) Data collection method (single-select) <RequiredMark />
+                      h) Select the chosen method of data collection: (single-select) <RequiredMark />
                     </p>
                     <div className="grid gap-2">
                       {[
@@ -1928,7 +1953,7 @@ export default function ApprovalRequestStepper({
 
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      i) Research population (single-select) <RequiredMark />
+                      i) Select Research Population (single-select) <RequiredMark />
                     </p>
                     <div className="grid gap-2">
                       {[
@@ -1997,8 +2022,8 @@ export default function ApprovalRequestStepper({
                   Step 2: Ethical Considerations <RequiredMark />
                 </h3>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <select value={form.involveHumanParticipants} onChange={onFieldChange("involveHumanParticipants")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.1 Human participants?</option><option>Yes</option><option>No</option></select>
-                  <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.2 Collect PII?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.involveHumanParticipants} onChange={onFieldChange("involveHumanParticipants")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.1 Does your research involve human participants or human subjects?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.2 Will any personally identifiable information be collected?</option><option>Yes</option><option>No</option></select>
                   {form.collectPii === "Yes" && (
                     <textarea
                       value={form.piiTypes}
@@ -2035,19 +2060,19 @@ export default function ApprovalRequestStepper({
                       ))}
                     </div>
                   </div>
-                  <select value={form.informedConsentType} onChange={onFieldChange("informedConsentType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.4 Informed consent type</option><option>Written Consent</option><option>Oral Consent</option><option>Waived</option><option>N/A</option></select>
-                  <select value={form.preApprovalDataCollected} onChange={onFieldChange("preApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Data collected before approval?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.informedConsentType} onChange={onFieldChange("informedConsentType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.4 Will participants provide informed consent?</option><option>Written Consent</option><option>Oral Consent</option><option>Waived</option><option>N/A</option></select>
+                  <select value={form.preApprovalDataCollected} onChange={onFieldChange("preApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Have any research data been collected prior to receiving ethical approval?</option><option>Yes</option><option>No</option></select>
                   {form.preApprovalDataCollected === "Yes" && (
                     <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 md:col-span-2">
                       Note: Please attach the participant information letter (cover letter)
                       and participant consent form in the attachments section.
                     </p>
                   )}
-                  <select value={form.canWithdraw} onChange={onFieldChange("canWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.6 Participants can withdraw?</option><option>Yes</option><option>No</option></select>
-                  <select value={form.compensation} onChange={onFieldChange("compensation")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.7 Compensation for participants?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.canWithdraw} onChange={onFieldChange("canWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.6 Can participants withdraw from the study at any time?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.compensation} onChange={onFieldChange("compensation")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.7 Will participants receive any compensation?</option><option>Yes</option><option>No</option></select>
                   <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                      2.8 Confidentiality and data privacy (multi-select)
+                      2.8 How will you ensure participant confidentiality and data privacy?(multi-select)
                     </p>
                     <div className="grid gap-2">
                       {[
@@ -2076,7 +2101,20 @@ export default function ApprovalRequestStepper({
                       />
                     )}
                   </div>
-                  <select value={form.vulnerablePopulation} onChange={onFieldChange("vulnerablePopulation")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.9 Vulnerable populations?</option><option>Yes</option><option>No</option></select>
+                  <div className="flex flex-col gap-2">
+                  <label className="mb-2 block text-sm font-semibold text-dark dark:text-white">
+                    2.9 Does your research involve any vulnerable populations (children under 18, elderly, persons with disabilities, economically disadvantaged individuals, individuals engaged in criminal activities, individuals in care homes, individuals impacted by trauma such as disasters, war, abuse, etc.)?
+                  </label>
+                  <select
+                    value={form.vulnerablePopulation}
+                    onChange={onFieldChange("vulnerablePopulation")}
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                  >
+                    <option value="">Select</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                  </select>
+                  </div>
                   {form.vulnerablePopulation === "Yes" && (
                     <textarea
                       value={form.vulnerableSafeguards}
@@ -2086,7 +2124,12 @@ export default function ApprovalRequestStepper({
                       className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
                     />
                   )}
-                  <select value={form.sensitiveTopics} onChange={onFieldChange("sensitiveTopics")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.10 Sensitive topics?</option><option>Yes</option><option>No</option></select>
+                  <div className="flex flex-col gap-2">
+                  <label className="mb-2 block text-sm font-semibold text-dark dark:text-white">
+                    2.10 Will your research address sensitive topics (e.g., trauma, abuse, discrimination, stigmatized conditions)?
+                  </label>
+                  <select value={form.sensitiveTopics} onChange={onFieldChange("sensitiveTopics")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
+                  </div>
                   {form.sensitiveTopics === "Yes" && (
                     <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2">
                       <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
@@ -2123,7 +2166,8 @@ export default function ApprovalRequestStepper({
                       )}
                     </div>
                   )}
-                  <select value={form.potentialRisks} onChange={onFieldChange("potentialRisks")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.11 Potential adverse effects?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.potentialRisks} onChange={onFieldChange("potentialRisks")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.11 Does your research have any potential adverse effects or risks (such as environmental,
+                    physical, psychological, social, legal)</option><option>Yes</option><option>No</option></select>
                   {form.potentialRisks === "Yes" && (
                     <textarea
                       value={form.potentialRiskDetails}
@@ -2133,7 +2177,7 @@ export default function ApprovalRequestStepper({
                       className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
                     />
                   )}
-                  <select value={form.dataRetentionYears} onChange={onFieldChange("dataRetentionYears")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.12 Data retention period and destruction period: </option><option>1-5 years</option><option>6-10 years</option><option>11-15 years</option><option>More than 16 years</option></select>
+                  <select value={form.dataRetentionYears} onChange={onFieldChange("dataRetentionYears")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.12 How long will personal data be retained, please select the estimated time: </option><option>1-5 years</option><option>6-10 years</option><option>11-15 years</option><option>More than 16 years</option></select>
                   {form.dataRetentionYears === "More than 16 years" && (
                     <textarea
                       value={form.longRetentionReason}
@@ -2143,7 +2187,7 @@ export default function ApprovalRequestStepper({
                       className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
                     />
                   )}
-                  <select value={form.conflictOfInterest} onChange={onFieldChange("conflictOfInterest")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.13 Do you have any conflict of interest?</option><option>Yes</option><option>No</option><option>Undecided</option></select>
+                  <select value={form.conflictOfInterest} onChange={onFieldChange("conflictOfInterest")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.13 Do you have any real or perceived conflict of interest that could bias the research?</option><option>Yes</option><option>No</option><option>Undecided</option></select>
                   {form.conflictOfInterest === "Yes" && (
                     <textarea
                       value={form.conflictManagement}
@@ -2153,7 +2197,7 @@ export default function ApprovalRequestStepper({
                       className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
                     />
                   )}
-                  <select value={form.recordsWithoutConsent} onChange={onFieldChange("recordsWithoutConsent")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.14 Access records without consent?</option><option>Yes</option><option>No</option></select>
+                  <select value={form.recordsWithoutConsent} onChange={onFieldChange("recordsWithoutConsent")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.14 Will your research involve accessing personal or institutional records without consent?</option><option>Yes</option><option>No</option></select>
                   {form.recordsWithoutConsent === "Yes" && (
                     <textarea
                       value={form.recordsWithoutConsentJustification}
@@ -2215,7 +2259,10 @@ export default function ApprovalRequestStepper({
                             checked={hasCsvOption("requiredAttachments", item)}
                             onChange={() => toggleCsvOption("requiredAttachments", item)}
                           />
-                          <span className="text-sm">{item}</span>
+                          <span className="text-sm">
+                            {item}
+                            {FORM_3_MANDATORY_ATTACHMENT_SET.has(item) ? <RequiredMark /> : null}
+                          </span>
                         </label>
                         <label className="cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10">
                           Upload document
@@ -2272,29 +2319,33 @@ export default function ApprovalRequestStepper({
                 <h3 className="text-xl font-bold text-dark dark:text-white">
                   Step 5: Declaration and Submission <RequiredMark />
                 </h3>
-                <textarea
-                  required
-                  value={form.declaration}
-                  onChange={onFieldChange("declaration")}
-                  rows={5}
-                  placeholder="Declaration text / acknowledgement *"
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-                />
+                <label className="flex items-start gap-2 rounded-lg border border-stroke px-3 py-2 dark:border-dark-3">
+                  <input
+                    type="checkbox"
+                    checked={form.declarationAccepted === "yes"}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        declarationAccepted: e.target.checked ? "yes" : "",
+                      }))
+                    }
+                  />
+                  <span className="text-sm text-body">
+                    I{" "}
+                    <span className="font-semibold text-dark dark:text-white">
+                      {form.scholarName.trim() || form.applicantName.trim() || "_____________________"}
+                    </span>{" "}
+                    hereby certify that: I have read and understood the ethical guidelines for medical
+                    and health sciences research. The information provided in this application is
+                    accurate and complete to the best of my knowledge. I will conduct this research
+                    strictly according to the approved protocol. I will report all adverse events and
+                    protocol deviations to my supervisor and the IREB immediately. I will obtain
+                    updated approvals if any significant changes to the protocol are necessary. I will
+                    not proceed with data collection without formal ethical approval.<RequiredMark />
+                  </span>
+                </label>
+               
                 
-                <input
-                  required
-                  value={form.applicantName}
-                  onChange={onFieldChange("applicantName")}
-                  placeholder="Applicant Name *"
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-                />
-                <input
-                  required
-                  type="date"
-                  value={form.submissionDate}
-                  onChange={onFieldChange("submissionDate")}
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-                />
               </section>
             )}
 
@@ -2414,10 +2465,10 @@ export default function ApprovalRequestStepper({
               <section className="grid gap-4 md:grid-cols-2">
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 2: Ethical Considerations</h3>
                 <select value={form.involveHumanParticipants} onChange={onFieldChange("involveHumanParticipants")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.1 Human subjects/patients?</option><option>Yes</option><option>No</option></select>
-                <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.2 Collect PII?</option><option>Yes</option><option>No</option></select>
+                <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.2 Will any personally identifiable information be collected?</option><option>Yes</option><option>No</option></select>
                 <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2"><p className="mb-2 text-sm font-semibold text-dark dark:text-white">2.3 Recruitment channels (multi-select)</p><div className="grid gap-2 sm:grid-cols-2">{["Emails","Google Forms/ Online Surveys","Social Media (Facebook, Instagram, etc.)","LinkedIn (professional networking platforms)","Institutional Mailing Lists","Online forms","Academic Networks","In-person","Other"].map((item) => (<label key={item} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={hasCsvOption("recruitmentChannels", item)} onChange={() => toggleCsvOption("recruitmentChannels", item)} /><span>{item}</span></label>))}</div></div>
                 <select value={form.informedConsentType} onChange={onFieldChange("informedConsentType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.4 Informed consent</option><option>Written informed consent</option><option>Oral informed consent (with witness)</option><option>Waiver of consent</option><option>Not applicable</option></select>
-                <select value={form.preApprovalDataCollected} onChange={onFieldChange("preApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Data collected before approval?</option><option>Yes</option><option>No</option></select>
+                <select value={form.preApprovalDataCollected} onChange={onFieldChange("preApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Have any research data been collected prior to receiving ethical approval?</option><option>Yes</option><option>No</option></select>
                 <select value={form.canWithdraw} onChange={onFieldChange("canWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.7 Can withdraw at any time?</option><option>Yes</option><option>No</option></select>
                 <select value={form.compensation} onChange={onFieldChange("compensation")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.8 Receive compensation?</option><option>Yes</option><option>No</option></select>
                 <textarea value={form.adverseEventsManagement} onChange={onFieldChange("adverseEventsManagement")} rows={3} placeholder="2.9 Adverse events / complaint management" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
@@ -2426,7 +2477,7 @@ export default function ApprovalRequestStepper({
                 <select value={form.researchRiskLevel} onChange={onFieldChange("researchRiskLevel")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.11 Risk Level of Research:</option><option>Minimal risk</option><option>Low risk</option><option>Moderate risk</option><option>High risk</option></select>
                 {(form.researchRiskLevel === "Moderate risk" || form.researchRiskLevel === "High risk") && <textarea value={form.researchRiskJustification} onChange={onFieldChange("researchRiskJustification")} rows={2} placeholder="Justify selected risk level." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
                 <textarea value={form.potentialRiskDetails} onChange={onFieldChange("potentialRiskDetails")} rows={2} placeholder="2.12 Potential risks and adverse effects" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                <select value={form.conflictOfInterest} onChange={onFieldChange("conflictOfInterest")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.13 Do you have any conflict of interest?</option><option>Yes</option><option>No</option><option>Undecided</option></select>
+                <select value={form.conflictOfInterest} onChange={onFieldChange("conflictOfInterest")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.13 Do you have any real or perceived conflict of interest that could bias the research?</option><option>Yes</option><option>No</option><option>Undecided</option></select>
                 {form.conflictOfInterest === "Yes" && <textarea value={form.conflictManagement} onChange={onFieldChange("conflictManagement")} rows={2} placeholder="Provide full disclosure." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
               </section>
             )}
@@ -2457,7 +2508,7 @@ export default function ApprovalRequestStepper({
                 {form.cloudPlatformsUsed === "Yes" && <input value={form.cloudPlatformDetails} onChange={onFieldChange("cloudPlatformDetails")} placeholder="Specify platform(s)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />}
                 <select value={form.futureResearchDataUse} onChange={onFieldChange("futureResearchDataUse")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">4.4 Future data use?</option><option>Yes</option><option>No</option></select>
                 {form.futureResearchDataUse === "Yes" && <textarea value={form.futureResearchDataUseConditions} onChange={onFieldChange("futureResearchDataUseConditions")} rows={2} placeholder="Specify conditions." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
-                <select value={form.dataRetentionYears} onChange={onFieldChange("dataRetentionYears")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">4.5 Data retention period</option><option>1-5 years</option><option>6-10 years</option><option>11-15 years</option><option>More than 16 years</option></select>
+                <select value={form.dataRetentionYears} onChange={onFieldChange("dataRetentionYears")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">4.5 How long will personal data be retained, please select the estimated time:</option><option>1-5 years</option><option>6-10 years</option><option>11-15 years</option><option>More than 16 years</option></select>
                 {form.dataRetentionYears === "More than 16 years" && <textarea value={form.longRetentionReason} onChange={onFieldChange("longRetentionReason")} rows={2} placeholder="Explain longer retention need." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />}
               </section>
             )}
@@ -2603,7 +2654,7 @@ export default function ApprovalRequestStepper({
                   </div>
                   <select value={form.publicationParticipantsEstimate} onChange={onFieldChange("publicationParticipantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Participants Estimate</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select>
                   <select value={form.publicationPopulationType} onChange={onFieldChange("publicationPopulationType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-                    <option value="">Research Population (type)</option>
+                    <option value="">Select Research Population (type)</option>
                     <option>University students</option><option>Faculty members</option><option>Researchers/Laboratory staff</option><option>Patients/clinical participants</option><option>Specific disease groups/diagnosed patients</option><option>Patients/healthcare workers</option><option>Children/minors</option><option>General adults</option><option>Employees/staff members</option><option>Other (specify in methodology)</option>
                   </select>
                   <textarea value={form.publicationMethodology} onChange={onFieldChange("publicationMethodology")} rows={4} placeholder="Study Design and Methodology" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
@@ -2627,9 +2678,9 @@ export default function ApprovalRequestStepper({
                   </div>
                 </div>
                 <select value={form.publicationInformedConsent} onChange={onFieldChange("publicationInformedConsent")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.3 Informed consent</option><option>Written informed consent</option><option>Oral informed consent</option><option>Waived consent</option><option>Not applicable</option></select>
-                <select value={form.publicationPreApprovalDataCollected} onChange={onFieldChange("publicationPreApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.4 Data collected before approval?</option><option>Yes</option><option>No</option><option>Not applicable</option></select>
+                <select value={form.publicationPreApprovalDataCollected} onChange={onFieldChange("publicationPreApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.4 Have any research data been collected prior to receiving ethical approval?</option><option>Yes</option><option>No</option><option>Not applicable</option></select>
                 {form.publicationPreApprovalDataCollected === "Yes" && <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 md:col-span-2">Note: Please attach participant information letter and participant consent form.</p>}
-                <select value={form.publicationCanWithdraw} onChange={onFieldChange("publicationCanWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Participants can withdraw?</option><option>Yes</option><option>No</option></select>
+                <select value={form.publicationCanWithdraw} onChange={onFieldChange("publicationCanWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.5 Can participants withdraw from the study at any time?</option><option>Yes</option><option>No</option></select>
                 <select value={form.publicationCompensation} onChange={onFieldChange("publicationCompensation")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.6 Compensation?</option><option>Yes</option><option>No</option></select>
                 <select value={form.publicationAnonymized} onChange={onFieldChange("publicationAnonymized")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.7 Identities anonymized?</option><option>Yes</option><option>No</option><option>Partially</option><option>N/A</option></select>
                 <select value={form.publicationSensitiveHealthTopics} onChange={onFieldChange("publicationSensitiveHealthTopics")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">2.8 Sensitive health topics?</option><option>Yes</option><option>No</option></select>
@@ -2794,7 +2845,7 @@ export default function ApprovalRequestStepper({
                   value={form.consentProcess}
                   onChange={onFieldChange("consentProcess")}
                   rows={4}
-                  placeholder="Informed Consent Process"
+                  placeholder="Will participants provide informed consent?"
                   className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
                 />
                 <textarea

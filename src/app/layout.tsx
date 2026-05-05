@@ -8,6 +8,7 @@ import { ConditionalAppShell } from "@/components/Layouts/conditional-app-shell"
 import type { Metadata } from "next";
 import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
+import { Toaster } from "sonner";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
       <body>
         <Providers>
           <NextTopLoader color="#5750F1" showSpinner={false} />
+          <Toaster richColors position="top-right" />
 
           <ConditionalAppShell>{children}</ConditionalAppShell>
         </Providers>
