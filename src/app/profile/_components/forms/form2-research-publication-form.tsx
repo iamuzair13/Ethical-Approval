@@ -18,6 +18,8 @@ export function Form2ResearchPublicationForm({
   toggleCsvOption,
   attachmentFiles,
   handleRequiredAttachmentUpload,
+  facultyOptions,
+  getDepartmentsForFaculty,
 }: CommonFormProps) {
   const RequiredMark = () => <span className="ml-1 font-extrabold text-red-600 dark:text-red-400">*</span>;
   if (currentStep === 0) {
@@ -40,8 +42,18 @@ export function Form2ResearchPublicationForm({
           <input required value={form.coauthorSapId} onChange={onFieldChange("coauthorSapId")} placeholder="SAP ID *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
           <input required value={form.coauthorName} onChange={onFieldChange("coauthorName")} placeholder="Coauthor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
           <input required value={form.coauthorEmail} onChange={onFieldChange("coauthorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          <input required value={form.coauthorFaculty} onChange={onFieldChange("coauthorFaculty")} placeholder="Faculty *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          <input required value={form.coauthorDepartment} onChange={onFieldChange("coauthorDepartment")} placeholder="Department *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+          <select required value={form.coauthorFaculty} onChange={onFieldChange("coauthorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+            <option value="">Faculty *</option>
+            {facultyOptions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select required value={form.coauthorDepartment} onChange={onFieldChange("coauthorDepartment")} disabled={!form.coauthorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3">
+            <option value="">Department *</option>
+            {getDepartmentsForFaculty(form.coauthorFaculty).map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
         </div>
         <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
           <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.4 Research Details <RequiredMark /></h4>
@@ -75,9 +87,9 @@ export function Form2ResearchPublicationForm({
     return (
       <section className="grid gap-4 md:grid-cols-2">
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 3: Institutional Approvals & Collaboration <RequiredMark /></h3>
-        <select required value={form.institutionalFunding} onChange={onFieldChange("institutionalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Institutional funding?</option><option>Yes</option><option>No</option></select>
-        <select required value={form.externalFunding} onChange={onFieldChange("externalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">External funding?</option><option>Yes</option><option>No</option></select>
-        <select required value={form.internationalCollaboration} onChange={onFieldChange("internationalCollaboration")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">International collaboration?</option><option>Yes</option><option>No</option></select>
+        <select required value={form.institutionalFunding} onChange={onFieldChange("institutionalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Has your research received institutional funding? </option><option>Yes</option><option>No</option></select>
+        <select required value={form.externalFunding} onChange={onFieldChange("externalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Has your research received external funding? ?</option><option>Yes</option><option>No</option></select>
+        <select required value={form.internationalCollaboration} onChange={onFieldChange("internationalCollaboration")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Does your research involve an international collaboration? </option><option>Yes</option><option>No</option></select>
         <select required value={form.conductedAbroad} onChange={onFieldChange("conductedAbroad")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Conducted overseas?</option><option>Yes</option><option>No</option></select>
       </section>
     );
