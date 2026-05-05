@@ -11,6 +11,12 @@ import {
   type SubmissionReportInput,
 } from "@/lib/application-report-html";
 import {
+  buildApplicationStatusReportHtml,
+  buildStudentLevelAnalysisReportHtml,
+  type AdminReportSubmission,
+  type LeadReportRow,
+} from "@/lib/admin-leads-reports-html";
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,7 +33,8 @@ import {
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type LeadStatus =
   | "Submitted"
@@ -160,6 +167,23 @@ function listExtraUploadSlots(raw: unknown): { index: number; displayName: strin
   return out;
 }
 
+function leadToReportRow(lead: Lead): LeadReportRow {
+  return {
+    applicationId: lead.applicationId,
+    name: lead.name,
+    email: lead.email,
+    faculty: lead.faculty,
+    project: lead.project,
+    duration: lead.duration,
+    passedStatus: lead.passedStatus,
+    currentStatus: lead.currentStatus,
+    stage: lead.stage,
+    latestFeedbackComment: lead.latestFeedbackComment,
+    latestAuditNote: lead.latestAuditNote,
+    latestActionTrace: lead.latestActionTrace,
+  };
+}
+
 function saveTextDownload(filename: string, content: string) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -232,6 +256,15 @@ export function LeadsReport({
   } | null>(null);
   const [feedbackModalLead, setFeedbackModalLead] = useState<Lead | null>(null);
   const [actionTraceModalLead, setActionTraceModalLead] = useState<Lead | null>(null);
+  const [adminReports, setAdminReports] = useState<
+    | null
+    | { phase: "pick"; lead: Lead }
+    | { phase: "preview"; kind: "student" | "status"; lead: Lead }
+  >(null);
+  const [adminReportSubmission, setAdminReportSubmission] = useState<AdminReportSubmission | null>(null);
+  const [adminReportSubmissionLoading, setAdminReportSubmissionLoading] = useState(false);
+  const [adminReportPdfExporting, setAdminReportPdfExporting] = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
 
   const sourceLeads = providedLeads ?? LEADS;
   const scopeFilteredLeads = useMemo(() => {
@@ -275,6 +308,10 @@ export function LeadsReport({
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, deanOnly, ethicalOnly, providedLeads]);
+
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -346,6 +383,115 @@ export function LeadsReport({
   const closeActionTraceModal = () => {
     setActionTraceModalLead(null);
   };
+
+  const closeAdminReports = () => {
+    setAdminReports(null);
+    setAdminReportSubmission(null);
+    setAdminReportSubmissionLoading(false);
+  };
+
+  const openAdminReportPicker = (lead: Lead) => {
+    setActionMenuLeadId(null);
+    setAdminReports({ phase: "pick", lead });
+  };
+
+  const selectAdminReportKind = (kind: "student" | "status") => {
+    setAdminReports((s) => (s?.phase === "pick" ? { phase: "preview", kind, lead: s.lead } : s));
+  };
+
+  const adminReportPreviewHtml = useMemo(() => {
+    if (!adminReports || adminReports.phase !== "preview" || adminReportSubmissionLoading) return "";
+    const now = new Date();
+    const row = leadToReportRow(adminReports.lead);
+    if (adminReports.kind === "student") {
+      return buildStudentLevelAnalysisReportHtml(row, adminReportSubmission, now);
+    }
+    return buildApplicationStatusReportHtml(row, adminReportSubmission, now);
+  }, [adminReports, adminReportSubmission, adminReportSubmissionLoading]);
+
+  const reportDownloadRef = useRef<{
+    html: string;
+    kind: "student" | "status";
+    applicationId: string;
+  } | null>(null);
+  const adminReportPdfBusyRef = useRef(false);
+  const reportPreviewIframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (adminReports?.phase === "preview" && adminReportPreviewHtml) {
+      reportDownloadRef.current = {
+        html: adminReportPreviewHtml,
+        kind: adminReports.kind,
+        applicationId: adminReports.lead.applicationId,
+      };
+    } else {
+      reportDownloadRef.current = null;
+    }
+  }, [adminReports, adminReportPreviewHtml]);
+
+  const downloadActiveAdminReport = useCallback(async () => {
+    const d = reportDownloadRef.current;
+    if (!d?.html || adminReportPdfBusyRef.current) return;
+    adminReportPdfBusyRef.current = true;
+    setAdminReportPdfExporting(true);
+    setActionError(null);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const base =
+        d.kind === "student"
+          ? `student-level-analysis-${d.applicationId}-${stamp}`
+          : `application-status-${d.applicationId}-${stamp}`;
+      const { downloadReportPdf } = await import("@/lib/download-admin-report-pdf");
+      await downloadReportPdf(base, {
+        previewIframe: reportPreviewIframeRef.current,
+        html: d.html,
+      });
+    } catch {
+      setActionError("Could not generate the PDF. Use Print → Save as PDF from the preview, or try again.");
+    } finally {
+      adminReportPdfBusyRef.current = false;
+      setAdminReportPdfExporting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (adminReports?.phase !== "preview") {
+      setAdminReportSubmission(null);
+      setAdminReportSubmissionLoading(false);
+      return;
+    }
+    const lead = adminReports.lead;
+    let cancelled = false;
+    setAdminReportSubmissionLoading(true);
+    setAdminReportSubmission(null);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/submissions/${lead.id}`, { cache: "no-store" });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          submission?: AdminReportSubmission;
+        };
+        if (cancelled) return;
+        setAdminReportSubmission(response.ok && payload.submission ? payload.submission : null);
+      } catch {
+        if (!cancelled) setAdminReportSubmission(null);
+      } finally {
+        if (!cancelled) setAdminReportSubmissionLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminReports]);
+
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.data?.type !== "IREB_ADMIN_REPORT_DOWNLOAD") return;
+      void downloadActiveAdminReport();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [downloadActiveAdminReport]);
 
   const openAttachmentModal = async (lead: Lead) => {
     setAttachmentModalLead(lead);
@@ -668,7 +814,7 @@ export function LeadsReport({
                     <DropdownContent
                       align="end"
                       className={cn(
-                        "w-[9.5rem] overflow-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2",
+                        "w-max min-w-[9.5rem] max-w-[16rem] overflow-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2",
                         openUpward ? "bottom-full mb-1" : "top-full mt-1",
                       )}
                     >
@@ -692,6 +838,17 @@ export function LeadsReport({
                             Download
                           </button>
                         </DropdownClose>
+                        {currentRole === "administrator" && (
+                          <DropdownClose>
+                            <button
+                              type="button"
+                              onClick={() => openAdminReportPicker(lead)}
+                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-primary/10 dark:text-white dark:hover:bg-dark-3"
+                            >
+                              Get Reports
+                            </button>
+                          </DropdownClose>
+                        )}
                         {lead.latestFeedbackComment && (
                           <DropdownClose>
                             <button
@@ -1224,6 +1381,139 @@ export function LeadsReport({
           </div>
         </div>
       )}
+
+      {portalMounted &&
+        adminReports?.phase === "pick" &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+            <div className="w-full max-w-lg rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+              <div className="flex items-start justify-between gap-4 border-b border-stroke px-6 py-5 dark:border-dark-3">
+                <div>
+                  <h3 className="text-xl font-bold text-dark dark:text-white">Get Reports</h3>
+                  <p className="mt-1 text-sm text-body">
+                    Application ID{" "}
+                    <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
+                    {" · "}
+                    {adminReports.lead.name}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAdminReports}
+                  className="shrink-0 rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="grid gap-2 px-4 py-4 sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => selectAdminReportKind("student")}
+                  className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3.5 text-left transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:hover:bg-dark-2"
+                >
+                  <span className="text-sm font-semibold text-dark dark:text-white">
+                    Student Level Analysis Report (Individual)
+                  </span>
+                  <span className="text-xs leading-snug text-body">
+                    Profile, timeline, status comparison, and recorded feedback for this application.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectAdminReportKind("status")}
+                  className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3.5 text-left transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:hover:bg-dark-2"
+                >
+                  <span className="text-sm font-semibold text-dark dark:text-white">
+                    Report of Application Status
+                  </span>
+                  <span className="text-xs leading-snug text-body">
+                    Same layout as the PDF: workflow fields for this application (submission record when available).
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {portalMounted &&
+        adminReports?.phase === "preview" &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-3 py-6 backdrop-blur-[2px] sm:px-4">
+            <div className="flex max-h-[95vh] min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+              <div className="flex shrink-0 flex-col gap-3 border-b border-stroke px-4 py-4 dark:border-dark-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-bold text-dark dark:text-white">
+                    {adminReports.kind === "student"
+                      ? "Student Level Analysis Report (Individual)"
+                      : "Report of Application Status"}
+                  </h3>
+                  <p className="mt-0.5 text-sm text-body">
+                    {adminReports.kind === "student" ? (
+                      <>
+                        Application ID{" "}
+                        <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
+                        {" · "}
+                        {adminReports.lead.name}
+                      </>
+                    ) : (
+                      <>
+                        Application ID{" "}
+                        <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
+                        {" · "}
+                        {adminReports.lead.name}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminReports({ phase: "pick", lead: adminReports.lead })}
+                    className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeAdminReports}
+                    className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    disabled={adminReportPdfExporting || adminReportSubmissionLoading || !adminReportPreviewHtml}
+                    onClick={() => void downloadActiveAdminReport()}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-opacity-90 disabled:opacity-60"
+                  >
+                    {adminReportPdfExporting ? "Saving PDF…" : "Download PDF"}
+                  </button>
+                </div>
+              </div>
+              <p className="shrink-0 border-b border-stroke bg-gray-1/50 px-4 py-2 text-xs text-body dark:border-dark-3 dark:bg-dark-2/50 sm:px-6">
+                Use <span className="font-medium text-dark dark:text-white">Download PDF</span> for a{" "}
+                <span className="font-medium text-dark dark:text-white">.pdf</span> file, or{" "}
+                <span className="font-medium text-dark dark:text-white">Print / Save as PDF</span> inside the preview.
+              </p>
+              <div className="relative min-h-0 flex-1 bg-gray-1 p-3 dark:bg-dark-2/40 sm:p-4">
+                {adminReportSubmissionLoading && (
+                  <div className="absolute inset-3 z-10 flex items-center justify-center rounded-lg border border-stroke bg-white/90 text-sm font-medium text-body backdrop-blur-sm dark:border-dark-3 dark:bg-gray-dark/90">
+                    Loading submission for report…
+                  </div>
+                )}
+                <iframe
+                  ref={reportPreviewIframeRef}
+                  title="Report preview"
+                  className="block h-[min(72vh,720px)] min-h-[380px] w-full rounded-lg border border-stroke bg-white shadow-sm dark:border-dark-3"
+                  srcDoc={adminReportPreviewHtml}
+                  sandbox="allow-scripts allow-same-origin allow-modals"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
