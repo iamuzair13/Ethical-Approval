@@ -9,6 +9,15 @@ const FORM_2_REQUIRED_ATTACHMENTS = [
   "Other Instituittional Approval Letter(s) (if applicable)",
 ];
 
+const FORM_2_MANDATORY_ATTACHMENTS = [
+  FORM_2_REQUIRED_ATTACHMENTS[0],
+  FORM_2_REQUIRED_ATTACHMENTS[2],
+] as const;
+
+function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
+  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
+}
+
 export function Form2ResearchPublicationForm({
   currentStep,
   form,
@@ -54,6 +63,32 @@ export function Form2ResearchPublicationForm({
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
+        </div>
+        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+          <h4 className="font-semibold text-dark dark:text-white">1.3 Add Co-Author</h4>
+          <select value={form.publicationCoAuthor1Type} onChange={onFieldChange("publicationCoAuthor1Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+            <option value="UOL">Option 1: UOL</option>
+            <option value="External">Option 2: External</option>
+          </select>
+          <div className="grid gap-4 md:grid-cols-2">
+            {form.publicationCoAuthor1Type === "UOL" ? (
+              <>
+                <input value={form.publicationAuthor1UolSapId} onChange={onFieldChange("publicationAuthor1UolSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.publicationAuthor1UolName} onChange={onFieldChange("publicationAuthor1UolName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.publicationAuthor1UolEmail} onChange={onFieldChange("publicationAuthor1UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <select value={form.publicationAuthor1UolFaculty} onChange={onFieldChange("publicationAuthor1UolFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                <select value={form.publicationAuthor1UolDepartment} onChange={onFieldChange("publicationAuthor1UolDepartment")} disabled={!form.publicationAuthor1UolFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1UolFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+              </>
+            ) : (
+              <>
+                <input value={form.publicationAuthor1ExternalName} onChange={onFieldChange("publicationAuthor1ExternalName")} placeholder="Co-author Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.publicationAuthor1ExternalEmail} onChange={onFieldChange("publicationAuthor1ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.publicationAuthor1ExternalUniversity} onChange={onFieldChange("publicationAuthor1ExternalUniversity")} placeholder="University Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <select value={form.publicationAuthor1ExternalFaculty} onChange={onFieldChange("publicationAuthor1ExternalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                <select value={form.publicationAuthor1ExternalDepartment} onChange={onFieldChange("publicationAuthor1ExternalDepartment")} disabled={!form.publicationAuthor1ExternalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1ExternalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+              </>
+            )}
+          </div>
         </div>
         <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
           <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.4 Research Details <RequiredMark /></h4>
@@ -122,7 +157,16 @@ export function Form2ResearchPublicationForm({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={hasCsvOption("requiredAttachments", item)} onChange={() => toggleCsvOption("requiredAttachments", item)} />
-                  <span className="text-sm">{item}</span>
+                  <span className="text-sm">
+                    {item}
+                    {FORM_2_MANDATORY_ATTACHMENTS.includes(item) ? (
+                      <RequiredMark />
+                    ) : (
+                      <span className="ml-1.5 text-xs font-normal text-body dark:text-dark-6">
+                        (optional)
+                      </span>
+                    )}
+                  </span>
                 </label>
                 <label className="cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10">Upload document<input type="file" className="hidden" onChange={handleRequiredAttachmentUpload(item)} /></label>
               </div>
@@ -137,7 +181,37 @@ export function Form2ResearchPublicationForm({
   return (
     <section className="grid gap-4">
       <h3 className="text-xl font-bold text-dark dark:text-white">Step 5: Declaration and Submission <RequiredMark /></h3>
-      <textarea required value={form.declaration} onChange={onFieldChange("declaration")} rows={6} placeholder="I/We certify this manuscript is original and all ethical requirements are met. *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+      <label className="flex items-start gap-2 rounded-lg border border-stroke px-3 py-2 dark:border-dark-3">
+        <input
+          type="checkbox"
+          className="mt-1 shrink-0"
+          checked={form.form3DeclarationAccepted === "yes"}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setForm((prev) => {
+              const declarationName =
+                prev.scholarName.trim() || prev.applicantName.trim() || "_____________________";
+              return {
+                ...prev,
+                form3DeclarationAccepted: checked ? "yes" : "",
+                declaration: checked ? buildMedicalEthicsDeclarationParagraph(declarationName) : "",
+              };
+            });
+          }}
+        />
+        <span className="text-sm">
+          I {form.scholarName.trim() || form.applicantName.trim() || "_____________________"} hereby
+          certify that: I have read and understood the ethical guidelines for medical and health
+          sciences research. The information provided in this application is accurate and complete to
+          the best of my knowledge. I will conduct this research strictly according to the approved
+          protocol. I will report all adverse events and protocol deviations to my supervisor and
+          the IREB immediately. I will obtain updated approvals if any significant changes to the
+          protocol are necessary. I will not proceed with data collection without formal ethical
+          approval.
+          <RequiredMark />
+        </span>
+      </label>
+      
     </section>
   );
 }
