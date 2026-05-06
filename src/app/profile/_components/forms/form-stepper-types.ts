@@ -17,4 +17,6 @@ export type CommonFormProps = {
   handleRequiredAttachmentUpload: (
     attachmentLabel: string,
   ) => (e: ChangeEvent<HTMLInputElement>) => void;
+  facultyOptions: string[];
+  getDepartmentsForFaculty: (facultyName: string) => string[];
 };

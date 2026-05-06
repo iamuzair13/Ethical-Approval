@@ -1,4 +1,5 @@
 import type { ApprovalFormId } from "./form-registry";
+import { FORM_3_REQUIRED_ATTACHMENTS } from "./form3-thesis-medical-form";
 
 /** Mirrors stepper “Required attachments” lists per form id. */
 export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[]> = {
@@ -11,15 +12,7 @@ export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[
     "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
-  "form3-thesis-medical": [
-    "Complete Research Proposal/Protocol",
-    "Research Questionnaire/Interview Guide (i.e., focus group guide)",
-    "Participant Information Letter (Cover Letter)",
-    "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
-    "Participant Information Letter Only (Quantitative research)",
-    "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
-    "Other Institutional Approval Letter(s) (If applicable)",
-  ],
+  "form3-thesis-medical": FORM_3_REQUIRED_ATTACHMENTS,
   "form2-publication-non-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form (Qualitative and mix-methods research with selective participations)",

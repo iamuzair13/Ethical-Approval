@@ -89,7 +89,7 @@ const LABELS: Record<string, string> = {
   sdgs: "Sustainable Development Goals",
   researchPurpose: "Purpose of research",
   dataCollectionMethod: "Data collection method",
-  researchPopulation: "Research population",
+  researchPopulation: "Research population (selected)",
   methodology: "Research methodology",
   participantsEstimate: "Estimated participants",
   involveHumanParticipants: "Human participants involved?",
@@ -103,6 +103,8 @@ const LABELS: Record<string, string> = {
   confidentialityOptions: "Confidentiality / privacy measures",
   confidentialityOtherDetails: "Confidentiality (other details)",
   vulnerablePopulation: "Vulnerable populations?",
+  vulnerableGroups: "Vulnerable populations (selected)",
+  adverseEventsManagement: "Adverse events / complaint management",
   vulnerableSafeguards: "Safeguards for vulnerable populations",
   sensitiveTopics: "Sensitive topics?",
   sensitiveTopicTypes: "Sensitive topic types",
@@ -115,11 +117,11 @@ const LABELS: Record<string, string> = {
   conflictManagement: "Conflict management",
   recordsWithoutConsent: "Access records without consent?",
   recordsWithoutConsentJustification: "Justification (records without consent)",
-  institutionalFunding: "Institutional funding",
-  externalFunding: "External funding",
+  institutionalFunding: "Has your research received institutional funding? ",
+  externalFunding: "Has your research received external funding? ",
   internationalCollaboration: "International collaboration",
   internationalCollaborationDetails: "International collaboration details",
-  conductedAbroad: "Research conducted abroad?",
+  conductedAbroad: "Will your research, or a part of it, be conducted overseas/abroad?",
   requiredAttachments: "Required attachments (selected)",
   declaration: "Declaration text",
   declarationAccepted: "Declaration accepted",
@@ -127,6 +129,7 @@ const LABELS: Record<string, string> = {
   submissionDate: "Submission date",
   form3DeclarationAccepted: "Declaration accepted (Form 3)",
   publicationTitle: "Publication / research title",
+  publicationPharmaInterventions: "Pharmaceutical / drug administration involved",
   publicationObjective1: "Objective 1",
   publicationObjective2: "Objective 2",
   publicationObjective3: "Objective 3",
@@ -159,7 +162,7 @@ const LABELS: Record<string, string> = {
   fundingSource: "Funding source",
   approvalsDetails: "Approvals details",
   researchDiscipline: "Research discipline",
-  researchClassification: "Research classification",
+  researchClassification: "Research classification (selected)",
   researchRiskLevel: "Research risk level",
   researchRiskJustification: "Research risk justification",
   drugName: "Drug name",
@@ -172,13 +175,18 @@ const LABELS: Record<string, string> = {
   emergencyProcedures: "Emergency procedures",
   dataProtectionOptions: "Data protection options",
   dataProtectionOtherDetails: "Data protection (other)",
-  sharedWithThirdParties: "Shared with third parties",
+  sharedWithThirdParties: "Will data be shared with third parties, collaborators, or external institutions?",
   thirdPartySharingDetails: "Third-party sharing details",
   cloudPlatformsUsed: "Cloud platforms used",
   cloudPlatformDetails: "Cloud platform details",
   futureResearchDataUse: "Future research data use",
-  futureResearchDataUseConditions: "Future use conditions",
+  futureResearchDataUseConditions: "Future use conditions", 
   healthcareExternalInstitutions: "External healthcare institutions",
+  thesisBiologicalSpecimensInvolved: "Biological specimens involved",
+  thesisBiologicalSpecimensDetails: "Biological specimen handling",
+  thesisAnimalSubjectsUsed: "Animal subjects used",
+  thesisAnimalCareWelfareDetails: "Animal care / welfare",
+  thesisAnimalEthicsCommitteeApproval: "Animal ethics committee approval",
 };
 
 function labelForKey(key: string): string {
@@ -209,7 +217,12 @@ function formatValue(key: string, raw: unknown): string {
     key === "confidentialityOptions" ||
     key === "sensitiveTopicTypes" ||
     key === "requiredAttachments" ||
-    key === "publicationRecruitmentChannels"
+    key === "publicationRecruitmentChannels" ||
+    key === "researchClassification" ||
+    key === "researchPopulation" ||
+    key === "vulnerableGroups" ||
+    key === "drugAdministrationRoutes" ||
+    key === "dataProtectionOptions"
   ) {
     const parts = s
       .split("|")
@@ -271,15 +284,18 @@ const THESIS_PROJECT: SectionDef = {
   title: "Step 1 · Thesis / project details",
   keys: [
     "thesisTitle",
+    "researchDiscipline",
     "expectedStartDate",
     "expectedEndDate",
     "researchLocations",
+    "fundingSource",
     "researchObjective1",
     "researchObjective2",
     "researchObjective3",
     "researchObjective4",
     "sdgs",
     "researchPurpose",
+    "researchClassification",
     "dataCollectionMethod",
     "researchPopulation",
     "methodology",
@@ -313,6 +329,37 @@ const ETHICAL_KEYS: string[] = [
   "recordsWithoutConsentJustification",
 ];
 
+/** Form #3 Medical — Step 2 (matches Word Ethical Considerations section). */
+const MEDICAL_THESIS_ETHICAL_KEYS: string[] = [
+  "involveHumanParticipants",
+  "collectPii",
+  "piiName",
+  "piiEmailPhone",
+  "piiStudentEmployeeId",
+  "piiMedicalRecordNumber",
+  "piiAudioVideoRecordings",
+  "piiOther",
+  "recruitmentChannels",
+  "informedConsentType",
+  "preApprovalDataCollected",
+  "vulnerableGroups",
+  "canWithdraw",
+  "compensation",
+  "adverseEventsManagement",
+  "thesisBiologicalSpecimensInvolved",
+  "thesisBiologicalSpecimensDetails",
+  "researchRiskLevel",
+  "researchRiskJustification",
+  "potentialRiskDetails",
+  "conflictOfInterest",
+  "conflictManagement",
+];
+
+const MEDICAL_THESIS_ETHICAL: SectionDef = {
+  title: "Step 2 · Ethical considerations (Medical thesis)",
+  keys: MEDICAL_THESIS_ETHICAL_KEYS,
+};
+
 const THESIS_ETHICAL: SectionDef = {
   title: "Step 2 · Ethical considerations",
   keys: ETHICAL_KEYS,
@@ -329,14 +376,22 @@ const THESIS_INSTITUTIONAL: SectionDef = {
   ],
 };
 
+const FORM3_INSTITUTIONAL: SectionDef = {
+  title: "Step 5 · Institutional approvals & collaborations",
+  keys: [
+    "healthcareExternalInstitutions",
+    "institutionalFunding",
+    "externalFunding",
+    "internationalCollaboration",
+    "internationalCollaborationDetails",
+    "conductedAbroad",
+  ],
+};
+
 const FORM3_BIOMEDICAL: SectionDef = {
   title: "Step 3 · Biomedical & pharmaceutical aspects",
   keys: [
-    "researchDiscipline",
-    "researchClassification",
-    "biomedicalDetails",
-    "researchRiskLevel",
-    "researchRiskJustification",
+    "publicationPharmaInterventions",
     "drugName",
     "drugDosageFrequency",
     "drugKnownSideEffects",
@@ -345,14 +400,9 @@ const FORM3_BIOMEDICAL: SectionDef = {
     "monitoredAfterAdministration",
     "followUpDuration",
     "emergencyProcedures",
-    "piiName",
-    "piiEmailPhone",
-    "piiStudentEmployeeId",
-    "piiMedicalRecordNumber",
-    "piiAudioVideoRecordings",
-    "piiOther",
-    "vulnerableGroups",
-    "adverseEventsManagement",
+    "thesisAnimalSubjectsUsed",
+    "thesisAnimalCareWelfareDetails",
+    "thesisAnimalEthicsCommitteeApproval",
   ],
 };
 
@@ -529,10 +579,10 @@ function sectionsForFormId(formId: ApprovalFormId | null): SectionDef[] {
         THESIS_SUPERVISOR,
         THESIS_COSUP,
         THESIS_PROJECT,
-        THESIS_ETHICAL,
+        MEDICAL_THESIS_ETHICAL,
         FORM3_BIOMEDICAL,
         FORM3_DATA,
-        THESIS_INSTITUTIONAL,
+        FORM3_INSTITUTIONAL,
         {
           title: "Step 6 · Declaration & submission",
           keys: THESIS_DECLARATION.keys,

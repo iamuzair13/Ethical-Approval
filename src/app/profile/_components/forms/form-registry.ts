@@ -77,11 +77,6 @@ export function resolveRequiredFormByFaculty(
   facultyName: string,
 ): RequiredForm {
   const isHealthFaculty = isMedicalAndHealthSciencesFaculty(facultyName);
-  // Faculty of Pharmacy, Allied Health Sciences, and Medicine & Dentistry follow the
-  // "Students' Thesis/Projects (Other than Medical Sciences)" ethical form (Form 1), not Form 3.
-  if (applicationType === "thesis" && isHealthFaculty) {
-    return resolveRequiredForm("thesis", false);
-  }
   return resolveRequiredForm(applicationType, isHealthFaculty);
 }
 

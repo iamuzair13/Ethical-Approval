@@ -7,6 +7,7 @@ import ApprovalRequestStepper, {
 import {
   type ApplicationType,
   type RequiredForm,
+  resolveRequiredForm,
   resolveRequiredFormByFaculty,
 } from "@/app/profile/_components/forms/form-registry";
 import {
@@ -584,8 +585,13 @@ export default function Page() {
         ethics?.requiredForm && typeof ethics.requiredForm === "object"
           ? (ethics.requiredForm as RequiredForm)
           : null;
+      const fallbackRequiredForm = resolveRequiredForm(
+        payload.submission.type === "publication" ? "research-publication" : "thesis",
+        payload.submission.domain === "medical",
+      );
 
-      setRequiredForm(incomingRequiredForm);
+      // Align loaded submissions with current form mapping by type/domain.
+      setRequiredForm(fallbackRequiredForm);
       setStepperMode("edit");
       setServerDraftSubmissionId(null);
       setStepperViewSubmissionId(payload.submission.id);
@@ -644,8 +650,13 @@ export default function Page() {
         ethics?.requiredForm && typeof ethics.requiredForm === "object"
           ? (ethics.requiredForm as RequiredForm)
           : null;
+      const fallbackRequiredForm = resolveRequiredForm(
+        payload.submission.type === "publication" ? "research-publication" : "thesis",
+        payload.submission.domain === "medical",
+      );
 
-      setRequiredForm(incomingRequiredForm);
+      // Align loaded submissions with current form mapping by type/domain.
+      setRequiredForm(fallbackRequiredForm);
       setStepperMode("view");
       setStepperViewSubmissionId(submissionId);
       setStepperViewData({
@@ -705,6 +716,10 @@ export default function Page() {
         ethics?.requiredForm && typeof ethics.requiredForm === "object"
           ? (ethics.requiredForm as RequiredForm)
           : null;
+      const fallbackRequiredForm = resolveRequiredForm(
+        payload.submission.type === "publication" ? "research-publication" : "thesis",
+        payload.submission.domain === "medical",
+      );
 
       const rawStep = ethics?.currentStep;
       const currentStep =
@@ -714,7 +729,8 @@ export default function Page() {
         ? completedRaw.filter((n): n is number => typeof n === "number" && Number.isInteger(n))
         : undefined;
 
-      setRequiredForm(incomingRequiredForm);
+      // Align loaded submissions with current form mapping by type/domain.
+      setRequiredForm(fallbackRequiredForm);
       setStepperSubmissionMeta({ draftSubmissionId: payload.submission.id });
       setStepperMode("resume");
       setServerDraftSubmissionId(payload.submission.id);
