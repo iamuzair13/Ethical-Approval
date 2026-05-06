@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 
 function validateStudentEmailFormat(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
@@ -51,8 +52,10 @@ function mapSapError(code: string | null): string {
       return "No student record was found in SAP for this SAP ID.";
     case "SAP_ERROR":
       return "SAP verification service is unavailable or returned unexpected data.";
+    case "FACULTY_NOT_FOUND":
+      return "No active faculty record found for this email.";
     default:
-      return "Unable to verify against SAP. Please try again.";
+      return "Unable to verify your account. Please try again.";
   }
 }
 
@@ -84,6 +87,7 @@ export default function Signin() {
       const { signInStudentViaGoogleBrowserToken } = await import("@/lib/student-google-browser-signin");
       const res = await signInStudentViaGoogleBrowserToken(signIn, callbackUrl);
       if (!res.ok) {
+        toast.error(res.message ?? "Login failed.");
         if (res.errorCode === "Configuration") {
           setFormError(res.message ?? mapAuthError("Configuration"));
         } else if (res.errorCode) {
@@ -93,6 +97,7 @@ export default function Signin() {
         }
         return;
       }
+      toast.success("Login successful.");
       router.push(res.redirectUrl);
       router.refresh();
     } finally {
@@ -105,7 +110,9 @@ export default function Signin() {
     setFormError(null);
     const email = manualEmail.trim();
     if (!email) {
-      setFormError("Enter your student email.");
+      const message = "Enter your student email.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -131,8 +138,11 @@ export default function Signin() {
           | null;
         if (formatError && verifyBody?.errorCode === "INVALID_EMAIL") {
           setFormError(formatError);
+          toast.error(formatError);
         } else {
-          setFormError(mapSapError(verifyBody?.errorCode ?? null));
+          const message = mapSapError(verifyBody?.errorCode ?? null);
+          setFormError(message);
+          toast.error(message);
         }
         return;
       }
@@ -144,11 +154,14 @@ export default function Signin() {
       });
 
       if (result?.error) {
-        setFormError("Sign-in failed after verification. Please try again.");
+        const message = "Sign-in failed after verification. Please try again.";
+        setFormError(message);
+        toast.error(message);
         return;
       }
 
       if (result?.ok) {
+        toast.success("Login successful.");
         router.push(result?.url ?? studentTarget);
         router.refresh();
       }

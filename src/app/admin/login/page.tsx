@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 
 function AdminLoginForm() {
   const router = useRouter();
@@ -34,9 +35,12 @@ function AdminLoginForm() {
       });
 
       if (result?.error || !result?.ok) {
-        setError("Invalid admin credentials.");
+        const message = "Invalid admin credentials.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      toast.success("Login successful.");
       router.push(result.url ?? callbackUrl);
       router.refresh();
     } finally {

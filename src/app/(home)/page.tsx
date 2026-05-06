@@ -2,6 +2,7 @@ import { PaymentsOverview } from "@/components/Charts/payments-overview";
 import { UsedDevices } from "@/components/Charts/used-devices";
 import { LeadsReport } from "@/components/Tables/leads-report";
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 import { createTimeFrameExtractor } from "@/utils/timeframe-extractor";
 import { authOptions } from "@/lib/auth-options";
 import { OverviewCardsGroup } from "./_components/overview-cards";
@@ -18,8 +19,8 @@ export default async function Home({ searchParams }: PropsType) {
   const { selected_time_frame } = await searchParams;
   const extractTimeFrame = createTimeFrameExtractor(selected_time_frame);
   const session = await getServerSession(authOptions);
-  if (!session) {
-    return null;
+  if (!session || !session.user?.adminId || !session.user?.adminRole) {
+    redirect("/auth/sign-in?callbackUrl=/");
   }
 
   const [overviewData, usedDevicesData, leadsData] = await Promise.all([

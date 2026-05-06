@@ -23,7 +23,7 @@ export function Form1ThesisForm({
           *
         </span>
         {isMarkedOnly
-          ? "Fields marked with * match the highlighted items on Form #3 (Medical Sciences) and are required."
+          ? "Fields marked with * are required."
           : "All fields in this step are required"}
       </p>
       {children}

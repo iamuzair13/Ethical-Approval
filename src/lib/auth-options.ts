@@ -4,6 +4,11 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
 import { verifyPassword } from "@/lib/password";
+import { getActiveFacultyMemberByEmail } from "@/lib/faculty-members";
+
+function isStudentEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
+}
 
 export const authOptions: NextAuthOptions = {
   secret: getAuthSecret(),
@@ -23,6 +28,24 @@ export const authOptions: NextAuthOptions = {
         const email = credentials?.email?.trim();
         if (!email) return null;
 
+        if (!isStudentEmail(email)) {
+          const faculty = await getActiveFacultyMemberByEmail(email);
+          if (!faculty) {
+            return null;
+          }
+
+          return {
+            id: faculty.id,
+            email: faculty.email,
+            name: faculty.name,
+            sapId: faculty.sapId,
+            facultyMemberId: faculty.id,
+            facultyDepartment: faculty.department,
+            facultyDesignation: faculty.designation,
+            applicantRole: "faculty",
+          };
+        }
+
         const result = await verifyStudentByEmail(email);
         if (!result.ok) {
           return null;
@@ -34,6 +57,7 @@ export const authOptions: NextAuthOptions = {
           name: result.studentName ?? result.email,
           sapId: result.sapId,
           studentRecord: result.studentRecord,
+          applicantRole: "student",
         };
       },
     }),
@@ -104,6 +128,10 @@ export const authOptions: NextAuthOptions = {
         token.adminScopeMode = user.adminScopeMode;
         token.adminFacultyIds = user.adminFacultyIds;
         token.adminTokenVersion = user.adminTokenVersion;
+        token.facultyMemberId = user.facultyMemberId;
+        token.applicantRole = user.applicantRole;
+        token.facultyDepartment = (user as { facultyDepartment?: string }).facultyDepartment;
+        token.facultyDesignation = (user as { facultyDesignation?: string | null }).facultyDesignation;
       }
       return token;
     },
@@ -117,6 +145,11 @@ export const authOptions: NextAuthOptions = {
         session.user.adminStatus = token.adminStatus;
         session.user.adminScopeMode = token.adminScopeMode;
         session.user.adminFacultyIds = token.adminFacultyIds;
+        session.user.facultyMemberId = token.facultyMemberId;
+        session.user.applicantRole = token.applicantRole;
+        (session.user as { facultyDepartment?: string }).facultyDepartment = token.facultyDepartment;
+        (session.user as { facultyDesignation?: string | null }).facultyDesignation =
+          token.facultyDesignation;
       }
       return session;
     },

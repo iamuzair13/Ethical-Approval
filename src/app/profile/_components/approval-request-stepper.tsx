@@ -27,6 +27,7 @@ import {
 } from "./forms/form3-thesis-medical-form";
 import { Form2ResearchPublicationForm } from "./forms/form2-research-publication-form";
 import { Form5ResearchPublicationFacultyStaffForm } from "./forms/form5-research-publication-faculty-staff";
+import { Form6ResearchPublicationFacultyNonMedicalForm } from "./forms/form6-research-publication-faculty-non-medical-form";
 
 type RequestPayload = {
   title: string;
@@ -152,6 +153,14 @@ const FORM_5_RESEARCH_PUBLICATION_FACULTY_STAFF_STEPS = [
   "Declaration and Submission",
 ];
 
+const FORM_6_RESEARCH_PUBLICATION_FACULTY_NON_MEDICAL_STEPS = [
+  "Scholar's Information",
+  "Ethical Considerations",
+  "Institutional Approvals & Collaboration",
+  "Required Attachments",
+  "Declaration and Submission",
+];
+
 // Keep this checklist aligned with Thesis Form #3 (medical).
 const FORM_1_REQUIRED_ATTACHMENTS = [...FORM_3_MEDICAL_ATTACHMENT_LABELS];
 const FORM_3_MANDATORY_ATTACHMENT_SET = new Set<string>(
@@ -174,6 +183,11 @@ const FORM_4_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 const FORM_2_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
   "Participant Information Letter Only (Quantitative research)",
+];
+
+const FORM_6_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
+  "Questionnaire/Interview Guide",
+  "Participant Information Letter Only",
 ];
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */
@@ -458,6 +472,7 @@ export default function ApprovalRequestStepper({
   const attachmentFileBlobsRef = useRef<Partial<Record<string, File>>>({});
   const extraUploadFileBlobsRef = useRef<Map<number, File>>(new Map());
   const formElementRef = useRef<HTMLFormElement | null>(null);
+  const restoredDraftKeyRef = useRef<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -481,11 +496,14 @@ export default function ApprovalRequestStepper({
   const isForm2ResearchPublication = resolvedFormId === "form2-publication-non-medical";
   const isForm5ResearchPublicationFacultyStaff =
     resolvedFormId === "form5-publication-faculty-staff";
+  const isForm6ResearchPublicationFacultyNonMedical =
+    resolvedFormId === "form6-publication-faculty-non-medical";
   const formMode:
     | "form1-thesis"
     | "form3-thesis-medical"
     | "form2-research-publication"
     | "form5-research-publication-faculty-staff"
+    | "form6-research-publication-faculty-non-medical"
     | "form4-research-publication-medical"
     | "generic" =
     (() => {
@@ -498,6 +516,8 @@ export default function ApprovalRequestStepper({
           return "form2-research-publication";
         case isForm5ResearchPublicationFacultyStaff:
           return "form5-research-publication-faculty-staff";
+        case isForm6ResearchPublicationFacultyNonMedical:
+          return "form6-research-publication-faculty-non-medical";
         case isForm4ResearchPublicationMedical:
           return "form4-research-publication-medical";
         default:
@@ -513,21 +533,21 @@ export default function ApprovalRequestStepper({
         ? FORM_2_RESEARCH_PUBLICATION_STEPS
       : formMode === "form5-research-publication-faculty-staff"
         ? FORM_5_RESEARCH_PUBLICATION_FACULTY_STAFF_STEPS
+      : formMode === "form6-research-publication-faculty-non-medical"
+        ? FORM_6_RESEARCH_PUBLICATION_FACULTY_NON_MEDICAL_STEPS
       : formMode === "form4-research-publication-medical"
         ? FORM_4_STEPS
         : STEPS;
   const thesisFormBannerVariant =
     formMode === "form3-thesis-medical" ? "marked-required" : "all-required";
-  const ActiveFormWrapper =
-    formMode === "form1-thesis" || formMode === "form3-thesis-medical"
-      ? function ThesisFormBanner({ children }: { children: ReactNode }) {
-          return (
-            <Form1ThesisForm variant={thesisFormBannerVariant}>{children}</Form1ThesisForm>
-          );
-        }
-      : formMode === "form4-research-publication-medical"
-        ? Form4ResearchPublicationMedicalForm
-        : GenericApprovalForm;
+  const renderActiveFormWrapper = (children: ReactNode) =>
+    formMode === "form1-thesis" || formMode === "form3-thesis-medical" ? (
+      <Form1ThesisForm variant={thesisFormBannerVariant}>{children}</Form1ThesisForm>
+    ) : formMode === "form4-research-publication-medical" ? (
+      <Form4ResearchPublicationMedicalForm>{children}</Form4ResearchPublicationMedicalForm>
+    ) : (
+      <GenericApprovalForm>{children}</GenericApprovalForm>
+    );
 
   const stepState = useMemo(
     () =>
@@ -546,7 +566,8 @@ export default function ApprovalRequestStepper({
         ? form.thesisTitle.trim()
         : formMode === "form4-research-publication-medical" ||
             formMode === "form2-research-publication" ||
-            formMode === "form5-research-publication-faculty-staff"
+            formMode === "form5-research-publication-faculty-staff" ||
+            formMode === "form6-research-publication-faculty-non-medical"
           ? form.publicationTitle.trim()
           : form.projectTitle.trim();
     let objectives =
@@ -561,7 +582,8 @@ export default function ApprovalRequestStepper({
             .join("\n")
         : formMode === "form4-research-publication-medical" ||
             formMode === "form2-research-publication" ||
-            formMode === "form5-research-publication-faculty-staff"
+            formMode === "form5-research-publication-faculty-staff" ||
+            formMode === "form6-research-publication-faculty-non-medical"
           ? [
               form.publicationObjective1.trim(),
               form.publicationObjective2.trim(),
@@ -575,7 +597,8 @@ export default function ApprovalRequestStepper({
         ? form.methodology.trim()
         : formMode === "form4-research-publication-medical" ||
             formMode === "form2-research-publication" ||
-            formMode === "form5-research-publication-faculty-staff"
+            formMode === "form5-research-publication-faculty-staff" ||
+            formMode === "form6-research-publication-faculty-non-medical"
           ? form.publicationMethodology.trim()
           : form.biomedicalDetails.trim() ||
             form.riskMitigation.trim() ||
@@ -620,6 +643,9 @@ export default function ApprovalRequestStepper({
     const uid = userStorageId.trim();
     const sid = draftSessionId?.trim();
     if (!uid || !sid) return;
+    const restoreKey = `${uid}::${sid}`;
+    if (restoredDraftKeyRef.current === restoreKey) return;
+    restoredDraftKeyRef.current = restoreKey;
 
     try {
       localStorage.removeItem(LEGACY_DRAFT_KEY);
@@ -669,6 +695,11 @@ export default function ApprovalRequestStepper({
     setSaveMessage(restoredMessage);
     toast.info(restoredMessage);
   }, [activeSteps.length, draftSessionId, isPreloadedMode, mounted, open, userStorageId]);
+
+  useEffect(() => {
+    if (open) return;
+    restoredDraftKeyRef.current = null;
+  }, [open]);
 
   useEffect(() => {
     if (!open || isPreloadedMode) return;
@@ -825,16 +856,36 @@ export default function ApprovalRequestStepper({
     ) {
       return;
     }
-    setForm((prev) => ({
-      ...prev,
-      scholarName: applicantProfile.name,
-      scholarSapId: applicantProfile.regNo,
-      scholarEmail: applicantProfile.email,
-      scholarFaculty: applicantProfile.faculty,
-      scholarDepartment: applicantProfile.department,
-      scholarProgram: applicantProfile.program,
-    }));
-  }, [applicantProfile, formMode, isViewMode, open]);
+    setForm((prev) => {
+      const nextScholar = {
+        scholarName: applicantProfile.name,
+        scholarSapId: applicantProfile.regNo,
+        scholarEmail: applicantProfile.email,
+        scholarFaculty: applicantProfile.faculty,
+        scholarDepartment: applicantProfile.department,
+        scholarProgram: applicantProfile.program,
+      };
+      const unchanged =
+        prev.scholarName === nextScholar.scholarName &&
+        prev.scholarSapId === nextScholar.scholarSapId &&
+        prev.scholarEmail === nextScholar.scholarEmail &&
+        prev.scholarFaculty === nextScholar.scholarFaculty &&
+        prev.scholarDepartment === nextScholar.scholarDepartment &&
+        prev.scholarProgram === nextScholar.scholarProgram;
+      if (unchanged) return prev;
+      return { ...prev, ...nextScholar };
+    });
+  }, [
+    applicantProfile?.department,
+    applicantProfile?.email,
+    applicantProfile?.faculty,
+    applicantProfile?.name,
+    applicantProfile?.program,
+    applicantProfile?.regNo,
+    formMode,
+    isViewMode,
+    open,
+  ]);
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -849,6 +900,35 @@ export default function ApprovalRequestStepper({
     }
     setResolvedDraftSubmissionId(null);
   }, [serverDraftSubmissionId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const formElement = formElementRef.current;
+    if (!formElement) return;
+
+    const controls = Array.from(
+      formElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+        "input[required], textarea[required], select[required]",
+      ),
+    );
+    controls.forEach((control) => {
+      if (control instanceof HTMLInputElement) {
+        if (
+          control.type === "checkbox" ||
+          control.type === "radio" ||
+          control.type === "file" ||
+          control.type === "hidden"
+        ) {
+          return;
+        }
+      }
+      control.setAttribute("data-required-indicator", "true");
+    });
+
+    return () => {
+      controls.forEach((control) => control.removeAttribute("data-required-indicator"));
+    };
+  }, [open, currentStep, formMode]);
 
   if (!mounted || !open) return null;
 
@@ -893,6 +973,89 @@ export default function ApprovalRequestStepper({
       *
     </span>
   );
+  const shortenErrorLabel = (raw: string, max = 72) => {
+    const compact = raw.replace(/\s+/g, " ").trim();
+    if (!compact) return "this field";
+    return compact.length > max ? `${compact.slice(0, max - 1).trimEnd()}...` : compact;
+  };
+  const normalizeLabelCandidate = (raw: string | null | undefined) => {
+    if (!raw) return null;
+    const compact = raw
+      .replace(/\s+/g, " ")
+      .replace(/\*/g, "")
+      .replace(/\(required\)/gi, "")
+      .trim();
+    if (!compact) return null;
+    const lowered = compact.toLowerCase();
+    if (
+      lowered === "select" ||
+      lowered === "yes" ||
+      lowered === "no" ||
+      lowered === "n/a" ||
+      lowered === "faculty" ||
+      lowered === "department" ||
+      lowered === "email" ||
+      lowered === "sap id"
+    ) {
+      return null;
+    }
+    return compact;
+  };
+  const getControlErrorLabel = (
+    control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+    formElement: HTMLFormElement,
+  ) => {
+    const candidates: string[] = [];
+
+    const byForRaw =
+      control.id &&
+      formElement.querySelector<HTMLLabelElement>(`label[for="${control.id}"]`)?.textContent;
+    const byFor = normalizeLabelCandidate(byForRaw ?? undefined);
+    if (byFor) candidates.push(byFor);
+
+    const closestLabel = normalizeLabelCandidate(control.closest("label")?.textContent ?? undefined);
+    if (closestLabel) candidates.push(closestLabel);
+
+    const ariaLabelledBy = control.getAttribute("aria-labelledby");
+    if (ariaLabelledBy) {
+      for (const id of ariaLabelledBy.split(/\s+/).filter(Boolean)) {
+        const nodeText = normalizeLabelCandidate(document.getElementById(id)?.textContent ?? undefined);
+        if (nodeText) candidates.push(nodeText);
+      }
+    }
+
+    const previousSiblingLabel = normalizeLabelCandidate(
+      control.previousElementSibling?.textContent ?? undefined,
+    );
+    if (previousSiblingLabel) candidates.push(previousSiblingLabel);
+
+    const containerLabel = normalizeLabelCandidate(
+      control.parentElement?.querySelector(":scope > label, :scope > p, :scope > h4, :scope > h3")
+        ?.textContent ?? undefined,
+    );
+    if (containerLabel) candidates.push(containerLabel);
+
+    const placeholder =
+      control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement
+        ? control.placeholder
+        : "";
+    const placeholderLabel = normalizeLabelCandidate(placeholder);
+    if (placeholderLabel) candidates.push(placeholderLabel);
+
+    if (control instanceof HTMLSelectElement) {
+      const firstOptionText = normalizeLabelCandidate(control.options[0]?.textContent ?? undefined);
+      if (firstOptionText) candidates.push(firstOptionText);
+    }
+
+    const ariaLabel = control.getAttribute("aria-label");
+    const ariaLabelText = normalizeLabelCandidate(ariaLabel ?? undefined);
+    if (ariaLabelText) candidates.push(ariaLabelText);
+
+    const nameLabel = normalizeLabelCandidate(control.name);
+    if (nameLabel) candidates.push(nameLabel);
+    if (candidates.length > 0) return shortenErrorLabel(candidates[0]);
+    return "this field";
+  };
   const validateVisibleStepFields = (): string | null => {
     const formElement = formElementRef.current;
     if (!formElement) return null;
@@ -943,12 +1106,12 @@ export default function ApprovalRequestStepper({
           continue;
         }
         if (!hasValue(control.value)) {
-          return "Please complete all required fields before proceeding.";
+          return `Required field: ${getControlErrorLabel(control, formElement)}.`;
         }
         continue;
       }
       if (!hasValue(control.value)) {
-        return "Please complete all required fields before proceeding.";
+        return `Required field: ${getControlErrorLabel(control, formElement)}.`;
       }
     }
 
@@ -956,8 +1119,15 @@ export default function ApprovalRequestStepper({
   };
 
   const validateCurrentStep = (): string | null => {
-    const visibleStepValidationError = validateVisibleStepFields();
-    if (visibleStepValidationError) return visibleStepValidationError;
+    const declarationOnlyValidationForms = new Set<string>([
+      "form2-research-publication",
+      "form5-research-publication-faculty-staff",
+    ]);
+    const shouldValidateVisibleFields = !declarationOnlyValidationForms.has(formMode);
+    if (shouldValidateVisibleFields) {
+      const visibleStepValidationError = validateVisibleStepFields();
+      if (visibleStepValidationError) return visibleStepValidationError;
+    }
 
     if (formMode === "form4-research-publication-medical") {
       if (currentStep === 4) {
@@ -975,9 +1145,6 @@ export default function ApprovalRequestStepper({
         if (form.publicationDeclarationAccepted !== "yes") {
           return "Please accept the declaration in Step 6.";
         }
-        if (![form.declaration, form.applicantName, form.submissionDate].every(hasValue)) {
-          return "Please complete applicant name, submission date, and declaration (Step 6).";
-        }
         return null;
       }
       return null;
@@ -988,31 +1155,39 @@ export default function ApprovalRequestStepper({
         if (form.form3DeclarationAccepted !== "yes") {
           return "Please accept the declaration in Step 6.";
         }
-        if (![form.declaration, form.applicantName, form.submissionDate].every(hasValue)) {
-          return "Please complete applicant name, submission date, and declaration (Step 6).";
+        return null;
+      }
+      return null;
+    }
+
+    if (formMode === "form6-research-publication-faculty-non-medical") {
+      if (currentStep === 3) {
+        for (const label of FORM_6_MANDATORY_ATTACHMENT_LABELS) {
+          if (!hasCsvOption("requiredAttachments", label)) {
+            return `Please confirm the required attachment "${label}" in Step 4 (tick the checkbox).`;
+          }
+          if (!hasRequiredAttachmentUpload(label)) {
+            return `Please upload "${label}" in Step 4: Required Attachments.`;
+          }
+        }
+        return null;
+      }
+      if (currentStep === 4) {
+        if (form.form3DeclarationAccepted !== "yes") {
+          return "Please accept the declaration in Step 5.";
+        }
+        if (![form.declaration].every(hasValue)) {
+          return "Please complete declaration (Step 5).";
         }
         return null;
       }
       return null;
     }
 
-    if (formMode === "form2-research-publication" && currentStep === 3) {
-      for (const label of FORM_2_MANDATORY_ATTACHMENT_LABELS) {
-        if (!hasCsvOption("requiredAttachments", label)) {
-          return `Please confirm the required attachment "${label}" in Step 4 (tick the checkbox).`;
-        }
-        if (!hasRequiredAttachmentUpload(label)) {
-          return `Please upload "${label}" in Step 4: Required Attachments.`;
-        }
-      }
-      return null;
-    }
+    if (formMode === "form2-research-publication" && currentStep === 3) return null;
     if (formMode === "form2-research-publication" && currentStep === 4) {
       if (form.form3DeclarationAccepted !== "yes") {
         return "Please accept the declaration in Step 5.";
-      }
-      if (![form.declaration, form.applicantName, form.submissionDate].every(hasValue)) {
-        return "Please complete applicant name, submission date, and declaration (Step 5).";
       }
       return null;
     }
@@ -1028,222 +1203,10 @@ export default function ApprovalRequestStepper({
     }
 
     if (formMode === "form3-thesis-medical") {
-      if (currentStep === 0) {
-        const supervisorRequired = [
-          form.supervisorSapId,
-          form.supervisorName,
-          form.supervisorEmail,
-          form.supervisorFaculty,
-          form.supervisorDepartment,
-        ].every(hasValue);
-        if (!supervisorRequired) {
-          return "Please complete all required Supervisor(s)'s Information fields.";
-        }
-        const coSupervisorRequired =
-          form.coSupervisorType === "UOL"
-            ? [
-                form.uolCoSupervisorSapId,
-                form.uolCoSupervisorName,
-                form.uolCoSupervisorEmail,
-                form.uolCoSupervisorFaculty,
-                form.uolCoSupervisorDepartment,
-              ].every(hasValue)
-            : [
-                form.externalCoSupervisorName,
-                form.externalCoSupervisorRegNo,
-                form.externalCoSupervisorEmail,
-                form.externalUniversity,
-                form.externalFaculty,
-                form.externalDepartment,
-              ].every(hasValue);
-        if (!coSupervisorRequired) {
-          return "Please complete all required Co-supervisor fields.";
-        }
-        const thesisRequired = [
-          form.thesisTitle,
-          form.researchDiscipline,
-          form.expectedStartDate,
-          form.expectedEndDate,
-          form.researchLocations,
-          form.researchObjective1,
-          form.methodology,
-          form.participantsEstimate,
-          form.dataCollectionMethod,
-        ].every(hasValue);
-        if (!thesisRequired) {
-          return "Please complete all highlighted Thesis/Project Details fields (Step 1).";
-        }
-        if (!hasSelectedCsvValue(form.sdgs)) {
-          return "Please select at least one Sustainable Development Goal (Step 1.h).";
-        }
-        if (!hasSelectedCsvValue(form.researchPurpose)) {
-          return "Please select at least one purpose of research (Step 1.i).";
-        }
-        if (!hasSelectedCsvValue(form.researchClassification)) {
-          return "Please select at least one Research Classification option.";
-        }
-        if (!hasSelectedCsvValue(form.researchPopulation)) {
-          return "Please select at least one Research Population option.";
-        }
-        return null;
-      }
-      if (currentStep === 1) {
-        const base = [
-          form.involveHumanParticipants,
-          form.collectPii,
-          form.informedConsentType,
-          form.preApprovalDataCollected,
-          form.canWithdraw,
-          form.compensation,
-          form.adverseEventsManagement,
-          form.thesisBiologicalSpecimensInvolved,
-          form.researchRiskLevel,
-          form.potentialRiskDetails,
-          form.conflictOfInterest,
-        ].every(hasValue);
-        if (!base) {
-          return "Please complete all required fields in Step 2: Ethical Considerations.";
-        }
-        if (form.collectPii === "Yes") {
-          const piiChosen =
-            form.piiName === "yes" ||
-            form.piiEmailPhone === "yes" ||
-            form.piiStudentEmployeeId === "yes" ||
-            form.piiMedicalRecordNumber === "yes" ||
-            form.piiAudioVideoRecordings === "yes" ||
-            hasValue(form.piiOther);
-          if (!piiChosen) {
-            return "Please specify which types of identifiable information will be collected (Step 2.2).";
-          }
-        }
-        if (!hasSelectedCsvValue(form.recruitmentChannels)) {
-          return "Please select at least one recruitment channel (Step 2.3).";
-        }
-        if (!hasSelectedCsvValue(form.vulnerableGroups)) {
-          return "Please select at least one option for vulnerable populations (Step 2.6).";
-        }
-        if (
-          (form.researchRiskLevel === "Moderate risk" || form.researchRiskLevel === "High risk") &&
-          !hasValue(form.researchRiskJustification)
-        ) {
-          return "Please justify moderate / high risk classification (Step 2.11).";
-        }
-        if (form.thesisBiologicalSpecimensInvolved === "Yes" && !hasValue(form.thesisBiologicalSpecimensDetails)) {
-          return "Please describe biological specimen handling (Step 2.10).";
-        }
-        if (form.conflictOfInterest === "Yes" && !hasValue(form.conflictManagement)) {
-          return "Please provide conflict of interest disclosure (Step 2.13).";
-        }
-        return null;
-      }
-      if (currentStep === 2) {
-        // Step 3 is "If Applicable" in Form #3. Only validate conditional details when answered Yes.
-        if (form.publicationPharmaInterventions === "Yes") {
-          const drugReq = [
-            form.drugName,
-            form.drugDosageFrequency,
-            form.drugKnownSideEffects,
-            form.drugRegulatoryApproval,
-            form.monitoredAfterAdministration,
-            form.emergencyProcedures,
-          ].every(hasValue);
-          if (!drugReq || !hasSelectedCsvValue(form.drugAdministrationRoutes)) {
-            return "Please complete all drug / pharmaceutical details (Step 3).";
-          }
-          if (form.monitoredAfterAdministration === "Yes" && !hasValue(form.followUpDuration)) {
-            return "Please provide follow-up duration (Step 3.5).";
-          }
-        }
-        if (form.thesisAnimalSubjectsUsed === "Yes") {
-          if (!hasValue(form.thesisAnimalCareWelfareDetails) || !hasValue(form.thesisAnimalEthicsCommitteeApproval)) {
-            return "Please complete animal welfare and ethics approval fields (Step 3.7–3.8).";
-          }
-        }
-        return null;
-      }
-      if (currentStep === 3) {
-        if (!hasSelectedCsvValue(form.dataProtectionOptions)) {
-          return "Please select at least one data storage/protection option (Step 4.1).";
-        }
-        if (
-          hasCsvOption("dataProtectionOptions", "Others") &&
-          !hasValue(form.dataProtectionOtherDetails)
-        ) {
-          return "Please specify “Others” for data protection (Step 4.1).";
-        }
-        if (!hasValue(form.sharedWithThirdParties)) {
-          return "Please answer Step 4.2 (third-party sharing).";
-        }
-        if (form.sharedWithThirdParties === "Yes" && !hasValue(form.thirdPartySharingDetails)) {
-          return "Please provide third-party sharing details (Step 4.2).";
-        }
-        if (!hasValue(form.cloudPlatformsUsed)) {
-          return "Please answer Step 4.3 (cloud / online platforms).";
-        }
-        if (form.cloudPlatformsUsed === "Yes" && !hasValue(form.cloudPlatformDetails)) {
-          return "Please specify cloud/online platform(s) (Step 4.3).";
-        }
-        if (!hasValue(form.futureResearchDataUse)) {
-          return "Please answer Step 4.4 (future use of data).";
-        }
-        if (form.futureResearchDataUse === "Yes" && !hasValue(form.futureResearchDataUseConditions)) {
-          return "Please specify conditions for future data use (Step 4.4).";
-        }
-        if (!hasValue(form.dataRetentionYears)) {
-          return "Please select a data retention period (Step 4.5).";
-        }
-        if (form.dataRetentionYears === "More than 16 years" && !hasValue(form.longRetentionReason)) {
-          return "Please explain long data retention (Step 4.5).";
-        }
-        return null;
-      }
-      if (currentStep === 4) {
-        const ok = [
-          form.healthcareExternalInstitutions,
-          form.institutionalFunding,
-          form.externalFunding,
-          form.internationalCollaboration,
-          form.conductedAbroad,
-        ].every(hasValue);
-        if (!ok) {
-          return "Please complete all required fields in Step 5: Institutional Approvals & Collaborations.";
-        }
-        if (form.internationalCollaboration === "Yes" && !hasValue(form.internationalCollaborationDetails)) {
-          return "Please provide international collaboration details (Step 5.4).";
-        }
-        return null;
-      }
-      if (currentStep === 5) {
-        const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
-          (label) =>
-            !hasCsvOption("requiredAttachments", label) && !hasRequiredAttachmentUpload(label),
-        );
-        if (missingRequiredSelection) {
-          return "Please select all required attachment items in Step 6.";
-        }
-        const missingRequiredUpload = FORM_3_MANDATORY_ATTACHMENTS.some(
-          (label) => !hasRequiredAttachmentUpload(label),
-        );
-        if (missingRequiredUpload) {
-          return "Please upload files for all required attachment items in Step 6.";
-        }
-        const selectedLabels = FORM_3_MEDICAL_ATTACHMENT_LABELS.filter((label) =>
-          hasCsvOption("requiredAttachments", label),
-        );
-        const missingUploadForSelectedOptional = selectedLabels.some(
-          (label) => !hasRequiredAttachmentUpload(label),
-        );
-        if (missingUploadForSelectedOptional) {
-          return "Please upload files for the attachment item(s) you selected in Step 6.";
-        }
-        return null;
-      }
+      if (currentStep >= 0 && currentStep <= 5) return null;
       if (currentStep === 6) {
-        if (
-          ![form.declaration, form.applicantName, form.submissionDate].every(hasValue) ||
-          form.form3DeclarationAccepted !== "yes"
-        ) {
-          return "Please complete the declaration, acceptance checkbox, applicant name, and date (Step 7).";
+        if (form.form3DeclarationAccepted !== "yes") {
+          return "Please accept the declaration in Step 7.";
         }
         return null;
       }
@@ -1447,6 +1410,7 @@ export default function ApprovalRequestStepper({
     const validationError = validateCurrentStep();
     if (validationError) {
       setSubmitError(validationError);
+      toast.warning(validationError);
       return;
     }
     setSubmitError(null);
@@ -1507,6 +1471,12 @@ export default function ApprovalRequestStepper({
   const handleSaveProgress = () => {
     if (isViewMode) return;
     void (async () => {
+      const validationError = validateCurrentStep();
+      if (validationError) {
+        setSubmitError(validationError);
+        toast.warning(validationError);
+        return;
+      }
       const uid = userStorageId.trim();
       const sid = draftSessionId?.trim();
       if (uid && sid) {
@@ -1883,10 +1853,11 @@ export default function ApprovalRequestStepper({
           </div>
         </div>
 
-        <form ref={formElementRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form ref={formElementRef} onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
           <fieldset disabled={isViewMode} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
-            <ActiveFormWrapper>
+            {renderActiveFormWrapper(
+              <>
             {formMode === "form1-thesis" && currentStep === 0 && (
               <section className="grid gap-6">
                 <h3 className="text-xl font-bold text-dark dark:text-white">
@@ -2496,6 +2467,21 @@ export default function ApprovalRequestStepper({
               />
             )}
 
+            {formMode === "form6-research-publication-faculty-non-medical" && (
+              <Form6ResearchPublicationFacultyNonMedicalForm
+                currentStep={currentStep}
+                form={form}
+                onFieldChange={onFieldChange as never}
+                setForm={setForm as never}
+                hasCsvOption={hasCsvOption as never}
+                toggleCsvOption={toggleCsvOption as never}
+                attachmentFiles={attachmentFiles}
+                handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
+                facultyOptions={facultyOptions}
+                getDepartmentsForFaculty={getDepartmentsForFaculty}
+              />
+            )}
+
             {false && formMode === "form3-thesis-medical" && currentStep === 0 && (
               <section className="grid gap-6">
                 <h3 className="text-xl font-bold text-dark dark:text-white">Step 1: Researcher(s) and Thesis/Project Information</h3>
@@ -2677,61 +2663,61 @@ export default function ApprovalRequestStepper({
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
                   <h4 className="font-semibold text-dark dark:text-white">1.3 Co-Author</h4>
-                  <select value={form.publicationCoAuthor1Type} onChange={onFieldChange("publicationCoAuthor1Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+                  <select required={false} value={form.publicationCoAuthor1Type} onChange={onFieldChange("publicationCoAuthor1Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
                     <option value="UOL">Option 1: UOL</option>
                     <option value="External">Option 2: External</option>
                   </select>
                   <div className="grid gap-4 md:grid-cols-2">
                     {form.publicationCoAuthor1Type === "UOL" ? (
                       <>
-                        <input value={form.publicationAuthor1UolSapId} onChange={onFieldChange("publicationAuthor1UolSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor1UolName} onChange={onFieldChange("publicationAuthor1UolName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor1UolEmail} onChange={onFieldChange("publicationAuthor1UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <select value={form.publicationAuthor1UolFaculty} onChange={onFieldChange("publicationAuthor1UolFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                        <select value={form.publicationAuthor1UolDepartment} onChange={onFieldChange("publicationAuthor1UolDepartment")} disabled={!form.publicationAuthor1UolFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1UolFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <input required={false} value={form.publicationAuthor1UolSapId} onChange={onFieldChange("publicationAuthor1UolSapId")} placeholder="Co-Author SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor1UolName} onChange={onFieldChange("publicationAuthor1UolName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor1UolEmail} onChange={onFieldChange("publicationAuthor1UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <select required={false} value={form.publicationAuthor1UolFaculty} onChange={onFieldChange("publicationAuthor1UolFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <select required={false} value={form.publicationAuthor1UolDepartment} onChange={onFieldChange("publicationAuthor1UolDepartment")} disabled={!form.publicationAuthor1UolFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1UolFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                       </>
                     ) : (
                       <>
-                        <input value={form.publicationAuthor1ExternalName} onChange={onFieldChange("publicationAuthor1ExternalName")} placeholder="Co-author Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor1ExternalEmail} onChange={onFieldChange("publicationAuthor1ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor1ExternalUniversity} onChange={onFieldChange("publicationAuthor1ExternalUniversity")} placeholder="University Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <select value={form.publicationAuthor1ExternalFaculty} onChange={onFieldChange("publicationAuthor1ExternalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                        <select value={form.publicationAuthor1ExternalDepartment} onChange={onFieldChange("publicationAuthor1ExternalDepartment")} disabled={!form.publicationAuthor1ExternalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1ExternalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <input required={false} value={form.publicationAuthor1ExternalName} onChange={onFieldChange("publicationAuthor1ExternalName")} placeholder="Co-author Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor1ExternalEmail} onChange={onFieldChange("publicationAuthor1ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor1ExternalUniversity} onChange={onFieldChange("publicationAuthor1ExternalUniversity")} placeholder="University Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <select required={false} value={form.publicationAuthor1ExternalFaculty} onChange={onFieldChange("publicationAuthor1ExternalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <select required={false} value={form.publicationAuthor1ExternalDepartment} onChange={onFieldChange("publicationAuthor1ExternalDepartment")} disabled={!form.publicationAuthor1ExternalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor1ExternalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                       </>
                     )}
                   </div>
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-                  <h4 className="font-semibold text-dark dark:text-white">Add another co-supervisor</h4>
-                  <select value={form.publicationCoAuthor2Type} onChange={onFieldChange("publicationCoAuthor2Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+                  <h4 className="font-semibold text-dark dark:text-white">Add another Co-Author</h4>
+                  <select required={false} value={form.publicationCoAuthor2Type} onChange={onFieldChange("publicationCoAuthor2Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
                     <option value="UOL">Option 1: UOL</option>
                     <option value="External">Option 2: External</option>
                   </select>
                   <div className="grid gap-4 md:grid-cols-2">
                     {form.publicationCoAuthor2Type === "UOL" ? (
                       <>
-                        <input value={form.publicationAuthor2UolSapId} onChange={onFieldChange("publicationAuthor2UolSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor2UolName} onChange={onFieldChange("publicationAuthor2UolName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor2UolEmail} onChange={onFieldChange("publicationAuthor2UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <select value={form.publicationAuthor2UolFaculty} onChange={onFieldChange("publicationAuthor2UolFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                        <select value={form.publicationAuthor2UolDepartment} onChange={onFieldChange("publicationAuthor2UolDepartment")} disabled={!form.publicationAuthor2UolFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor2UolFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <input required={false} value={form.publicationAuthor2UolSapId} onChange={onFieldChange("publicationAuthor2UolSapId")} placeholder="Co-Author SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor2UolName} onChange={onFieldChange("publicationAuthor2UolName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor2UolEmail} onChange={onFieldChange("publicationAuthor2UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <select required={false} value={form.publicationAuthor2UolFaculty} onChange={onFieldChange("publicationAuthor2UolFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <select required={false} value={form.publicationAuthor2UolDepartment} onChange={onFieldChange("publicationAuthor2UolDepartment")} disabled={!form.publicationAuthor2UolFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor2UolFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                       </>
                     ) : (
                       <>
-                        <input value={form.publicationAuthor2ExternalName} onChange={onFieldChange("publicationAuthor2ExternalName")} placeholder="Co-author Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor2ExternalEmail} onChange={onFieldChange("publicationAuthor2ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input value={form.publicationAuthor2ExternalUniversity} onChange={onFieldChange("publicationAuthor2ExternalUniversity")} placeholder="University Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <select value={form.publicationAuthor2ExternalFaculty} onChange={onFieldChange("publicationAuthor2ExternalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                        <select value={form.publicationAuthor2ExternalDepartment} onChange={onFieldChange("publicationAuthor2ExternalDepartment")} disabled={!form.publicationAuthor2ExternalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor2ExternalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <input required={false} value={form.publicationAuthor2ExternalName} onChange={onFieldChange("publicationAuthor2ExternalName")} placeholder="Co-author Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor2ExternalEmail} onChange={onFieldChange("publicationAuthor2ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input required={false} value={form.publicationAuthor2ExternalUniversity} onChange={onFieldChange("publicationAuthor2ExternalUniversity")} placeholder="University Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <select required={false} value={form.publicationAuthor2ExternalFaculty} onChange={onFieldChange("publicationAuthor2ExternalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <select required={false} value={form.publicationAuthor2ExternalDepartment} onChange={onFieldChange("publicationAuthor2ExternalDepartment")} disabled={!form.publicationAuthor2ExternalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.publicationAuthor2ExternalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                       </>
                     )}
                   </div>
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
                   <h4 className="font-semibold text-dark dark:text-white">1.3 External researcher in team?</h4>
-                  <select value={form.hasExternalResearcher} onChange={onFieldChange("hasExternalResearcher")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
+                  <select required={false} value={form.hasExternalResearcher} onChange={onFieldChange("hasExternalResearcher")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                   {form.hasExternalResearcher === "Yes" && (
-                    <textarea value={form.externalResearcherDetails} onChange={onFieldChange("externalResearcherDetails")} rows={3} placeholder="Provide names, qualifications and affiliations." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                    <textarea required={false} value={form.externalResearcherDetails} onChange={onFieldChange("externalResearcherDetails")} rows={3} placeholder="Provide names, qualifications and affiliations." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                   )}
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
@@ -3598,7 +3584,8 @@ export default function ApprovalRequestStepper({
                 />
               </section>
             )}
-            </ActiveFormWrapper>
+              </>
+            )}
           </div>
           </fieldset>
 

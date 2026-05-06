@@ -15,6 +15,21 @@ export type OverviewData = {
   irebRejected: { value: number; growthRate: number };
 };
 
+export type OverviewTimelinePoint = {
+  label: string | number;
+  /** Total requests in this bucket */
+  total: number;
+};
+
+export type OverviewTimelineBreakdownPoint = OverviewTimelinePoint & {
+  pendingDean: number;
+  pendingIreb: number;
+  approvedDean: number;
+  approvedIreb: number;
+  rejectedDean: number;
+  rejectedIreb: number;
+};
+
 type LeadStatus =
   | "Submitted"
   | "Under Review by Dean"
@@ -478,6 +493,107 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
     deanRejected: { value: deanRejected, growthRate: toRate(deanRejected) },
     irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
   };
+}
+
+/**
+ * Returns a simple time-series of total requests grouped by submitted date.
+ * - monthly: last 12 calendar months (labelled "Mon YYYY")
+ * - yearly: per calendar year present in the data
+ */
+export async function getOverviewTimeline(
+  session: Session | undefined,
+  mode: "monthly" | "yearly" = "monthly",
+): Promise<OverviewTimelinePoint[]> {
+  const timeline = await getOverviewTimelineBreakdown(session, mode);
+  return timeline.map(({ label, total }) => ({ label, total }));
+}
+
+export async function getOverviewTimelineBreakdown(
+  session: Session | undefined,
+  mode: "monthly" | "yearly" = "monthly",
+): Promise<OverviewTimelineBreakdownPoint[]> {
+  const scopedRows = await getScopedSubmissionRows(session);
+
+  const mkEmpty = (label: string | number): Omit<OverviewTimelineBreakdownPoint, "label"> => ({
+    total: 0,
+    pendingDean: 0,
+    pendingIreb: 0,
+    approvedDean: 0,
+    approvedIreb: 0,
+    rejectedDean: 0,
+    rejectedIreb: 0,
+  });
+
+  const isPendingDean = (s: SubmissionScopeRow["current_status"]) =>
+    s === "submitted" || s === "under_dean_review";
+  const isPendingIreb = (s: SubmissionScopeRow["current_status"]) => s === "under_ireb_review";
+  const isApprovedDean = (s: SubmissionScopeRow["current_status"]) =>
+    s === "dean_approved" || s === "under_ireb_review" || s === "approved" || s === "rejected";
+  const isApprovedIreb = (s: SubmissionScopeRow["current_status"]) => s === "approved";
+  const isRejectedDean = (s: SubmissionScopeRow["current_status"]) => s === "dean_rejected";
+  const isRejectedIreb = (s: SubmissionScopeRow["current_status"]) => s === "rejected";
+
+  if (mode === "monthly") {
+    // Always return the last 12 calendar months (oldest -> newest), filling missing buckets with 0.
+    const now = new Date();
+    const monthKeys: { key: string; label: string }[] = [];
+    for (let offset = 11; offset >= 0; offset--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const label = d.toLocaleString("default", { month: "short", year: "numeric" });
+      monthKeys.push({ key, label });
+    }
+
+    const buckets = new Map<string, OverviewTimelineBreakdownPoint>(
+      monthKeys.map((m) => [m.key, { label: m.label, ...mkEmpty(m.label) }]),
+    );
+
+    for (const row of scopedRows) {
+      const d = new Date(row.submitted_at);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const bucket = buckets.get(key);
+      if (!bucket) continue; // outside last 12 months
+
+      const s = row.current_status;
+      bucket.total += 1;
+      if (isPendingDean(s)) bucket.pendingDean += 1;
+      if (isPendingIreb(s)) bucket.pendingIreb += 1;
+      if (isApprovedDean(s)) bucket.approvedDean += 1;
+      if (isApprovedIreb(s)) bucket.approvedIreb += 1;
+      if (isRejectedDean(s)) bucket.rejectedDean += 1;
+      if (isRejectedIreb(s)) bucket.rejectedIreb += 1;
+    }
+
+    return monthKeys.map((m) => buckets.get(m.key)!);
+  }
+
+  // yearly
+  if (scopedRows.length === 0) return [];
+
+  const buckets = new Map<number, OverviewTimelineBreakdownPoint>();
+  for (const row of scopedRows) {
+    const d = new Date(row.submitted_at);
+    if (Number.isNaN(d.getTime())) continue;
+    const year = d.getFullYear();
+    const bucket =
+      buckets.get(year) ?? (() => {
+        const init = { label: year, ...mkEmpty(year) };
+        buckets.set(year, init);
+        return init;
+      })();
+
+    const s = row.current_status;
+    bucket.total += 1;
+    if (isPendingDean(s)) bucket.pendingDean += 1;
+    if (isPendingIreb(s)) bucket.pendingIreb += 1;
+    if (isApprovedDean(s)) bucket.approvedDean += 1;
+    if (isApprovedIreb(s)) bucket.approvedIreb += 1;
+    if (isRejectedDean(s)) bucket.rejectedDean += 1;
+    if (isRejectedIreb(s)) bucket.rejectedIreb += 1;
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => Number(a.label) - Number(b.label));
 }
 
 export async function getUsedDevicesData(session: Session) {

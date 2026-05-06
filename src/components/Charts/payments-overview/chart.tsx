@@ -11,6 +11,11 @@ type PropsType = {
   }>;
 };
 
+type BarChartProps = PropsType & {
+  selectedIndex?: number;
+  selectedLabel?: string;
+};
+
 const Chart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -94,5 +99,82 @@ export function PaymentsOverviewChart({ data }: PropsType) {
         height={310}
       />
     </div>
+  );
+}
+
+export function PaymentsOverviewBarChartTable({
+  data,
+  selectedIndex,
+  selectedLabel,
+}: BarChartProps) {
+  const first = data?.[0]?.data ?? [];
+  const fallbackIndex = Math.max(0, first.length - 1);
+  const activeIndex =
+    typeof selectedIndex === "number"
+      ? Math.min(Math.max(selectedIndex, 0), fallbackIndex)
+      : fallbackIndex;
+  const periodLabel =
+    selectedLabel ??
+    (typeof first[activeIndex]?.x === "string"
+      ? first[activeIndex]?.x
+      : typeof first[activeIndex]?.x === "number"
+        ? String(first[activeIndex]?.x)
+        : "Latest");
+
+  const categories = data.map((s) => s.name);
+  const values = data.map((s) => Number(s.data?.[activeIndex]?.y) || 0);
+
+  const options: ApexOptions = {
+    chart: {
+      type: "bar",
+      fontFamily: "inherit",
+      toolbar: { show: false },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        borderRadius: 4,
+        barHeight: "60%",
+      },
+    },
+    xaxis: {
+      categories,
+      labels: {
+        formatter: (val) => String(Math.round(Number(val) || 0)),
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => String(Math.round(Number(val) || 0)),
+      style: { fontSize: "12px" },
+    },
+    tooltip: {
+      y: {
+        formatter: (val) => String(Math.round(Number(val) || 0)),
+      },
+    },
+    grid: {
+      strokeDashArray: 5,
+    },
+    colors: ["#5750F1"],
+    title: {
+      text: periodLabel,
+      align: "left",
+      style: { fontSize: "12px", fontWeight: 600 },
+    },
+  };
+
+  return (
+    <Chart
+      options={options}
+      series={[
+        {
+          name: "Requests",
+          data: values,
+        },
+      ]}
+      type="bar"
+      height={310}
+    />
   );
 }

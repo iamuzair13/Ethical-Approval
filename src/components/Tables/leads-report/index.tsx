@@ -35,6 +35,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 
 type LeadStatus =
   | "Submitted"
@@ -446,8 +447,12 @@ export function LeadsReport({
         previewIframe: reportPreviewIframeRef.current,
         html: d.html,
       });
+      toast.success("Report downloaded.");
     } catch {
-      setActionError("Could not generate the PDF. Use Print → Save as PDF from the preview, or try again.");
+      const message =
+        "Could not generate the PDF. Use Print → Save as PDF from the preview, or try again.";
+      setActionError(message);
+      toast.error(message);
     } finally {
       adminReportPdfBusyRef.current = false;
       setAdminReportPdfExporting(false);
@@ -503,12 +508,16 @@ export function LeadsReport({
       const response = await fetch(`/api/submissions/${lead.id}`, { cache: "no-store" });
       const payload = (await response.json()) as { ok?: boolean; error?: string; submission?: unknown };
       if (!response.ok || !payload?.ok || !payload.submission) {
-        setAttachmentModalError(payload?.error ?? "Unable to load submission.");
+        const message = payload?.error ?? "Unable to load submission.";
+        setAttachmentModalError(message);
+        toast.error(message);
         return;
       }
       setAttachmentModalPayload(payload);
     } catch {
-      setAttachmentModalError("Network error while loading submission.");
+      const message = "Network error while loading submission.";
+      setAttachmentModalError(message);
+      toast.error(message);
     } finally {
       setAttachmentModalLoading(false);
     }
@@ -526,6 +535,7 @@ export function LeadsReport({
     link.download = `application-${attachmentModalLead.applicationId}-${attachmentModalLead.id}.html`;
     link.click();
     URL.revokeObjectURL(url);
+    toast.success("Application report downloaded.");
   };
 
   const downloadNameOnlyReference = (slotLabel: string, fileName: string) => {
@@ -541,6 +551,7 @@ export function LeadsReport({
       "Contact the applicant if you need the actual document.",
     ].join("\n");
     saveTextDownload(`${attachmentModalLead.applicationId}-${safe}-reference.txt`, body);
+    toast.message("Downloaded a reference file (binary not stored on server).");
   };
 
   /**
@@ -555,6 +566,7 @@ export function LeadsReport({
     try {
       const res = await fetch(url, { credentials: "include" });
       if (res.status === 401 || res.status === 403) {
+        toast.error("Your session expired. Please sign in again.");
         return;
       }
       const ct = (res.headers.get("content-type") ?? "").toLowerCase();
@@ -570,6 +582,7 @@ export function LeadsReport({
         link.download = fileName.replace(/[\r\n"]/g, "_");
         link.click();
         URL.revokeObjectURL(objectUrl);
+        toast.success("Document downloaded.");
         return;
       }
       downloadNameOnlyReference(slotLabelForFallback, fileName);
@@ -606,7 +619,9 @@ export function LeadsReport({
   const handleDecisionSubmit = async () => {
     if (!decisionLead) return;
     if (currentRole === "administrator" && !selectedOnBehalfOf) {
-      setActionError("Please select who this action is on behalf of.");
+      const message = "Please select who this action is on behalf of.";
+      setActionError(message);
+      toast.error(message);
       return;
     }
 
@@ -624,13 +639,22 @@ export function LeadsReport({
       });
       const payload = (await response.json()) as { ok: boolean; error?: string };
       if (!response.ok || !payload.ok) {
-        setActionError(payload.error ?? "Unable to save decision.");
+        const message = payload.error ?? "Unable to save decision.";
+        setActionError(message);
+        toast.error(message);
         return;
       }
+      toast.success(
+        decisionAction === "approved"
+          ? `Application ${decisionLead.applicationId} approved.`
+          : `Application ${decisionLead.applicationId} rejected.`,
+      );
       resetDecisionModal();
       router.refresh();
     } catch {
-      setActionError("Network error while saving decision.");
+      const message = "Network error while saving decision.";
+      setActionError(message);
+      toast.error(message);
     } finally {
       setBusyLeadId(null);
     }

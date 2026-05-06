@@ -139,8 +139,12 @@ function newApprovalDraftSessionId(): string {
 export default function Page() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const isStudentEmail = (session?.user?.email ?? "")
+    .toLowerCase()
+    .endsWith("@student.uol.edu.pk");
 
   const profile = useMemo(() => {
+    const isFaculty = !isStudentEmail;
     const rec = session?.user?.studentRecord;
     const normalizeKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
     const getStringField = (keys: string[]): string | null => {
@@ -165,8 +169,14 @@ export default function Page() {
       return null;
     };
 
-    const dept =
-      getStringField(["DeptName", "Dept", "Department"]) ?? "—";
+    const deptFromRecord = getStringField(["DeptName", "Dept", "Department"]);
+    const facultyDeptFromSession =
+      typeof session?.user?.facultyDepartment === "string" && session.user.facultyDepartment.trim()
+        ? session.user.facultyDepartment.trim()
+        : null;
+    const dept = isFaculty
+      ? facultyDeptFromSession ?? deptFromRecord ?? "—"
+      : deptFromRecord ?? "—";
     const facultyFromRecord =
       getStringField([
         "Faculty",
@@ -180,8 +190,13 @@ export default function Page() {
     const inferredFaculty = dept !== "—" ? inferFacultyFromDepartment(dept) : null;
     // Business rule: faculty must be derived from department mapping first.
     const faculty = inferredFaculty ?? facultyFromRecord ?? "—";
-    const degreeTitle =
-      getStringField(["DegrTitle", "DegreeTitle", "Degree"]) ?? "—";
+    const designationFromSession =
+      typeof session?.user?.facultyDesignation === "string" && session.user.facultyDesignation.trim()
+        ? session.user.facultyDesignation.trim()
+        : null;
+    const degreeTitle = isFaculty
+      ? designationFromSession ?? "—"
+      : getStringField(["DegrTitle", "DegreeTitle", "Degree"]) ?? "—";
     const reg =
       rec && typeof rec === "object" && "RegNo" in rec && typeof (rec as { RegNo?: string }).RegNo === "string"
         ? (rec as { RegNo: string }).RegNo
@@ -190,14 +205,14 @@ export default function Page() {
           : "—";
 
     return {
-      name: session?.user?.name ?? "Student",
+      name: session?.user?.name ?? (isFaculty ? "Faculty" : "Student"),
       regNo: reg,
       email: session?.user?.email ?? "—",
       department: dept,
       faculty,
       degreeTitle,
     };
-  }, [session]);
+  }, [isStudentEmail, session]);
 
   const [isStepperOpen, setIsStepperOpen] = useState(false);
   const [stepperMode, setStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
@@ -521,10 +536,6 @@ export default function Page() {
     return "pending";
   };
 
-  const isStudentEmail = (session?.user?.email ?? "")
-    .toLowerCase()
-    .endsWith("@student.uol.edu.pk");
-
   const userStorageId =
     (typeof session?.user?.sapId === "string" && session.user.sapId.trim()) ||
     (session?.user?.email?.trim() ?? "") ||
@@ -542,7 +553,12 @@ export default function Page() {
       return;
     }
 
-    setRequiredForm(null);
+    setRequiredForm({
+      id: "form6-publication-faculty-non-medical",
+      label: "Form 6 Research Publication Form for Faculty/Staff (Non-Medical Sciences)",
+      href: "#",
+      applicationType: "research-publication",
+    });
     setIsStepperOpen(true);
   };
 
@@ -848,204 +864,463 @@ export default function Page() {
     <div className="mx-auto w-full max-w-[1100px]">
       <Breadcrumb pageName="Profile" />
 
-      <div className="grid gap-6">
-        <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
+      <div className="grid gap-6 max-w-7xl mx-auto">
+  {/* Profile & Stats Overview */}
+  <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card overflow-hidden relative">
+    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-purple-500 opacity-80" />
+    
+    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+      {/* Profile Info */}
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-lg ring-4 ring-primary/10 dark:ring-primary/20">
+          {profile.name?.charAt(0)?.toUpperCase() || "U"}
+        </div>
+        <div>
           <h2 className="text-heading-6 font-bold text-dark dark:text-white">
             {profile.name}
           </h2>
-          <p className="mt-1 font-medium">
-            {profile.regNo} · {profile.department}
-          </p>
-          <p className="text-body-sm">{profile.email}</p>
-          <p className="mt-1 text-body-sm">
-            Faculty: {profile.faculty} · Degree: {profile.degreeTitle}
-          </p>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
-              <p className="text-body-sm">Under Review by Dean</p>
-              <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inDean}</p>
-            </div>
-            <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
-              <p className="text-body-sm">Under Review by IREB</p>
-              <p className="text-lg font-bold text-dark dark:text-white">{requestStats.inEthical}</p>
-            </div>
-            <div className="rounded-lg border border-stroke p-3 text-center dark:border-dark-3">
-              <p className="text-body-sm">Completed Decisions</p>
-              <p className="text-lg font-bold text-dark dark:text-white">{requestStats.completed}</p>
-            </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-dark-6 dark:text-dark-6">
+            <span className="inline-flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+              </svg>
+              {profile.regNo}
+            </span>
+            <span className="w-px h-3 bg-stroke dark:bg-dark-3" />
+            <span className="inline-flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              {profile.department}
+            </span>
           </div>
-        </div>
-
-        <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <h3 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-            Create New Approval Request
-          </h3>
-          <p className="mb-4 text-body-sm">
-            Start the multi-step ethical review form and submit your approval request.
+          <p className="mt-1.5 text-body-sm lowercase text-dark-6 dark:text-dark-6 inline-flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            {profile.email}
           </p>
-          <button
-            type="button"
-            onClick={handleOpenApplicationFlow}
-            className="rounded-lg bg-primary px-4 py-2.5 font-medium text-white hover:bg-opacity-90"
-          >
-            Open New Approval Application
-          </button>
-        </div>
-
-        <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <h3 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-            Track Submitted Requests
-          </h3>
-          {isLoadingRequests && (
-            <p className="mb-3 text-body-sm">Refreshing latest submission statuses...</p>
-          )}
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Application ID</TableHead>
-                <TableHead>Request</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Expected Response</TableHead>
-                <TableHead>Current Stage</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {requests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell className="whitespace-nowrap font-mono text-sm font-semibold text-dark dark:text-white">
-                    {request.applicationId}
-                  </TableCell>
-                  <TableCell>
-                    <p className="font-medium text-dark dark:text-white">{request.title}</p>
-                    <p className="text-body-sm">{request.id}</p>
-                  </TableCell>
-                  <TableCell>{request.submittedOn}</TableCell>
-                  <TableCell>{request.isDraft ? "—" : "2 days"}</TableCell>
-                  <TableCell>{request.currentStage}</TableCell>
-                  <TableCell>
-                    {request.isDraft ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleContinueDraft(request)}
-                          className="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
-                        >
-                          Continue
-                        </button>
-                        <button
-                          type="button"
-                          disabled={discardingDraftId === request.numericId}
-                          onClick={() => void handleDiscardDraft(request)}
-                          className="rounded-md border border-red px-3 py-1.5 text-sm font-medium text-red transition hover:bg-red/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {discardingDraftId === request.numericId ? "Discarding..." : "Discard"}
-                        </button>
-                      </div>
-                    ) : request.currentStage.includes("Rejected") ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleOpenRevision(request)}
-                          className="rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-600 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-                        >
-                          Submit Revision
-                        </button>
-                        {request.latestFeedbackComment && (
-                          <button
-                            type="button"
-                            onClick={() => setFeedbackModalRequest(request)}
-                            className="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
-                          >
-                            View Feedback
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleViewSubmission(request.numericId)}
-                          className="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
-                        >
-                          View Application
-                        </button>
-                        {request.latestFeedbackComment && (
-                          <button
-                            type="button"
-                            onClick={() => setFeedbackModalRequest(request)}
-                            className="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
-                          >
-                            View Feedback
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {requests.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-body-sm">
-                    No submissions found yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
-          {submissionError && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submissionError}</p>
-          )}
-
-          <div className="mt-6 grid gap-4">
-            {requests.map((request) => (
-              <div
-                key={`${request.id}-timeline`}
-                className="rounded-lg border border-stroke p-4 dark:border-dark-3"
-              >
-                <p className="font-medium text-dark dark:text-white">{request.title}</p>
-                <p className="mb-4 text-body-sm">{request.description}</p>
-                {request.isDraft ? (
-                  <p className="text-body-sm text-dark-6 dark:text-dark-6">
-                    Draft — not submitted yet. Use Continue in the table above to finish your
-                    application.
-                  </p>
-                ) : (
-                  <div className="grid gap-2">
-                    {STAGES.map((stage) => {
-                      const state = getStageState(request.currentStage, stage);
-
-                      return (
-                        <div key={stage} className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "inline-flex size-2.5 rounded-full",
-                              state === "done" && "bg-green",
-                              state === "active" && "bg-primary ring-4 ring-primary/20",
-                              state === "pending" && "bg-stroke dark:bg-dark-3",
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              "text-sm",
-                              state === "active" && "font-semibold text-dark dark:text-white",
-                            )}
-                          >
-                            {stage}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+          
+          <div className="mt-3">
+            {!isStudentEmail ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
+                  <span className="text-xs text-dark-6 dark:text-dark-6">Designation</span>
+                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
+                  <span className="text-xs font-bold text-dark dark:text-white">{profile.degreeTitle}</span>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
+                  <span className="text-xs text-dark-6 dark:text-dark-6">Department</span>
+                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
+                  <span className="text-xs font-bold text-dark dark:text-white">{profile.department}</span>
+                </div>
               </div>
-            ))}
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
+                  <span className="text-xs text-dark-6 dark:text-dark-6">Faculty</span>
+                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
+                  <span className="text-xs font-bold text-dark dark:text-white">{profile.faculty}</span>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
+                  <span className="text-xs text-dark-6 dark:text-dark-6">Degree</span>
+                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
+                  <span className="text-xs font-bold text-dark dark:text-white">{profile.degreeTitle}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
+
+    {/* Stats Grid */}
+    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-amber-500/30 dark:hover:border-amber-500/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Under Review by Dean</p>
+            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.inDean}</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
+          <div className="h-full bg-amber-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.inDean / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
+        </div>
+      </div>
+
+      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-primary/30 dark:hover:border-primary/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Under Review by IREB</p>
+            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.inEthical}</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.inEthical / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
+        </div>
+      </div>
+
+      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-green-500/30 dark:hover:border-green-500/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Completed Decisions</p>
+            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.completed}</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
+          <div className="h-full bg-green rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.completed / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Quick Action Card */}
+  <div className="rounded-[10px] bg-gradient-to-br from-primary/[0.03] to-blue-500/[0.03] border border-primary/10 dark:border-primary/20 p-6 dark:bg-gray-dark/50 relative overflow-hidden">
+    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+    <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-heading-6 font-bold text-dark dark:text-white">
+            Create New Approval Request
+          </h3>
+          <p className="mt-1 text-body-sm text-dark-6 dark:text-dark-6 max-w-xl">
+            Start the multi-step ethical review form and submit your approval request to the review board.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleOpenApplicationFlow}
+        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-white hover:bg-opacity-90 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Open New Approval Application
+      </button>
+    </div>
+  </div>
+
+  {/* Submissions Tracking */}
+  <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-dark-3 flex items-center justify-center text-dark dark:text-white">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-heading-6 font-bold text-dark dark:text-white">
+            Track Submitted Requests
+          </h3>
+          <p className="text-body-sm text-dark-6 dark:text-dark-6">
+            Monitor application status and manage drafts
+          </p>
+        </div>
+      </div>
+      {isLoadingRequests && (
+        <span className="inline-flex items-center gap-2 text-body-sm text-dark-6 dark:text-dark-6 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5 rounded-lg border border-stroke dark:border-dark-3">
+          <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Refreshing statuses...
+        </span>
+      )}
+    </div>
+
+    <div className="overflow-x-auto -mx-6 px-6">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-stroke dark:border-dark-3 hover:bg-transparent">
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Application ID</TableHead>
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">Request</TableHead>
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Submitted</TableHead>
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Expected Response</TableHead>
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">Current Stage</TableHead>
+            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider text-right">Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {requests.map((request) => (
+            <TableRow key={request.id} className="group border-b border-stroke/50 dark:border-dark-3/50 transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-2/20">
+              <TableCell className="whitespace-nowrap py-4">
+                <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-dark dark:text-white bg-gray-100 dark:bg-dark-3 px-2.5 py-1 rounded-md border border-stroke/50 dark:border-dark-3">
+                  {request.applicationId}
+                </span>
+              </TableCell>
+              <TableCell className="py-4">
+                <p className="font-semibold text-dark dark:text-white leading-tight">{request.title}</p>
+                <p className="text-body-sm text-dark-6 dark:text-dark-6 mt-0.5">{request.id}</p>
+              </TableCell>
+              <TableCell className="text-body-sm text-dark-6 dark:text-dark-6 py-4 whitespace-nowrap">{request.submittedOn}</TableCell>
+              <TableCell className="text-body-sm text-dark-6 dark:text-dark-6 py-4 whitespace-nowrap">
+                {request.isDraft ? (
+                  <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Draft
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    2 days
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="py-4">
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border",
+                  request.currentStage.includes("Rejected") 
+                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20"
+                    : request.currentStage.includes("Approved") 
+                    ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20"
+                    : request.isDraft
+                    ? "bg-gray-100 text-gray-700 border-gray-200 dark:bg-dark-3 dark:text-gray-400 dark:border-dark-3"
+                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
+                )}>
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    request.currentStage.includes("Rejected") ? "bg-red-500" :
+                    request.currentStage.includes("Approved") ? "bg-green" :
+                    request.isDraft ? "bg-gray-400" : "bg-primary"
+                  )} />
+                  {request.currentStage}
+                </span>
+              </TableCell>
+              <TableCell className="py-4 text-right">
+                {request.isDraft ? (
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleContinueDraft(request)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                      Continue
+                    </button>
+                    <button
+                      type="button"
+                      disabled={discardingDraftId === request.numericId}
+                      onClick={() => void handleDiscardDraft(request)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-red px-3 py-1.5 text-sm font-semibold text-red transition-all duration-200 hover:bg-red hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-red"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      {discardingDraftId === request.numericId ? "Discarding..." : "Discard"}
+                    </button>
+                  </div>
+                ) : request.currentStage.includes("Rejected") ? (
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenRevision(request)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-500 px-3 py-1.5 text-sm font-semibold text-amber-600 transition-all duration-200 hover:bg-amber-500 hover:text-white dark:text-amber-400 dark:hover:bg-amber-500 dark:hover:text-white"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Submit Revision
+                    </button>
+                    {request.latestFeedbackComment && (
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackModalRequest(request)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        View Feedback
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleViewSubmission(request.numericId)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View Application
+                    </button>
+                    {request.latestFeedbackComment && (
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackModalRequest(request)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        View Feedback
+                      </button>
+                    )}
+                  </div>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {requests.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="py-12 text-center">
+                <div className="flex flex-col items-center justify-center text-dark-6 dark:text-dark-6">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-dark-3 flex items-center justify-center mb-3">
+                    <svg className="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-body-sm font-medium">No submissions found yet.</p>
+                  <p className="text-xs mt-1 opacity-70">Create a new approval request to get started.</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+
+    {submissionError && (
+      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red/20 bg-red/5 px-4 py-3 text-sm text-red dark:text-red">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        {submissionError}
+      </div>
+    )}
+
+    {/* Timeline Section */}
+    <div className="mt-8 pt-6 border-t border-stroke dark:border-dark-3">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-dark-3 flex items-center justify-center">
+          <svg className="w-4 h-4 text-dark-6 dark:text-dark-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <h4 className="text-sm font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">
+          Application Progress
+        </h4>
+      </div>
+      
+      <div className="grid gap-4 lg:grid-cols-2">
+        {requests.map((request) => (
+          <div
+            key={`${request.id}-timeline`}
+            className="group rounded-xl border border-stroke bg-gray-50/30 dark:bg-dark-2/20 dark:border-dark-3 p-5 transition-all duration-300 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/20"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="font-semibold text-dark dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors">{request.title}</p>
+                <p className="text-body-sm text-dark-6 dark:text-dark-6 mt-0.5">{request.description}</p>
+              </div>
+              {request.isDraft && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+                  Draft
+                </span>
+              )}
+            </div>
+            
+            {request.isDraft ? (
+              <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10 px-4 py-3">
+                <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  Draft — not submitted yet. Use <span className="font-semibold">Continue</span> in the table above to finish your application.
+                </p>
+              </div>
+            ) : (
+              <div className="relative pl-2">
+                {STAGES.map((stage, idx) => {
+                  const state = getStageState(request.currentStage, stage);
+                  const isLast = idx === STAGES.length - 1;
+
+                  return (
+                    <div key={stage} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                      {/* Connector line */}
+                      {!isLast && (
+                        <div className={cn(
+                          "absolute left-[9px] top-5 w-0.5 h-full -translate-x-1/2",
+                          state === "done" ? "bg-green/40" : "bg-stroke dark:bg-dark-3"
+                        )} />
+                      )}
+                      
+                      {/* Status dot */}
+                      <div className={cn(
+                        "relative z-10 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
+                        state === "done" && "bg-green text-white",
+                        state === "active" && "bg-primary text-white ring-4 ring-primary/20",
+                        state === "pending" && "bg-gray-200 dark:bg-dark-3 text-dark-6 dark:text-dark-6"
+                      )}>
+                        {state === "done" ? (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : state === "active" ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-600" />
+                        )}
+                      </div>
+                      
+                      <div className={cn(
+                        "pt-0.5",
+                        state === "active" && "-mt-0.5"
+                      )}>
+                        <span className={cn(
+                          "text-sm transition-colors duration-200",
+                          state === "done" && "font-medium text-dark dark:text-white",
+                          state === "active" && "font-bold text-dark dark:text-white",
+                          state === "pending" && "text-dark-6 dark:text-dark-6"
+                        )}>
+                          {stage}
+                        </span>
+                        {state === "active" && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary uppercase tracking-wide">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
 
       <ApprovalRequestStepper
         key={

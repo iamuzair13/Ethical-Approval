@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type AdminRole = "administrator" | "dean" | "ireb";
 type AdminStatus = "active" | "inactive";
@@ -169,9 +170,10 @@ export default function UsersPage() {
       setFaculties(facultiesBody.faculties ?? []);
       setDepartments(departmentsBody.departments ?? []);
     } catch (fetchError) {
-      setError(
-        fetchError instanceof Error ? fetchError.message : "Failed to load data.",
-      );
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Failed to load data.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -245,12 +247,15 @@ export default function UsersPage() {
     });
     const body = (await response.json()) as { ok: boolean; error?: string };
     if (!response.ok || !body.ok) {
-      setError(body.error ?? "Unable to create user.");
+      const message = body.error ?? "Unable to create user.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     resetCreateForm();
     await fetchData();
+    toast.success("Admin user created.");
   };
 
   const onAssignFaculty = async (event: React.FormEvent) => {
@@ -283,11 +288,14 @@ export default function UsersPage() {
     });
     const body = (await response.json()) as { ok: boolean; error?: string };
     if (!response.ok || !body.ok) {
-      setError(body.error ?? "Unable to assign faculties.");
+      const message = body.error ?? "Unable to assign faculties.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     await fetchData();
+    toast.success("Faculty/department assignment updated.");
   };
 
   const onUpdateUser = async (event: React.FormEvent) => {
@@ -308,12 +316,15 @@ export default function UsersPage() {
     });
     const body = (await response.json()) as { ok: boolean; error?: string };
     if (!response.ok || !body.ok) {
-      setError(body.error ?? "Unable to update user.");
+      const message = body.error ?? "Unable to update user.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     setEditingUser(null);
     await fetchData();
+    toast.success("Admin user updated.");
   };
 
   const deanCreateDepartments = useMemo(
@@ -358,10 +369,13 @@ export default function UsersPage() {
       });
       const body = (await response.json()) as { ok: boolean; error?: string };
       if (!response.ok || !body.ok) {
-        setError(body.error ?? "Unable to update user status.");
+        const message = body.error ?? "Unable to update user status.";
+        setError(message);
+        toast.error(message);
         return;
       }
       await fetchData();
+      toast.success(user.status === "active" ? "User deactivated." : "User activated.");
     } finally {
       setBusyUserId(null);
     }

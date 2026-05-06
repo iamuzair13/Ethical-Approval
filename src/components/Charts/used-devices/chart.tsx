@@ -8,6 +8,10 @@ type PropsType = {
   data: { name: string; amount: number; percentage?: number }[];
 };
 
+type BarChartTableProps = PropsType & {
+  selectedLabel?: string;
+};
+
 const Chart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -97,6 +101,64 @@ export function DonutChart({ data }: PropsType) {
       options={chartOptions}
       series={data.map((item) => item.amount)}
       type="donut"
+    />
+  );
+}
+
+export function BarChartTable({ data, selectedLabel }: BarChartTableProps) {
+  const options: ApexOptions = {
+    chart: {
+      type: "bar",
+      fontFamily: "inherit",
+      toolbar: { show: false },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        borderRadius: 4,
+        barHeight: "60%",
+      },
+    },
+    xaxis: {
+      categories: data.map((item) => item.name),
+      labels: {
+        formatter: (val) => compactFormat(Number(val)),
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => compactFormat(Number(val)),
+      style: { fontSize: "12px" },
+    },
+    tooltip: {
+      y: {
+        formatter: (val) => compactFormat(Number(val)),
+      },
+    },
+    grid: {
+      strokeDashArray: 5,
+    },
+    colors: ["#5750F1"],
+    title: selectedLabel
+      ? {
+          text: selectedLabel,
+          align: "left",
+          style: { fontSize: "12px", fontWeight: 600 },
+        }
+      : undefined,
+  };
+
+  return (
+    <Chart
+      options={options}
+      series={[
+        {
+          name: "Requests",
+          data: data.map((item) => item.amount),
+        },
+      ]}
+      type="bar"
+      height={260}
     />
   );
 }

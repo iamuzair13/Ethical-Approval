@@ -1,7 +1,7 @@
 import { PeriodPicker } from "@/components/period-picker";
 import { cn } from "@/lib/utils";
 import { getDevicesUsedData } from "@/services/charts.services";
-import { DonutChart } from "./chart";
+import { UsedDevicesViewToggle } from "./view-toggle";
 
 export type UsedDeviceDatum = {
   name: string;
@@ -25,6 +25,17 @@ export async function UsedDevices({
   data,
 }: PropsType) {
   const chartData = data ?? (await getDevicesUsedData(timeFrame));
+  const currentDate = new Date();
+  const periodOptions =
+    timeFrame === "yearly"
+      ? Array.from({ length: 6 }, (_, index) => String(currentDate.getFullYear() - index))
+      : Array.from({ length: 12 }, (_, index) => {
+          const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - index, 1);
+          return new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            year: "numeric",
+          }).format(date);
+        });
 
   return (
     <div
@@ -38,11 +49,13 @@ export async function UsedDevices({
           {title}
         </h2>
 
-        <PeriodPicker defaultValue={timeFrame} sectionKey={sectionKey} />
+        <div className="flex items-center gap-3">
+          <PeriodPicker defaultValue={timeFrame} sectionKey={sectionKey} minimal />
+        </div>
       </div>
 
       <div className="grid place-items-center">
-        <DonutChart data={chartData} />
+        <UsedDevicesViewToggle data={chartData} periodOptions={periodOptions} />
       </div>
 
 

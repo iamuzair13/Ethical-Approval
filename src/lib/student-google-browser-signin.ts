@@ -137,18 +137,38 @@ export async function signInStudentViaGoogleBrowserToken(
     return { ok: false, errorCode: "AccessDenied", message: msg };
   }
 
-  const verifyRes = await fetch("/api/auth/verify-student", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
+  const isStudentEmail = email.endsWith("@student.uol.edu.pk");
+  if (isStudentEmail) {
+    const verifyRes = await fetch("/api/auth/verify-student", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
 
-  if (!verifyRes.ok) {
-    const verifyBody = (await verifyRes.json().catch(() => null)) as { errorCode?: string } | null;
-    return {
-      ok: false,
-      errorCode: verifyBody?.errorCode ?? "SAP_ERROR",
-    };
+    if (!verifyRes.ok) {
+      const verifyBody = (await verifyRes.json().catch(() => null)) as
+        | { errorCode?: string }
+        | null;
+      return {
+        ok: false,
+        errorCode: verifyBody?.errorCode ?? "SAP_ERROR",
+      };
+    }
+  } else {
+    const verifyFacultyRes = await fetch("/api/auth/verify-student", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!verifyFacultyRes.ok) {
+      const verifyBody = (await verifyFacultyRes.json().catch(() => null)) as
+        | { errorCode?: string }
+        | null;
+      return {
+        ok: false,
+        errorCode: verifyBody?.errorCode ?? "FACULTY_NOT_FOUND",
+      };
+    }
   }
 
   const studentTarget = email.endsWith("@student.uol.edu.pk") ? "/profile" : callbackUrl;

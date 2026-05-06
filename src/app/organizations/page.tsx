@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Faculty = {
   id: number;
@@ -100,7 +101,10 @@ export default function OrganizationsPage() {
       setFaculties(body.faculties ?? []);
       setDepartments(departmentsBody.departments ?? []);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Unable to load faculties.");
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Unable to load faculties.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -196,6 +200,7 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to add faculty.");
+        toast.success("Faculty created.");
       }
 
       if (modal.mode === "edit") {
@@ -210,6 +215,7 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to update faculty.");
+        toast.success("Faculty updated.");
       }
 
       if (modal.mode === "delete") {
@@ -218,13 +224,16 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to delete faculty.");
+        toast.success("Faculty deleted.");
       }
 
       await fetchFaculties();
       closeModal();
     } catch (submitError) {
       setSubmitting(false);
-      setError(submitError instanceof Error ? submitError.message : "Operation failed.");
+      const message = submitError instanceof Error ? submitError.message : "Operation failed.";
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -244,6 +253,7 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to add department.");
+        toast.success("Department created.");
       }
       if (departmentModal.mode === "edit") {
         const response = await fetch(`/api/admin/departments/${departmentModal.department.id}`, {
@@ -257,6 +267,7 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to update department.");
+        toast.success("Department updated.");
       }
       if (departmentModal.mode === "delete") {
         const response = await fetch(`/api/admin/departments/${departmentModal.department.id}`, {
@@ -264,12 +275,15 @@ export default function OrganizationsPage() {
         });
         const body = (await response.json()) as { ok: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Unable to delete department.");
+        toast.success("Department deleted.");
       }
       await fetchFaculties();
       closeDepartmentModal();
     } catch (submitError) {
       setSubmitting(false);
-      setError(submitError instanceof Error ? submitError.message : "Operation failed.");
+      const message = submitError instanceof Error ? submitError.message : "Operation failed.";
+      setError(message);
+      toast.error(message);
     }
   };
 

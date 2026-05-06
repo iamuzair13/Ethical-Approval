@@ -5,8 +5,12 @@ import {
   OVERVIEW_CARDS_CONFIG,
   type OverviewCardConfig,
 } from "@/app/(home)/_components/overview-cards/config";
-import { getOverviewData, type OverviewData } from "@/app/(home)/fetch";
-import { PaymentsOverviewChart } from "./chart";
+import {
+  getOverviewData,
+  getOverviewTimelineBreakdown,
+  type OverviewData,
+} from "@/app/(home)/fetch";
+import { PaymentsOverviewViewToggle } from "@/components/Charts/payments-overview/view-toggle";
 
 type PropsType = {
   timeFrame?: string;
@@ -24,36 +28,54 @@ export async function PaymentsOverview({
   overviewData: providedOverviewData,
 }: PropsType) {
   const overviewData = providedOverviewData ?? (await getOverviewData());
+  const mode = timeFrame === "yearly" ? "yearly" : "monthly";
+  const timeline = await getOverviewTimelineBreakdown(undefined, mode);
 
-  const xAxis = timeFrame === "yearly" ? [2020, 2021, 2022, 2023, 2024] : [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
-  const series = cardsConfig.map(({ key, label }) => {
-    const metric = overviewData[key];
-    const base = metric.value;
-
-    const lineData = xAxis.map((x) => ({
-      x,
-      y: Math.max(0, Math.round(base)),
-    }));
-
-    return {
-      name: label,
-      data: lineData,
-    };
-  });
+  const series =
+    timeline.length > 0
+      ? [
+          {
+            name: "Total Requests Made",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.total)) })),
+          },
+          {
+            name: "Pending Approvals From Dean",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingDean)) })),
+          },
+          {
+            name: "Pending Approvals From IREB",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingIreb)) })),
+          },
+          {
+            name: "Approved Requests From Dean",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedDean)) })),
+          },
+          {
+            name: "Approved Requests From IREB",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedIreb)) })),
+          },
+          {
+            name: "Rejected by Dean",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedDean)) })),
+          },
+          {
+            name: "Rejected by IREB",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedIreb)) })),
+          },
+        ]
+      : cardsConfig.map(({ key, label }) => {
+          const metric = overviewData[key];
+          const base = metric.value;
+          return {
+            name: label,
+            data: [
+              {
+                x: mode === "yearly" ? new Date().getFullYear() : "Total",
+                y: Math.max(0, Math.round(base)),
+              },
+            ],
+          };
+        });
 
   return (
     <div
@@ -70,7 +92,7 @@ export async function PaymentsOverview({
         <PeriodPicker defaultValue={timeFrame} sectionKey="payments_overview" />
       </div>
 
-      <PaymentsOverviewChart data={series} />
+      <PaymentsOverviewViewToggle data={series} />
 
       <dl className="grid divide-stroke text-center dark:divide-dark-3 sm:grid-cols-2 sm:divide-x [&>div]:flex [&>div]:flex-col-reverse [&>div]:gap-1">
         <div className="dark:border-dark-3 max-sm:mb-3 max-sm:border-b max-sm:pb-3">

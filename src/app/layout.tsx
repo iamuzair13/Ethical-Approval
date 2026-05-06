@@ -26,7 +26,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
       <body>
         <Providers>
           <NextTopLoader color="#5750F1" showSpinner={false} />
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="top-center" />
 
           <ConditionalAppShell>{children}</ConditionalAppShell>
         </Providers>
