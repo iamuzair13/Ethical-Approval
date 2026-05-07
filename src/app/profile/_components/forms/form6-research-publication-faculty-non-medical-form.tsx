@@ -64,12 +64,12 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
   if (currentStep === 0) {
     return (
-      <section className="grid gap-6" >
+      <section className="flex flex-col gap-6" >
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 1: Scholar&apos;s Information
         </h3>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3">
           <h4 className="font-semibold text-dark dark:text-white">
             1.1 Scholar&apos;s Information
           </h4>
@@ -191,7 +191,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
+        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3 md:grid-cols-2">
           <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
             1.3 Research Details
           </h4>
@@ -261,7 +261,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
   if (currentStep === 1) {
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 2: Ethical Considerations
         </h3>
@@ -402,7 +402,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
   if (currentStep === 2) {
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 3: Institutional Approvals & Collaboration
         </h3>
@@ -446,7 +446,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
   if (currentStep === 3) {
     return (
-      <section className="grid gap-4">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 4: Required Attachments
         </h3>
@@ -478,7 +478,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
   }
 
   return (
-    <section className="grid gap-4">
+    <section className="flex flex-col gap-6">
       <h3 className="text-xl font-bold text-dark dark:text-white">
         Step 5: Declaration and Submission <RequiredMark />
       </h3>

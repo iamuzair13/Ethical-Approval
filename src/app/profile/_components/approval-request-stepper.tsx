@@ -936,6 +936,7 @@ export default function ApprovalRequestStepper({
 
   useEffect(() => {
     if (!open) return;
+    if (isViewMode) return;
     const formElement = formElementRef.current;
     if (!formElement) return;
 
@@ -961,7 +962,7 @@ export default function ApprovalRequestStepper({
     return () => {
       controls.forEach((control) => control.removeAttribute("data-required-indicator"));
     };
-  }, [open, currentStep, formMode]);
+  }, [open, currentStep, formMode, isViewMode]);
 
   if (!mounted || !open) return null;
 
@@ -1291,11 +1292,13 @@ export default function ApprovalRequestStepper({
   const handleNext = (e?: MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     e?.stopPropagation();
-    const validationError = validateCurrentStep();
-    if (validationError) {
-      setSubmitError(validationError);
-      toast.warning(validationError);
-      return;
+    if (!isViewMode) {
+      const validationError = validateCurrentStep();
+      if (validationError) {
+        setSubmitError(validationError);
+        toast.warning(validationError);
+        return;
+      }
     }
     setSubmitError(null);
 
@@ -1712,7 +1715,8 @@ export default function ApprovalRequestStepper({
               <button
                 key={title}
                 type="button"
-                onClick={() => setCurrentStep(index)}
+                disabled
+                aria-disabled="true"
                 className={cn(
                   "shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition sm:text-sm",
                   stepState[index]?.isActive &&
@@ -1723,6 +1727,7 @@ export default function ApprovalRequestStepper({
                   !stepState[index]?.isActive &&
                     !stepState[index]?.isDone &&
                     "border-stroke bg-white text-dark hover:border-primary/50 dark:border-dark-3 dark:bg-gray-dark dark:text-white",
+                  "cursor-not-allowed opacity-90",
                 )}
               >
                 {index + 1}. {title}

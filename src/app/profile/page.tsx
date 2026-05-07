@@ -1,113 +1,76 @@
 "use client";
 
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
-import ApprovalRequestStepper, {
-  type SubmissionFileBundle,
-} from "@/app/profile/_components/approval-request-stepper";
+import React, { useState, useRef, useEffect } from "react";
 import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type Variants,
+} from "framer-motion";
+import { cn } from "@/lib/utils";
+import { 
+  Table, TableHeader, TableRow, TableHead, TableBody, TableCell 
+} from "@/components/ui/table";
+import { useSession } from "next-auth/react";
+import BreadcrumbBase from "@/components/Breadcrumbs/Breadcrumb";
+import ConfirmDialogBase from "@/components/ui/confirm-dialog";
+import ApprovalRequestStepperBase from "@/app/profile/_components/approval-request-stepper";
+import {
+  isMedicalPublicationFaculty,
+  resolveRequiredFormByFaculty,
   type ApplicationType,
   type RequiredForm,
-  resolveRequiredForm,
-  resolveRequiredFormByFaculty,
 } from "@/app/profile/_components/forms/form-registry";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import ConfirmDialog from "@/components/ui/confirm-dialog";
-import { inferFacultyFromDepartment } from "@/lib/faculty-by-department";
-import { cn } from "@/lib/utils";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
 
-type RequestStage =
-  | "Draft"
-  | "Under Review by Dean"
-  | "Approved by Dean"
-  | "Rejected by Dean"
-  | "Under Review by IREB"
-  | "Approved by IREB"
-  | "Rejected by IREB";
+// --- Types & Interfaces (preserve your existing types) ---
+interface Profile {
+  name: string;
+  regNo: string;
+  department: string;
+  email: string;
+  degreeTitle: string;
+  faculty: string;
+}
 
-type ApprovalRequest = {
+interface RequestItem {
   id: string;
-  /** 6-digit application reference shown to applicants and admins */
   applicationId: string;
   numericId: number;
-  revisionNumber: number;
   title: string;
-  submittedOn: string;
-  currentStage: RequestStage;
   description: string;
+  submittedOn: string;
+  currentStage: string;
   isDraft: boolean;
-  latestFeedbackComment: string | null;
-};
+  latestFeedbackComment?: string | null;
+}
 
-type SubmissionStatus =
-  | "draft"
-  | "submitted"
-  | "under_dean_review"
-  | "dean_approved"
-  | "dean_rejected"
-  | "under_ireb_review"
-  | "approved"
-  | "rejected";
-
-function parsePositiveInt(value: unknown): number | null {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
-  if (typeof value === "string" && /^\d+$/.test(value)) {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-  }
-  return null;
+interface RequestStats {
+  inDean: number;
+  inEthical: number;
+  completed: number;
 }
 
 type ProfileSubmissionApiRow = {
   id: number;
   application_id: string;
-  current_status: SubmissionStatus;
+  current_status:
+    | "draft"
+    | "submitted"
+    | "under_dean_review"
+    | "dean_approved"
+    | "dean_rejected"
+    | "under_ireb_review"
+    | "approved"
+    | "rejected";
   submitted_at: string;
   title: string | null;
   objectives: string | null;
-  ethics_json?: unknown;
   latest_feedback_comment?: string | null;
 };
 
-type ProfileSubmissionDetail = {
-  id: number;
-  application_id: string;
-  type: "thesis" | "publication";
-  domain: "medical" | "non_medical";
-  current_status: SubmissionStatus;
-  submitted_at: string;
-  title: string | null;
-  objectives: string | null;
-  methodology: string | null;
-  participants_range: string | null;
-  research_population: string | null;
-  applicant_name: string;
-  applicant_email: string;
-  applicant_faculty: string;
-  applicant_department: string;
-  applicant_program: string | null;
-  ethics_json: unknown;
-};
-
-const STAGES: RequestStage[] = [
-  "Under Review by Dean",
-  "Approved by Dean",
-  "Rejected by Dean",
-  "Under Review by IREB",
-  "Approved by IREB",
-  "Rejected by IREB",
-];
-
-function mapStatusToStage(status: SubmissionStatus): RequestStage {
+function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"]): string {
   switch (status) {
     case "draft":
       return "Draft";
@@ -129,1343 +92,1368 @@ function mapStatusToStage(status: SubmissionStatus): RequestStage {
   }
 }
 
-function newApprovalDraftSessionId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
+// --- Magnetic Button Component ---
+const MagneticButton = ({ 
+  children, 
+  className, 
+  onClick, 
+  disabled = false,
+  variant = "primary"
+}: { 
+  children: React.ReactNode; 
+  className?: string; 
+  onClick?: () => void;
+  disabled?: boolean;
+  variant?: "primary" | "secondary" | "danger" | "ghost";
+}) => {
+  const ref = useRef<HTMLButtonElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  
+  const springConfig = { damping: 15, stiffness: 150 };
+  const springX = useSpring(x, springConfig);
+  const springY = useSpring(y, springConfig);
 
-export default function Page() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-  const isStudentEmail = (session?.user?.email ?? "")
-    .toLowerCase()
-    .endsWith("@student.uol.edu.pk");
-
-  const profile = useMemo(() => {
-    const isFaculty = !isStudentEmail;
-    const rec = session?.user?.studentRecord;
-    const normalizeKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const getStringField = (keys: string[]): string | null => {
-      if (!rec || typeof rec !== "object") return null;
-      const record = rec as Record<string, unknown>;
-      for (const key of keys) {
-        const value = record[key];
-        if (typeof value === "string" && value.trim()) {
-          return value.trim();
-        }
-      }
-      const normalizedLookup = new Map<string, string>();
-      for (const [key, value] of Object.entries(record)) {
-        if (typeof value === "string" && value.trim()) {
-          normalizedLookup.set(normalizeKey(key), value.trim());
-        }
-      }
-      for (const key of keys) {
-        const match = normalizedLookup.get(normalizeKey(key));
-        if (match) return match;
-      }
-      return null;
-    };
-
-    const deptFromRecord = getStringField(["DeptName", "Dept", "Department"]);
-    const facultyDeptFromSession =
-      typeof session?.user?.facultyDepartment === "string" && session.user.facultyDepartment.trim()
-        ? session.user.facultyDepartment.trim()
-        : null;
-    const dept = isFaculty
-      ? facultyDeptFromSession ?? deptFromRecord ?? "—"
-      : deptFromRecord ?? "—";
-    const facultyFromRecord =
-      getStringField([
-        "Faculty",
-        "FacName",
-        "FacultyName",
-        "Campus",
-        "faculty",
-        "fac_name",
-        "faculty_name",
-      ]) ?? null;
-    const inferredFaculty = dept !== "—" ? inferFacultyFromDepartment(dept) : null;
-    // Business rule: faculty must be derived from department mapping first.
-    const faculty = inferredFaculty ?? facultyFromRecord ?? "—";
-    const designationFromSession =
-      typeof session?.user?.facultyDesignation === "string" && session.user.facultyDesignation.trim()
-        ? session.user.facultyDesignation.trim()
-        : null;
-    const degreeTitle = isFaculty
-      ? designationFromSession ?? "—"
-      : getStringField(["DegrTitle", "DegreeTitle", "Degree"]) ?? "—";
-    const reg =
-      rec && typeof rec === "object" && "RegNo" in rec && typeof (rec as { RegNo?: string }).RegNo === "string"
-        ? (rec as { RegNo: string }).RegNo
-        : session?.user?.sapId
-          ? `SAP ${session.user.sapId}`
-          : "—";
-
-    return {
-      name: session?.user?.name ?? (isFaculty ? "Faculty" : "Student"),
-      regNo: reg,
-      email: session?.user?.email ?? "—",
-      department: dept,
-      faculty,
-      degreeTitle,
-    };
-  }, [isStudentEmail, session]);
-
-  const [isStepperOpen, setIsStepperOpen] = useState(false);
-  const [stepperMode, setStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
-  const [stepperSubmissionMeta, setStepperSubmissionMeta] = useState<Record<string, unknown> | null>(null);
-  const [stepperViewData, setStepperViewData] = useState<{
-    form?: Record<string, unknown>;
-    attachmentFiles?: Record<string, unknown>;
-    extraUploadFiles?: unknown[];
-    currentStep?: number;
-    completedSteps?: number[];
-  } | null>(null);
-  const [isApplicationPickerOpen, setIsApplicationPickerOpen] = useState(false);
-  const [requiredForm, setRequiredForm] = useState<RequiredForm | null>(null);
-  const [approvalDraftSessionId, setApprovalDraftSessionId] = useState(() =>
-    newApprovalDraftSessionId(),
-  );
-  const [stepperViewSubmissionId, setStepperViewSubmissionId] = useState<number | null>(null);
-  const [serverDraftSubmissionId, setServerDraftSubmissionId] = useState<number | null>(null);
-
-  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
-  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-  const [isLoadingSubmission, setIsLoadingSubmission] = useState(false);
-  const [discardingDraftId, setDiscardingDraftId] = useState<number | null>(null);
-  const [discardConfirmRequest, setDiscardConfirmRequest] = useState<ApprovalRequest | null>(null);
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [feedbackModalRequest, setFeedbackModalRequest] = useState<ApprovalRequest | null>(null);
-
-  const fetchRequests = useCallback(async () => {
-    if (!session?.user?.sapId) {
-      setRequests([]);
-      return;
-    }
-
-    setIsLoadingRequests(true);
-    try {
-      const response = await fetch("/api/profile/submissions", {
-        method: "GET",
-        cache: "no-store",
-      });
-      if (!response.ok) return;
-
-      const payload = (await response.json()) as {
-        ok: boolean;
-        submissions?: ProfileSubmissionApiRow[];
-      };
-
-      if (!payload.ok || !payload.submissions) return;
-
-      const mapped: ApprovalRequest[] = payload.submissions.map((item) => {
-        const revisionNumber =
-          item.ethics_json &&
-          typeof item.ethics_json === "object" &&
-          typeof (item.ethics_json as Record<string, unknown>).revisionNumber === "number"
-            ? ((item.ethics_json as Record<string, unknown>).revisionNumber as number)
-            : 0;
-        return {
-          id: revisionNumber > 0 ? `REQ-${item.id} (rev-${revisionNumber})` : `REQ-${item.id}`,
-          applicationId: item.application_id,
-          numericId: item.id,
-          revisionNumber,
-          title: item.title?.trim() || `Submission #${item.id}`,
-          description: item.objectives?.trim() || "No objectives provided.",
-          submittedOn: new Date(item.submitted_at).toISOString().slice(0, 10),
-          currentStage: mapStatusToStage(item.current_status),
-          isDraft: item.current_status === "draft",
-          latestFeedbackComment: item.latest_feedback_comment?.trim() || null,
-        };
-      });
-      setRequests(mapped);
-    } finally {
-      setIsLoadingRequests(false);
-    }
-  }, [session?.user?.sapId]);
-
-  useEffect(() => {
-    if (!session?.user?.sapId) {
-      setRequests([]);
-      return;
-    }
-
-    let isMounted = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-
-    void (async () => {
-      if (isMounted) await fetchRequests();
-    })();
-    intervalId = setInterval(() => {
-      void fetchRequests();
-    }, 15000);
-
-    return () => {
-      isMounted = false;
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [session?.user?.sapId, fetchRequests]);
-
-  const handleCreateRequest = (
-    {
-      title,
-      objectives,
-      methodology,
-      type,
-      domain,
-      ethics,
-      draftSubmissionId,
-    }: {
-      title: string;
-      objectives: string;
-      methodology: string;
-      type: "thesis" | "publication";
-      domain: "medical" | "non_medical";
-      ethics: Record<string, unknown>;
-      draftSubmissionId?: number;
-    },
-    fileBundle?: SubmissionFileBundle,
-  ) => {
-    return (async () => {
-      try {
-        const revisionSubmissionId = parsePositiveInt(ethics?.revisionOfSubmissionId);
-        const sanitizedEthics: Record<string, unknown> =
-          revisionSubmissionId != null ? { ...ethics } : ethics;
-        if (revisionSubmissionId != null) {
-          delete sanitizedEthics.draftSubmissionId;
-        }
-
-        const effectiveDraftSubmissionId =
-          revisionSubmissionId != null
-            ? null
-            : typeof draftSubmissionId === "number" && draftSubmissionId > 0
-            ? draftSubmissionId
-            : typeof sanitizedEthics?.draftSubmissionId === "number" &&
-                sanitizedEthics.draftSubmissionId > 0
-              ? (sanitizedEthics.draftSubmissionId as number)
-            : serverDraftSubmissionId;
-
-        const baseBody = {
-          title,
-          objectives,
-          methodology,
-          type,
-          domain,
-          ethics: sanitizedEthics,
-          applicantProfile: {
-            name: profile.name,
-            sapId: session?.user?.sapId ?? "",
-            email: profile.email,
-            faculty: profile.faculty,
-            department: profile.department,
-            program: profile.degreeTitle,
-          },
-          ...(effectiveDraftSubmissionId != null && effectiveDraftSubmissionId > 0
-            ? { draftSubmissionId: effectiveDraftSubmissionId }
-            : {}),
-        };
-
-        const hasMultipartFiles =
-          fileBundle &&
-          (Object.keys(fileBundle.requiredByLabel).length > 0 ||
-            Object.keys(fileBundle.extraByIndex).length > 0);
-
-        const response = hasMultipartFiles
-          ? await (() => {
-              const fd = new FormData();
-              fd.append("payload", JSON.stringify(baseBody));
-              let i = 0;
-              for (const [label, file] of Object.entries(fileBundle!.requiredByLabel)) {
-                fd.append(`req_${i}`, file);
-                fd.append(`req_${i}_label`, label);
-                i++;
-              }
-              let j = 0;
-              for (const [idxStr, file] of Object.entries(fileBundle!.extraByIndex)) {
-                fd.append(`ext_${j}`, file);
-                fd.append(`ext_${j}_index`, idxStr);
-                j++;
-              }
-              return fetch("/api/profile/submissions", {
-                method: "POST",
-                body: fd,
-              });
-            })()
-          : await fetch("/api/profile/submissions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(baseBody),
-            });
-
-        const payload = (await response.json()) as {
-          ok: boolean;
-          error?: string;
-          submission?: {
-            id: number;
-            application_id: string;
-            current_status: SubmissionStatus;
-            submitted_at: string;
-            title?: string | null;
-            objectives?: string | null;
-            revision_number?: number;
-          };
-        };
-
-        if (!response.ok || !payload.ok || !payload.submission) {
-          return {
-            ok: false,
-            error: payload.error ?? "Failed to save submission.",
-          };
-        }
-
-        const rev =
-          typeof payload.submission.revision_number === "number"
-            ? payload.submission.revision_number
-            : 0;
-        const savedRequest: ApprovalRequest = {
-          id:
-            rev > 0
-              ? `REQ-${payload.submission.id} (rev-${rev})`
-              : `REQ-${payload.submission.id}`,
-          applicationId: payload.submission.application_id,
-          numericId: payload.submission.id,
-          revisionNumber: rev,
-          title: payload.submission.title?.trim() || title,
-          description: payload.submission.objectives?.trim() || objectives,
-          submittedOn: new Date(payload.submission.submitted_at).toISOString().slice(0, 10),
-          currentStage: mapStatusToStage(payload.submission.current_status),
-          isDraft: payload.submission.current_status === "draft",
-          latestFeedbackComment: null,
-        };
-
-        setServerDraftSubmissionId(null);
-        setRequests((prev) => [
-          savedRequest,
-          ...prev.filter((item) => item.numericId !== savedRequest.numericId),
-        ]);
-        await fetchRequests();
-        return { ok: true };
-      } catch {
-        return {
-          ok: false,
-          error: "Network error while saving submission.",
-        };
-      }
-    })();
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!ref.current || disabled) return;
+    const rect = ref.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    x.set((e.clientX - centerX) * 0.15);
+    y.set((e.clientY - centerY) * 0.15);
   };
 
-  const handlePersistDraft = useCallback(
-    async (body: {
-      title: string;
-      objectives: string;
-      methodology: string;
-      type: "thesis" | "publication";
-      domain: "medical" | "non_medical";
-      ethics: Record<string, unknown>;
-      applicantProfile: {
-        name: string;
-        sapId: string;
-        email: string;
-        faculty: string;
-        department: string;
-        program: string;
-      };
-    }) => {
-      try {
-        const targetId = serverDraftSubmissionId;
-        const isUpdate = targetId != null && targetId > 0;
-        const response = await fetch(
-          isUpdate ? `/api/profile/submissions/${targetId}` : "/api/profile/submissions/draft",
-          {
-            method: isUpdate ? "PATCH" : "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          },
-        );
-        const payload = (await response.json()) as {
-          ok: boolean;
-          error?: string;
-          submission?: { id: number; application_id: string; current_status: SubmissionStatus };
-        };
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
 
-        if (!response.ok || !payload.ok || !payload.submission) {
-          return {
-            ok: false as const,
-            error: payload.error ?? "Failed to save draft.",
-          };
-        }
+  const variants = {
+    primary: "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40",
+    secondary:
+      "bg-gray-2 border border-stroke text-dark hover:bg-gray-3 dark:bg-white/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/20",
+    danger: "bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500",
+    ghost: "bg-transparent text-dark-6 hover:text-dark dark:text-slate-400 dark:hover:text-white",
+  };
 
-        setServerDraftSubmissionId(payload.submission.id);
-        await fetchRequests();
-        return { ok: true as const, submissionId: payload.submission.id };
-      } catch {
-        return { ok: false as const, error: "Network error while saving draft." };
-      }
-    },
-    [serverDraftSubmissionId, fetchRequests],
+  return (
+    <motion.button
+      ref={ref}
+      onClick={onClick}
+      disabled={disabled}
+      style={{ x: springX, y: springY }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={cn(
+        "relative overflow-hidden rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-300",
+        variants[variant],
+        disabled && "opacity-50 cursor-not-allowed",
+        className
+      )}
+    >
+      <span className="relative z-10 flex items-center gap-2">{children}</span>
+      {variant === "primary" && (
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-0"
+          whileHover={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        />
+      )}
+    </motion.button>
   );
+};
 
-  const requestStats = useMemo(() => {
-    const active = requests.filter((r) => !r.isDraft);
-    const inDean = active.filter((r) =>
-      r.currentStage.includes("Dean") && !r.currentStage.includes("Approved") && !r.currentStage.includes("Rejected"),
-    ).length;
-    const inEthical = active.filter((r) =>
-      r.currentStage.includes("IREB") && !r.currentStage.includes("Approved") && !r.currentStage.includes("Rejected"),
-    ).length;
-    const completed = active.filter((r) =>
-      r.currentStage.includes("Approved") || r.currentStage.includes("Rejected"),
-    ).length;
+// --- Spotlight Card Component ---
+const SpotlightCard = ({ 
+  children, 
+  className, 
+  glowColor = "rgba(255,255,255,0.06)" 
+}: { 
+  children: React.ReactNode; 
+  className?: string;
+  glowColor?: string;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+  const [isHovered, setIsHovered] = useState(false);
 
-    return { inDean, inEthical, completed };
-  }, [requests]);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setMousePosition({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    });
+  };
 
-  const getStageState = (currentStage: RequestStage, stage: RequestStage) => {
-    const currentIndex = STAGES.indexOf(currentStage);
-    const stageIndex = STAGES.indexOf(stage);
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-stroke bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.03]",
+        "transition-all duration-500 hover:border-dark-3 hover:bg-white dark:hover:border-white/20 dark:hover:bg-white/[0.05]",
+        className
+      )}
+    >
+      <div 
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500"
+        style={{ 
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(600px circle at ${mousePosition.x}% ${mousePosition.y}%, ${glowColor}, transparent 40%)`
+        }}
+      />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="relative z-10">{children}</div>
+    </motion.div>
+  );
+};
 
+// --- Animated Counter ---
+const AnimatedCounter = ({ value, className }: { value: number; className?: string }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  
+  useEffect(() => {
+    const duration = 1000;
+    const steps = 60;
+    const increment = value / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setDisplayValue(value);
+        clearInterval(timer);
+      } else {
+        setDisplayValue(Math.floor(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [value]);
+
+  return <span className={className}>{displayValue}</span>;
+};
+
+// --- Skeleton Loader ---
+const OrganicSkeleton = ({ className }: { className?: string }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    className={cn(
+      "relative overflow-hidden rounded-2xl border border-stroke bg-gray-2 backdrop-blur-sm dark:border-white/5 dark:bg-white/[0.02]",
+      className
+    )}
+  >
+    <motion.div
+      className="absolute inset-0"
+      animate={{
+        background: [
+          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0) 100%)",
+        ]
+      }}
+      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+      style={{
+        backgroundSize: "200% 100%",
+        animation: "shimmer 2s infinite"
+      }}
+    />
+    <style jsx>{`
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+    `}</style>
+  </motion.div>
+);
+
+// --- Status Badge ---
+const StatusBadge = ({ stage, isDraft }: { stage: string; isDraft?: boolean }) => {
+  if (isDraft) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        Draft
+      </span>
+    );
+  }
+  
+  const configs: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+    "Rejected": { bg: "bg-red-500/10", border: "border-red-500/20", text: "text-red-400", dot: "bg-red-500" },
+    "Approved": { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400", dot: "bg-emerald-500" },
+    "Under Review": { bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400", dot: "bg-blue-400" },
+    "Pending": { bg: "bg-slate-500/10", border: "border-slate-500/20", text: "text-slate-400", dot: "bg-slate-400" },
+  };
+
+  const config = configs[stage] || configs["Pending"];
+  
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border",
+      config.bg, config.border, config.text
+    )}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
+      {stage}
+    </span>
+  );
+};
+
+// --- Accordion Timeline Item ---
+const TimelineAccordion = ({ 
+  request, 
+  stages, 
+  getStageState 
+}: { 
+  request: RequestItem; 
+  stages: string[]; 
+  getStageState: (current: string, stage: string) => "done" | "active" | "pending";
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <SpotlightCard className="p-5">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3">
+            <h4 className="font-semibold text-dark truncate dark:text-white">{request.title}</h4>
+            {request.isDraft && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
+                DRAFT
+              </span>
+            )}
+          </div>
+          <p className="mt-1 truncate text-sm text-dark-6 dark:text-slate-500">{request.description}</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsOpen(!isOpen)}
+          className="ml-4 rounded-lg bg-gray-2 p-2 text-dark-6 transition-colors hover:bg-gray-3 hover:text-dark dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+        >
+          <motion.svg 
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            className="w-4 h-4" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </motion.svg>
+        </motion.button>
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 border-t border-stroke pt-4 dark:border-white/5">
+              {request.isDraft ? (
+                <div className="flex items-center gap-3 rounded-xl bg-amber-500/5 border border-amber-500/10 px-4 py-3">
+                  <svg className="w-5 h-5 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <p className="text-sm text-amber-300">
+                    Draft not submitted. Continue in the table above to finish.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative pl-2">
+                  {stages.map((stage, idx) => {
+                    const state = getStageState(request.currentStage, stage);
+                    const isLast = idx === stages.length - 1;
+                    
+                    return (
+                      <div key={stage} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                        {!isLast && (
+                          <div className={cn(
+                            "absolute left-[9px] top-5 w-px h-full",
+                            state === "done" ? "bg-emerald-500/30" : "bg-gray-3 dark:bg-white/5"
+                          )} />
+                        )}
+                        <div className={cn(
+                          "relative z-10 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
+                          state === "done" && "bg-emerald-500 text-white",
+                          state === "active" && "bg-indigo-500 text-white ring-4 ring-indigo-500/20",
+                          state === "pending" &&
+                            "border border-stroke bg-gray-3 text-dark-6 dark:border-white/10 dark:bg-slate-800 dark:text-slate-500"
+                        )}>
+                          {state === "done" ? (
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : state === "active" ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          ) : (
+                            <span className="h-1 w-1 rounded-full bg-dark-5 dark:bg-slate-600" />
+                          )}
+                        </div>
+                        <div className="pt-0.5">
+                          <span className={cn(
+                            "text-sm transition-colors",
+                            state === "done" && "line-through text-dark-5 dark:text-slate-300",
+                            state === "active" && "font-semibold text-dark dark:text-white",
+                            state === "pending" && "text-dark-6 dark:text-slate-600"
+                          )}>
+                            {stage}
+                          </span>
+                          {state === "active" && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-400 uppercase tracking-wider border border-indigo-500/20">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </SpotlightCard>
+  );
+};
+
+// --- Tooltip Component ---
+const Tooltip = ({ content, children }: { content: string; children: React.ReactNode }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div 
+      className="relative inline-flex"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            initial={{ opacity: 0, y: 5, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-stroke bg-white px-3 py-1.5 text-xs text-dark shadow-xl dark:border-white/10 dark:bg-slate-800 dark:text-white"
+          >
+            {content}
+            <div className="absolute top-full left-1/2 -mt-1 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-stroke bg-white dark:border-white/10 dark:bg-slate-800" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Main Component ---
+export default function ProfileDashboard() {
+  const profile: Profile = {
+    name: "User",
+    regNo: "—",
+    department: "—",
+    email: "",
+    degreeTitle: "—",
+    faculty: "—",
+  };
+  const requests: RequestItem[] = [];
+  const isLoadingRequests = false;
+  const submissionError: string | null = null;
+  const STAGES: string[] = [];
+  const getStageState = (_current: string, _stage: string) => "pending" as const;
+  const handleOpenApplicationFlow = () => {};
+  const handleContinueDraft = async (_r: RequestItem) => {};
+  const handleDiscardDraft = (_r: RequestItem) => {};
+  const handleOpenRevision = async (_r: RequestItem) => {};
+  const handleViewSubmission = async (_id: number | null) => {};
+  const handleSelectApplicationType = (_type: string) => {};
+  const discardingDraftId: number | null = null;
+  const [discardConfirmRequest, setDiscardConfirmRequest] = useState<RequestItem | null>(null);
+  const confirmDiscardDraft = async () => {};
+  const stepperViewSubmissionId: number | null = null;
+  const setStepperViewSubmissionId = (_v: number | null) => {};
+  const stepperViewData: any = null;
+  const stepperSubmissionMeta: any = null;
+  const setStepperSubmissionMeta = (_v: any) => {};
+  const requiredForm: any = null;
+  const setRequiredForm = (_v: any) => {};
+  const approvalDraftSessionId = "";
+  const [serverDraftSubmissionId, setServerDraftSubmissionId] = useState<number | null>(null);
+  const handleCreateRequest = async (_data: any) => ({ ok: true as const });
+  const handlePersistDraft = async (_data: any) => ({ ok: true as const });
+  const [feedbackModalRequest, setFeedbackModalRequest] = useState<RequestItem | null>(null);
+  const userStorageId = "";
+  const ApprovalRequestStepper = ApprovalRequestStepperBase;
+  const ConfirmDialog = ConfirmDialogBase;
+  const Breadcrumb = BreadcrumbBase;
+  const { data: session } = useSession();
+  const sessionUser = session?.user as {
+    name?: string;
+    email?: string;
+    sapId?: string;
+    facultyDepartment?: string;
+    facultyDesignation?: string;
+    studentRecord?: {
+      Name?: string;
+      SapNo?: string;
+      RegNo?: string;
+      DeptName?: string;
+      FacultyName?: string;
+      Faculty?: string;
+      DegrTitle?: string;
+    };
+  } | null;
+  const sessionEmail = (sessionUser?.email ?? "").trim();
+  const normalizedSessionEmail = sessionEmail.toLowerCase();
+  const isStudentSession =
+    normalizedSessionEmail.endsWith("@student.uol.edu.pk") || normalizedSessionEmail.includes("student");
+  const studentRecord = sessionUser?.studentRecord;
+  const resolvedProfile: Profile =
+    sessionUser && sessionEmail
+      ? isStudentSession
+        ? {
+            name: studentRecord?.Name?.trim() || sessionUser.name?.trim() || profile.name,
+            regNo:
+              studentRecord?.SapNo?.trim() ||
+              studentRecord?.RegNo?.trim() ||
+              sessionUser.sapId?.trim() ||
+              profile.regNo,
+            department: studentRecord?.DeptName?.trim() || profile.department,
+            email: sessionEmail,
+            degreeTitle: studentRecord?.DegrTitle?.trim() || profile.degreeTitle,
+            faculty:
+              studentRecord?.FacultyName?.trim() ||
+              studentRecord?.Faculty?.trim() ||
+              profile.faculty,
+          }
+        : {
+            name: sessionUser.name?.trim() || profile.name,
+            regNo: sessionUser.sapId?.trim() ? `SAP ${sessionUser.sapId.trim()}` : profile.regNo,
+            department: sessionUser.facultyDepartment?.trim() || profile.department,
+            email: sessionEmail,
+            degreeTitle: sessionUser.facultyDesignation?.trim() || profile.degreeTitle,
+            faculty: profile.faculty,
+          }
+      : profile;
+  const normalizedEmail = resolvedProfile.email.toLowerCase();
+  const isStudentEmail =
+    normalizedEmail.endsWith("@student.uol.edu.pk") || normalizedEmail.includes("student");
+  const [localIsStepperOpen, setLocalIsStepperOpen] = useState(false);
+  const [localIsApplicationPickerOpen, setLocalIsApplicationPickerOpen] = useState(false);
+  const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
+  const [localRequiredForm, setLocalRequiredForm] = useState<RequiredForm | null>(requiredForm ?? null);
+  const [localStepperViewData, setLocalStepperViewData] = useState<any>(stepperViewData);
+  const [localRequests, setLocalRequests] = useState<RequestItem[]>(requests);
+  const [localIsLoadingRequests, setLocalIsLoadingRequests] = useState<boolean>(isLoadingRequests);
+  const [localSubmissionError, setLocalSubmissionError] = useState<string | null>(submissionError);
+  const effectiveStages =
+    STAGES.length > 0
+      ? STAGES
+      : [
+          "Under Review by Dean",
+          "Approved by Dean",
+          "Rejected by Dean",
+          "Under Review by IREB",
+          "Rejected by IREB",
+          "Approved by IREB",
+        ];
+  const resolveStageState = (
+    current: string,
+    stage: string,
+  ): "done" | "active" | "pending" => {
+    const fromProps = getStageState(current, stage);
+    if (fromProps !== "pending") {
+      return fromProps;
+    }
+    const currentIndex = effectiveStages.indexOf(current);
+    const stageIndex = effectiveStages.indexOf(stage);
+    if (currentIndex === -1 || stageIndex === -1) {
+      return stage === current ? "active" : "pending";
+    }
     if (stageIndex < currentIndex) return "done";
     if (stageIndex === currentIndex) return "active";
     return "pending";
   };
-
-  const userStorageId =
-    (typeof session?.user?.sapId === "string" && session.user.sapId.trim()) ||
-    (session?.user?.email?.trim() ?? "") ||
-    (profile.email !== "—" ? profile.email.trim() : "");
-
-  const handleOpenApplicationFlow = () => {
-    setApprovalDraftSessionId(newApprovalDraftSessionId());
-    setStepperMode("create");
-    setStepperSubmissionMeta(null);
-    setStepperViewData(null);
-    setStepperViewSubmissionId(null);
-    setServerDraftSubmissionId(null);
-    if (isStudentEmail) {
-      setIsApplicationPickerOpen(true);
+  const computedRequestStats = localRequests.reduce(
+    (acc, request) => {
+      const stage = request.currentStage;
+      if (stage === "Under Review by Dean") acc.inDean += 1;
+      else if (stage === "Under Review by IREB") acc.inEthical += 1;
+      else if (stage.includes("Approved") || stage.includes("Rejected")) acc.completed += 1;
+      return acc;
+    },
+    { inDean: 0, inEthical: 0, completed: 0 } as RequestStats,
+  );
+  const effectiveRequestStats = computedRequestStats;
+  const facultyPublicationForm: RequiredForm = isMedicalPublicationFaculty(
+    resolvedProfile.faculty || resolvedProfile.department || "",
+  )
+    ? {
+        id: "form7-publication-faculty-staff-medical",
+        label: "Research Publication (Faculty/Staff Medical Sciences)",
+        href: "#",
+        applicationType: "research-publication",
+      }
+    : {
+        id: "form6-publication-faculty-non-medical",
+        label: "Research Publication (Faculty Non-Medical)",
+        href: "#",
+        applicationType: "research-publication",
+      };
+  const openNewApprovalFlow = () => {
+    handleOpenApplicationFlow();
+    if (!isStudentEmail) {
+      setRequiredForm(facultyPublicationForm);
+      setLocalRequiredForm(facultyPublicationForm);
+      setLocalIsApplicationPickerOpen(false);
+      setLocalStepperMode("create");
+      setLocalIsStepperOpen(true);
       return;
     }
-
-    setRequiredForm({
-      id: "form6-publication-faculty-non-medical",
-      label: "Form 6 Research Publication Form for Faculty/Staff (Non-Medical Sciences)",
-      href: "#",
-      applicationType: "research-publication",
-    });
-    setIsStepperOpen(true);
-  };
-
-  const handleSelectApplicationType = (applicationType: ApplicationType) => {
-    setApprovalDraftSessionId(newApprovalDraftSessionId());
-    setStepperMode("create");
-    setStepperSubmissionMeta(null);
-    setStepperViewData(null);
-    setStepperViewSubmissionId(null);
-    setServerDraftSubmissionId(null);
-    setRequiredForm(resolveRequiredFormByFaculty(applicationType, profile.faculty));
-    setIsApplicationPickerOpen(false);
-    setIsStepperOpen(true);
-  };
-
-  const handleOpenRevision = async (request: ApprovalRequest) => {
-    setIsLoadingSubmission(true);
-    setSubmissionError(null);
-
-    try {
-      const response = await fetch(`/api/profile/submissions/${request.numericId}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as {
-        ok: boolean;
-        error?: string;
-        submission?: ProfileSubmissionDetail;
-      };
-
-      if (!response.ok || !payload.ok || !payload.submission) {
-        setSubmissionError(payload.error ?? "Unable to load submission for revision.");
-        return;
-      }
-      const ethics =
-        payload.submission.ethics_json && typeof payload.submission.ethics_json === "object"
-          ? (payload.submission.ethics_json as Record<string, unknown>)
-          : null;
-      const incomingRequiredForm =
-        ethics?.requiredForm && typeof ethics.requiredForm === "object"
-          ? (ethics.requiredForm as RequiredForm)
-          : null;
-      const fallbackRequiredForm = resolveRequiredForm(
-        payload.submission.type === "publication" ? "research-publication" : "thesis",
-        payload.submission.domain === "medical",
-      );
-
-      // Align loaded submissions with current form mapping by type/domain.
-      setRequiredForm(fallbackRequiredForm);
-      setStepperMode("edit");
-      setServerDraftSubmissionId(null);
-      setStepperViewSubmissionId(payload.submission.id);
-      setStepperSubmissionMeta({
-        revisionOfSubmissionId: payload.submission.id,
-        revisionNumber: request.revisionNumber + 1,
-      });
-      setStepperViewData({
-        form:
-          ethics?.form && typeof ethics.form === "object"
-            ? (ethics.form as Record<string, unknown>)
-            : {},
-        attachmentFiles:
-          ethics?.attachmentFiles &&
-          typeof ethics.attachmentFiles === "object" &&
-          !Array.isArray(ethics.attachmentFiles)
-            ? (ethics.attachmentFiles as Record<string, unknown>)
-            : {},
-        extraUploadFiles: Array.isArray(ethics?.extraUploadFiles)
-          ? (ethics.extraUploadFiles as unknown[])
-          : [],
-        currentStep: 0,
-      });
-      setIsStepperOpen(true);
-    } catch {
-      setSubmissionError("Network error while opening revision.");
-    } finally {
-      setIsLoadingSubmission(false);
+    if (!localIsApplicationPickerOpen && !localIsStepperOpen) {
+      setLocalIsApplicationPickerOpen(true);
     }
   };
-
-  const handleViewSubmission = async (submissionId: number) => {
-    setIsLoadingSubmission(true);
-    setSubmissionError(null);
-
-    try {
-      const response = await fetch(`/api/profile/submissions/${submissionId}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as {
-        ok: boolean;
-        error?: string;
-        submission?: ProfileSubmissionDetail;
-      };
-
-      if (!response.ok || !payload.ok || !payload.submission) {
-        setSubmissionError(payload.error ?? "Unable to load application details.");
-        return;
-      }
-      const ethics =
-        payload.submission.ethics_json && typeof payload.submission.ethics_json === "object"
-          ? (payload.submission.ethics_json as Record<string, unknown>)
-          : null;
-      const incomingRequiredForm =
-        ethics?.requiredForm && typeof ethics.requiredForm === "object"
-          ? (ethics.requiredForm as RequiredForm)
-          : null;
-      const fallbackRequiredForm = resolveRequiredForm(
-        payload.submission.type === "publication" ? "research-publication" : "thesis",
-        payload.submission.domain === "medical",
-      );
-
-      // Align loaded submissions with current form mapping by type/domain.
-      setRequiredForm(fallbackRequiredForm);
-      setStepperMode("view");
-      setStepperViewSubmissionId(submissionId);
-      setStepperViewData({
-        form:
-          ethics?.form && typeof ethics.form === "object"
-            ? (ethics.form as Record<string, unknown>)
-            : {},
-        attachmentFiles:
-          ethics?.attachmentFiles &&
-          typeof ethics.attachmentFiles === "object" &&
-          !Array.isArray(ethics.attachmentFiles)
-            ? (ethics.attachmentFiles as Record<string, unknown>)
-            : {},
-        extraUploadFiles: Array.isArray(ethics?.extraUploadFiles)
-          ? (ethics.extraUploadFiles as unknown[])
-          : [],
-        currentStep: 0,
-      });
-      setIsStepperOpen(true);
-    } catch {
-      setSubmissionError("Network error while loading application details.");
-    } finally {
-      setIsLoadingSubmission(false);
-    }
-  };
-
-  const handleContinueDraft = async (request: ApprovalRequest) => {
-    setIsLoadingSubmission(true);
-    setSubmissionError(null);
-
-    try {
-      const response = await fetch(`/api/profile/submissions/${request.numericId}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as {
-        ok: boolean;
-        error?: string;
-        submission?: ProfileSubmissionDetail;
-      };
-
-      if (!response.ok || !payload.ok || !payload.submission) {
-        setSubmissionError(payload.error ?? "Unable to load draft.");
-        return;
-      }
-
-      if (payload.submission.current_status !== "draft") {
-        setSubmissionError("This application is no longer a draft.");
-        return;
-      }
-
-      const ethics =
-        payload.submission.ethics_json && typeof payload.submission.ethics_json === "object"
-          ? (payload.submission.ethics_json as Record<string, unknown>)
-          : null;
-      const incomingRequiredForm =
-        ethics?.requiredForm && typeof ethics.requiredForm === "object"
-          ? (ethics.requiredForm as RequiredForm)
-          : null;
-      const fallbackRequiredForm = resolveRequiredForm(
-        payload.submission.type === "publication" ? "research-publication" : "thesis",
-        payload.submission.domain === "medical",
-      );
-
-      const rawStep = ethics?.currentStep;
-      const currentStep =
-        typeof rawStep === "number" && Number.isInteger(rawStep) ? rawStep : 0;
-      const completedRaw = ethics?.completedSteps;
-      const completedSteps = Array.isArray(completedRaw)
-        ? completedRaw.filter((n): n is number => typeof n === "number" && Number.isInteger(n))
-        : undefined;
-
-      // Align loaded submissions with current form mapping by type/domain.
-      setRequiredForm(fallbackRequiredForm);
-      setStepperSubmissionMeta({ draftSubmissionId: payload.submission.id });
-      setStepperMode("resume");
-      setServerDraftSubmissionId(payload.submission.id);
-      setStepperViewSubmissionId(payload.submission.id);
-      setApprovalDraftSessionId(newApprovalDraftSessionId());
-      setStepperViewData({
-        form:
-          ethics?.form && typeof ethics.form === "object"
-            ? (ethics.form as Record<string, unknown>)
-            : {},
-        attachmentFiles:
-          ethics?.attachmentFiles &&
-          typeof ethics.attachmentFiles === "object" &&
-          !Array.isArray(ethics.attachmentFiles)
-            ? (ethics.attachmentFiles as Record<string, unknown>)
-            : {},
-        extraUploadFiles: Array.isArray(ethics?.extraUploadFiles)
-          ? (ethics.extraUploadFiles as unknown[])
-          : [],
-        currentStep,
-        completedSteps,
-      });
-      setIsStepperOpen(true);
-    } catch {
-      setSubmissionError("Network error while loading draft.");
-    } finally {
-      setIsLoadingSubmission(false);
-    }
-  };
-
-  const handleDiscardDraft = async (request: ApprovalRequest) => {
-    setDiscardConfirmRequest(request);
-  };
-
-  const confirmDiscardDraft = async () => {
-    const request = discardConfirmRequest;
-    if (!request) return;
-
-    setSubmissionError(null);
-    setDiscardingDraftId(request.numericId);
-    try {
-      const response = await fetch(`/api/profile/submissions/${request.numericId}`, {
-        method: "DELETE",
-      });
-      const payload = (await response.json()) as {
-        ok: boolean;
-        error?: string;
-      };
-      if (!response.ok || !payload.ok) {
-        setSubmissionError(payload.error ?? "Unable to discard draft.");
-        return;
-      }
-      setRequests((prev) => prev.filter((item) => item.numericId !== request.numericId));
-      if (serverDraftSubmissionId === request.numericId) {
-        setServerDraftSubmissionId(null);
-      }
-      await fetchRequests();
-    } catch {
-      setSubmissionError("Network error while discarding draft.");
-    } finally {
-      setDiscardConfirmRequest(null);
-      setDiscardingDraftId(null);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    const { signInStudentViaGoogleBrowserToken } = await import("@/lib/student-google-browser-signin");
-    const res = await signInStudentViaGoogleBrowserToken(signIn, "/profile");
-    if (res.ok) {
-      router.push(res.redirectUrl);
-      router.refresh();
-      return;
-    }
-    const ec = res.errorCode ?? "AccessDenied";
-    router.push(
-      `/auth/sign-in?error=${encodeURIComponent(ec)}&callbackUrl=${encodeURIComponent("/profile")}`,
+  const selectApplicationType = (type: string) => {
+    handleSelectApplicationType(type);
+    const selected = resolveRequiredFormByFaculty(
+      type as ApplicationType,
+      resolvedProfile.faculty || resolvedProfile.department || "",
     );
+    setRequiredForm(selected);
+    setLocalRequiredForm(selected);
+    if (!localIsStepperOpen) {
+      setLocalIsApplicationPickerOpen(false);
+      setLocalStepperMode("create");
+      setLocalIsStepperOpen(true);
+    }
+  };
+  const openSubmissionView = async (submissionId: number | null) => {
+    await handleViewSubmission(submissionId);
+    if (!submissionId) return;
+    try {
+      const response = await fetch(`/api/profile/submissions/${submissionId}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        submission?: Record<string, unknown>;
+      };
+      if (!response.ok || !payload.ok || !payload.submission) {
+        throw new Error(payload.error || "Unable to load application details.");
+      }
+      setLocalStepperViewData(payload.submission);
+      setLocalStepperMode("view");
+      setLocalIsStepperOpen(true);
+    } catch (error) {
+      setLocalSubmissionError(
+        error instanceof Error ? error.message : "Network error while loading application details.",
+      );
+    }
   };
 
-  if (status === "loading") {
-    return (
-      <div className="mx-auto w-full max-w-[1100px]">
-        <Breadcrumb pageName="Profile" />
-        <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <p className="text-body-sm">Checking your session...</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!sessionUser?.sapId) return;
+    let cancelled = false;
 
-  if (status === "unauthenticated") {
-    return (
-      <div className="mx-auto w-full max-w-[1100px]">
-        <Breadcrumb pageName="Profile" />
-        <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <h2 className="text-heading-6 font-bold text-dark dark:text-white">
-            Sign in to access your profile
-          </h2>
-          <p className="mt-2 text-body-sm">
-            Use your university Google account to continue to the profile dashboard.
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleGoogleSignIn()}
-            className="mt-4 rounded-lg bg-primary px-4 py-2.5 font-medium text-white hover:bg-opacity-90"
-          >
-            Sign in with Google
-          </button>
-        </div>
-      </div>
-    );
-  }
+    const loadSubmissions = async () => {
+      setLocalIsLoadingRequests(true);
+      setLocalSubmissionError(null);
+      try {
+        const response = await fetch("/api/profile/submissions", { cache: "no-store" });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          submissions?: ProfileSubmissionApiRow[];
+        };
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || "Failed to load submissions.");
+        }
+
+        const mapped = (payload.submissions ?? []).map((row) => ({
+          id: String(row.id),
+          applicationId: row.application_id,
+          numericId: row.id,
+          title: row.title?.trim() || "Untitled submission",
+          description: row.objectives?.trim() || "No objectives provided.",
+          submittedOn: new Date(row.submitted_at).toLocaleDateString(),
+          currentStage: mapStatusToStage(row.current_status),
+          isDraft: row.current_status === "draft",
+          latestFeedbackComment: row.latest_feedback_comment ?? null,
+        }));
+
+        if (!cancelled) {
+          setLocalRequests(mapped);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocalSubmissionError(
+            error instanceof Error ? error.message : "Network error while loading submissions.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLocalIsLoadingRequests(false);
+        }
+      }
+    };
+
+    void loadSubmissions();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionUser?.sapId]);
+
+  // Container variants for stagger
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+    },
+  };
 
   return (
-    <div className="mx-auto w-full max-w-[1100px]">
-      <Breadcrumb pageName="Profile" />
-
-      <div className="grid gap-6 max-w-7xl mx-auto">
-  {/* Profile & Stats Overview */}
-  <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card overflow-hidden relative">
-    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-purple-500 opacity-80" />
-    
-    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-      {/* Profile Info */}
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-xl font-bold shadow-lg ring-4 ring-primary/10 dark:ring-primary/20">
-          {profile.name?.charAt(0)?.toUpperCase() || "U"}
-        </div>
-        <div>
-          <h2 className="text-heading-6 font-bold text-dark dark:text-white">
-            {profile.name}
-          </h2>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-dark-6 dark:text-dark-6">
-            <span className="inline-flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-              </svg>
-              {profile.regNo}
-            </span>
-            <span className="w-px h-3 bg-stroke dark:bg-dark-3" />
-            <span className="inline-flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              {profile.department}
-            </span>
-          </div>
-          <p className="mt-1.5 text-body-sm lowercase text-dark-6 dark:text-dark-6 inline-flex items-center gap-1.5">
-            <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            {profile.email}
-          </p>
-          
-          <div className="mt-3">
-            {!isStudentEmail ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
-                  <span className="text-xs text-dark-6 dark:text-dark-6">Designation</span>
-                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
-                  <span className="text-xs font-bold text-dark dark:text-white">{profile.degreeTitle}</span>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
-                  <span className="text-xs text-dark-6 dark:text-dark-6">Department</span>
-                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
-                  <span className="text-xs font-bold text-dark dark:text-white">{profile.department}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
-                  <span className="text-xs text-dark-6 dark:text-dark-6">Faculty</span>
-                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
-                  <span className="text-xs font-bold text-dark dark:text-white">{profile.faculty}</span>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-stroke dark:border-dark-3 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5">
-                  <span className="text-xs text-dark-6 dark:text-dark-6">Degree</span>
-                  <span className="h-3 w-px bg-stroke dark:bg-dark-3" />
-                  <span className="text-xs font-bold text-dark dark:text-white">{profile.degreeTitle}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Stats Grid */}
-    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-amber-500/30 dark:hover:border-amber-500/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Under Review by Dean</p>
-            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.inDean}</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
-          <div className="h-full bg-amber-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.inDean / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
-        </div>
+    <div className="min-h-screen bg-gray-2 font-sans selection:bg-indigo-500/30 text-dark dark:bg-slate-950 dark:text-white">
+      {/* Global Mesh Gradient Background */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-5%] w-[800px] h-[800px] bg-indigo-900/20 rounded-full blur-[150px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] bg-violet-900/15 rounded-full blur-[120px]" />
+        <div className="absolute top-[30%] left-[60%] w-[400px] h-[400px] bg-blue-900/10 rounded-full blur-[100px]" />
+        <div className="absolute top-[60%] left-[20%] w-[300px] h-[300px] bg-emerald-900/10 rounded-full blur-[80px]" />
       </div>
 
-      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-primary/30 dark:hover:border-primary/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Under Review by IREB</p>
-            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.inEthical}</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-        </div>
-        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
-          <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.inEthical / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
-        </div>
-      </div>
+      <div className="relative z-10 mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Breadcrumb pageName="Profile" />
+        </motion.div>
 
-      <div className="group relative rounded-xl border border-stroke bg-gray-50/50 dark:bg-dark-2/30 dark:border-dark-3 p-4 transition-all duration-300 hover:shadow-md hover:border-green-500/30 dark:hover:border-green-500/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-body-sm text-dark-6 dark:text-dark-6 mb-1">Completed Decisions</p>
-            <p className="text-2xl font-bold text-dark dark:text-white tabular-nums tracking-tight">{requestStats.completed}</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-        <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-dark-3 rounded-full overflow-hidden">
-          <div className="h-full bg-green rounded-full transition-all duration-1000" style={{ width: `${Math.min((requestStats.completed / (requestStats.inDean + requestStats.inEthical + requestStats.completed || 1)) * 100, 100)}%` }} />
-        </div>
-      </div>
-    </div>
-  </div>
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="mt-6 grid gap-6"
+        >
+          {/* Profile Header - Glassmorphism Hero */}
+          <motion.div variants={itemVariants}>
+            <SpotlightCard className="p-8 lg:p-10">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+                <div className="flex items-start gap-5">
+                  <motion.div
+                    whileHover={{ scale: 1.05, rotate: 2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-indigo-500/25 ring-2 ring-white/10 cursor-pointer"
+                  >
+                    {resolvedProfile.name?.charAt(0)?.toUpperCase() || "U"}
+                    <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 hover:opacity-100 transition-opacity" />
+                  </motion.div>
 
-  {/* Quick Action Card */}
-  <div className="rounded-[10px] bg-gradient-to-br from-primary/[0.03] to-blue-500/[0.03] border border-primary/10 dark:border-primary/20 p-6 dark:bg-gray-dark/50 relative overflow-hidden">
-    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-    <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-            Create New Approval Request
-          </h3>
-          <p className="mt-1 text-body-sm text-dark-6 dark:text-dark-6 max-w-xl">
-            Start the multi-step ethical review form and submit your approval request to the review board.
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={handleOpenApplicationFlow}
-        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-white hover:bg-opacity-90 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Open New Approval Application
-      </button>
-    </div>
-  </div>
+                  <div className="space-y-2">
+                    <h1 className="text-3xl font-bold text-dark tracking-tight dark:text-white">
+                      {resolvedProfile.name}
+                    </h1>
 
-  {/* Submissions Tracking */}
-  <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-dark-3 flex items-center justify-center text-dark dark:text-white">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-            Track Submitted Requests
-          </h3>
-          <p className="text-body-sm text-dark-6 dark:text-dark-6">
-            Monitor application status and manage drafts
-          </p>
-        </div>
-      </div>
-      {isLoadingRequests && (
-        <span className="inline-flex items-center gap-2 text-body-sm text-dark-6 dark:text-dark-6 bg-gray-50 dark:bg-dark-2/50 px-3 py-1.5 rounded-lg border border-stroke dark:border-dark-3">
-          <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          Refreshing statuses...
-        </span>
-      )}
-    </div>
-
-    <div className="overflow-x-auto -mx-6 px-6">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-b border-stroke dark:border-dark-3 hover:bg-transparent">
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Application ID</TableHead>
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">Request</TableHead>
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Submitted</TableHead>
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider whitespace-nowrap">Expected Response</TableHead>
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">Current Stage</TableHead>
-            <TableHead className="text-[11px] font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider text-right">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {requests.map((request) => (
-            <TableRow key={request.id} className="group border-b border-stroke/50 dark:border-dark-3/50 transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-2/20">
-              <TableCell className="whitespace-nowrap py-4">
-                <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-dark dark:text-white bg-gray-100 dark:bg-dark-3 px-2.5 py-1 rounded-md border border-stroke/50 dark:border-dark-3">
-                  {request.applicationId}
-                </span>
-              </TableCell>
-              <TableCell className="py-4">
-                <p className="font-semibold text-dark dark:text-white leading-tight">{request.title}</p>
-                <p className="text-body-sm text-dark-6 dark:text-dark-6 mt-0.5">{request.id}</p>
-              </TableCell>
-              <TableCell className="text-body-sm text-dark-6 dark:text-dark-6 py-4 whitespace-nowrap">{request.submittedOn}</TableCell>
-              <TableCell className="text-body-sm text-dark-6 dark:text-dark-6 py-4 whitespace-nowrap">
-                {request.isDraft ? (
-                  <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Draft
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    2 days
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className="py-4">
-                <span className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border",
-                  request.currentStage.includes("Rejected") 
-                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20"
-                    : request.currentStage.includes("Approved") 
-                    ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20"
-                    : request.isDraft
-                    ? "bg-gray-100 text-gray-700 border-gray-200 dark:bg-dark-3 dark:text-gray-400 dark:border-dark-3"
-                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
-                )}>
-                  <span className={cn(
-                    "w-1.5 h-1.5 rounded-full",
-                    request.currentStage.includes("Rejected") ? "bg-red-500" :
-                    request.currentStage.includes("Approved") ? "bg-green" :
-                    request.isDraft ? "bg-gray-400" : "bg-primary"
-                  )} />
-                  {request.currentStage}
-                </span>
-              </TableCell>
-              <TableCell className="py-4 text-right">
-                {request.isDraft ? (
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleContinueDraft(request)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                    <motion.div 
+                      className="flex flex-wrap items-center gap-2"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
+                      }}
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                      Continue
-                    </button>
-                    <button
-                      type="button"
-                      disabled={discardingDraftId === request.numericId}
-                      onClick={() => void handleDiscardDraft(request)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-red px-3 py-1.5 text-sm font-semibold text-red transition-all duration-200 hover:bg-red hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-red"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      {discardingDraftId === request.numericId ? "Discarding..." : "Discard"}
-                    </button>
-                  </div>
-                ) : request.currentStage.includes("Rejected") ? (
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleOpenRevision(request)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-500 px-3 py-1.5 text-sm font-semibold text-amber-600 transition-all duration-200 hover:bg-amber-500 hover:text-white dark:text-amber-400 dark:hover:bg-amber-500 dark:hover:text-white"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Submit Revision
-                    </button>
-                    {request.latestFeedbackComment && (
-                      <button
-                        type="button"
-                        onClick={() => setFeedbackModalRequest(request)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                      <motion.span 
+                        variants={itemVariants}
+                        className="inline-flex items-center gap-2 rounded-full border border-stroke bg-gray-2 px-3 py-1.5 text-sm text-dark dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                         </svg>
-                        View Feedback
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleViewSubmission(request.numericId)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      View Application
-                    </button>
-                    {request.latestFeedbackComment && (
-                      <button
-                        type="button"
-                        onClick={() => setFeedbackModalRequest(request)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20"
+                        {resolvedProfile.regNo}
+                      </motion.span>
+
+                      <motion.span 
+                        variants={itemVariants}
+                        className="inline-flex items-center gap-2 rounded-full border border-stroke bg-gray-2 px-3 py-1.5 text-sm text-dark dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
-                        View Feedback
-                      </button>
-                    )}
-                  </div>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          {requests.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} className="py-12 text-center">
-                <div className="flex flex-col items-center justify-center text-dark-6 dark:text-dark-6">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-dark-3 flex items-center justify-center mb-3">
-                    <svg className="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-body-sm font-medium">No submissions found yet.</p>
-                  <p className="text-xs mt-1 opacity-70">Create a new approval request to get started.</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+                        {resolvedProfile.department}
+                      </motion.span>
 
-    {submissionError && (
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red/20 bg-red/5 px-4 py-3 text-sm text-red dark:text-red">
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        {submissionError}
-      </div>
-    )}
+                      <motion.span 
+                        variants={itemVariants}
+                        className="inline-flex items-center gap-2 rounded-full border border-stroke bg-gray-2 px-3 py-1.5 text-sm text-dark-6 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+                      >
+                        <svg className="h-4 w-4 text-dark-5 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {resolvedProfile.email}
+                      </motion.span>
+                    </motion.div>
 
-    {/* Timeline Section */}
-    <div className="mt-8 pt-6 border-t border-stroke dark:border-dark-3">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-dark-3 flex items-center justify-center">
-          <svg className="w-4 h-4 text-dark-6 dark:text-dark-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        </div>
-        <h4 className="text-sm font-bold text-dark-6 dark:text-dark-6 uppercase tracking-wider">
-          Application Progress
-        </h4>
-      </div>
-      
-      <div className="grid gap-4 lg:grid-cols-2">
-        {requests.map((request) => (
-          <div
-            key={`${request.id}-timeline`}
-            className="group rounded-xl border border-stroke bg-gray-50/30 dark:bg-dark-2/20 dark:border-dark-3 p-5 transition-all duration-300 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/20"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="font-semibold text-dark dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors">{request.title}</p>
-                <p className="text-body-sm text-dark-6 dark:text-dark-6 mt-0.5">{request.description}</p>
-              </div>
-              {request.isDraft && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
-                  Draft
-                </span>
-              )}
-            </div>
-            
-            {request.isDraft ? (
-              <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10 px-4 py-3">
-                <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p className="text-sm text-amber-800 dark:text-amber-300">
-                  Draft — not submitted yet. Use <span className="font-semibold">Continue</span> in the table above to finish your application.
-                </p>
-              </div>
-            ) : (
-              <div className="relative pl-2">
-                {STAGES.map((stage, idx) => {
-                  const state = getStageState(request.currentStage, stage);
-                  const isLast = idx === STAGES.length - 1;
-
-                  return (
-                    <div key={stage} className="relative flex items-start gap-3 pb-4 last:pb-0">
-                      {/* Connector line */}
-                      {!isLast && (
-                        <div className={cn(
-                          "absolute left-[9px] top-5 w-0.5 h-full -translate-x-1/2",
-                          state === "done" ? "bg-green/40" : "bg-stroke dark:bg-dark-3"
-                        )} />
+                    <motion.div 
+                      className="flex flex-wrap items-center gap-2 mt-3"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.3 } }
+                      }}
+                    >
+                      {!isStudentEmail ? (
+                        <>
+                          <motion.div 
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02, borderColor: "rgba(255,255,255,0.2)" }}
+                            className="group relative inline-flex cursor-pointer items-center gap-2 overflow-hidden rounded-xl border border-stroke bg-white/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-xs text-dark-6 dark:text-slate-500">Designation</span>
+                            <span className="h-3 w-px bg-white/10" />
+                            <span className="text-xs font-semibold text-dark dark:text-white">{resolvedProfile.degreeTitle}</span>
+                          </motion.div>
+                          <motion.div 
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]"
+                          >
+                            <span className="text-xs text-dark-6 dark:text-slate-500">Department</span>
+                            <span className="h-3 w-px bg-white/10" />
+                            <span className="text-xs font-semibold text-dark dark:text-white">{resolvedProfile.department}</span>
+                          </motion.div>
+                        </>
+                      ) : (
+                        <>
+                          <motion.div 
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]"
+                          >
+                            <span className="text-xs text-dark-6 dark:text-slate-500">Faculty</span>
+                            <span className="h-3 w-px bg-white/10" />
+                            <span className="text-xs font-semibold text-dark dark:text-white">{resolvedProfile.faculty}</span>
+                          </motion.div>
+                          <motion.div 
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]"
+                          >
+                            <span className="text-xs text-dark-6 dark:text-slate-500">Degree</span>
+                            <span className="h-3 w-px bg-white/10" />
+                            <span className="text-xs font-semibold text-dark dark:text-white">{resolvedProfile.degreeTitle}</span>
+                          </motion.div>
+                        </>
                       )}
-                      
-                      {/* Status dot */}
-                      <div className={cn(
-                        "relative z-10 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
-                        state === "done" && "bg-green text-white",
-                        state === "active" && "bg-primary text-white ring-4 ring-primary/20",
-                        state === "pending" && "bg-gray-200 dark:bg-dark-3 text-dark-6 dark:text-dark-6"
-                      )}>
-                        {state === "done" ? (
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : state === "active" ? (
-                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        ) : (
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-600" />
-                        )}
-                      </div>
-                      
-                      <div className={cn(
-                        "pt-0.5",
-                        state === "active" && "-mt-0.5"
-                      )}>
-                        <span className={cn(
-                          "text-sm transition-colors duration-200",
-                          state === "done" && "font-medium text-dark dark:text-white",
-                          state === "active" && "font-bold text-dark dark:text-white",
-                          state === "pending" && "text-dark-6 dark:text-dark-6"
-                        )}>
-                          {stage}
-                        </span>
-                        {state === "active" && (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary uppercase tracking-wide">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    </motion.div>
+                  </div>
+                </div>
+
+                <MagneticButton onClick={() => {}} className="self-start">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  View Full Profile
+                </MagneticButton>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-</div>
+            </SpotlightCard>
+          </motion.div>
 
-      <ApprovalRequestStepper
-        key={
-          stepperMode === "create"
-            ? `create-${approvalDraftSessionId}-${requiredForm?.id ?? "none"}`
-            : stepperMode === "resume"
-              ? `resume-${stepperViewSubmissionId ?? serverDraftSubmissionId ?? 0}-${requiredForm?.id ?? "none"}`
-              : stepperMode === "edit"
-                ? `edit-${(stepperSubmissionMeta as { revisionOfSubmissionId?: number } | null)?.revisionOfSubmissionId ?? 0}-${(stepperSubmissionMeta as { revisionNumber?: number } | null)?.revisionNumber ?? 0}`
-                : `view-${stepperViewSubmissionId ?? 0}`
-        }
-        open={isStepperOpen}
-        onClose={() => {
-          setIsStepperOpen(false);
-          setStepperViewSubmissionId(null);
-          if (stepperMode === "create") {
-            setServerDraftSubmissionId(null);
-          }
-          if (stepperMode === "view" || stepperMode === "edit") {
-            setStepperViewData(null);
-            setStepperSubmissionMeta(null);
-            setStepperMode("create");
-            setRequiredForm(null);
-          }
-          if (stepperMode === "resume") {
-            setStepperViewData(null);
-            setStepperMode("create");
-            setRequiredForm(null);
-            setServerDraftSubmissionId(null);
-          }
-        }}
-        onSubmit={handleCreateRequest}
-        mode={stepperMode}
-        submissionMeta={stepperSubmissionMeta}
-        viewSubmissionData={stepperViewData}
-        requiredForm={requiredForm}
-        userStorageId={userStorageId}
-        draftSessionId={
-          stepperMode === "create" || stepperMode === "resume" ? approvalDraftSessionId : null
-        }
-        serverDraftSubmissionId={serverDraftSubmissionId}
-        persistDraft={handlePersistDraft}
-        onServerDraftSaved={(id) => setServerDraftSubmissionId(id)}
-        applicantProfile={{
-          name: profile.name,
-          regNo: profile.regNo,
-          email: profile.email,
-          faculty: profile.faculty,
-          department: profile.department,
-          program: profile.degreeTitle,
-        }}
-      />
-
-      {isApplicationPickerOpen && (
-        <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-lg rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-              Select Application Type
-            </h3>
-            <p className="mt-2 text-body-sm">
-              Please choose your application type. The required form will be selected
-              automatically based on your faculty.
-            </p>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => handleSelectApplicationType("thesis")}
-                className="rounded-lg border border-stroke px-4 py-3 text-sm font-semibold text-dark transition hover:border-primary hover:bg-primary/5 dark:border-dark-3 dark:text-white"
-              >
-                Thesis
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectApplicationType("research-publication")}
-                className="rounded-lg border border-stroke px-4 py-3 text-sm font-semibold text-dark transition hover:border-primary hover:bg-primary/5 dark:border-dark-3 dark:text-white"
-              >
-                Research Publication
-              </button>
-            </div>
-
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsApplicationPickerOpen(false)}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {feedbackModalRequest && (
-        <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-                  Application Feedback
-                </h3>
-                <p className="mt-1 text-sm text-body">
-                  Application ID {feedbackModalRequest.applicationId}
-                </p>
+          {/* Bento Grid Stats */}
+          <motion.div 
+            variants={itemVariants}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {/* Card 1: Dean Review - Large Span */}
+            <SpotlightCard 
+              className="lg:col-span-2 p-6 group" 
+              glowColor="rgba(245,158,11,0.08)"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by Dean</p>
+                  <p className="text-4xl font-bold tracking-tighter tabular-nums text-dark dark:text-white">
+                    <AnimatedCounter value={effectiveRequestStats.inDean} />
+                  </p>
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </motion.div>
               </div>
-              <button
-                type="button"
-                onClick={() => setFeedbackModalRequest(null)}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-            </div>
 
-            <div className="mt-5 rounded-lg border border-stroke bg-gray-1/40 p-4 dark:border-dark-3 dark:bg-dark-2/40">
-              <p className="whitespace-pre-wrap text-sm text-dark dark:text-white">
-                {feedbackModalRequest.latestFeedbackComment}
+              <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-gray-3 dark:bg-slate-800/50">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${Math.min((effectiveRequestStats.inDean / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                  }}
+                  transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
+                >
+                  <div className="absolute inset-0 bg-white/30 blur-sm" />
+                </motion.div>
+              </div>
+              <p className="mt-3 text-xs text-dark-6 dark:text-slate-500">
+                {Math.round((effectiveRequestStats.inDean / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100)}% of total workflow
               </p>
-            </div>
-          </div>
-        </div>
-      )}
+            </SpotlightCard>
 
-      <ConfirmDialog
-        open={discardConfirmRequest != null}
-        title="Discard Draft Application"
-        description={
-          discardConfirmRequest
-            ? `Discard draft application ${discardConfirmRequest.applicationId}? This action cannot be undone.`
-            : undefined
-        }
-        confirmLabel="Discard"
-        cancelLabel="Cancel"
-        confirmVariant="danger"
-        isConfirming={discardConfirmRequest != null && discardingDraftId === discardConfirmRequest.numericId}
-        onCancel={() => {
-          if (discardingDraftId != null) return;
-          setDiscardConfirmRequest(null);
-        }}
-        onConfirm={() => {
-          void confirmDiscardDraft();
-        }}
-      />
+            {/* Card 2: IREB Review */}
+            <SpotlightCard 
+              className="p-6 group" 
+              glowColor="rgba(99,102,241,0.08)"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by IREB</p>
+                  <p className="text-3xl font-bold tracking-tighter tabular-nums text-dark dark:text-white">
+                    <AnimatedCounter value={effectiveRequestStats.inEthical} />
+                  </p>
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </motion.div>
+              </div>
 
+              <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-gray-3 dark:bg-slate-800/50">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${Math.min((effectiveRequestStats.inEthical / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                  }}
+                  transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full"
+                >
+                  <div className="absolute inset-0 bg-white/30 blur-sm" />
+                </motion.div>
+              </div>
+            </SpotlightCard>
+
+            {/* Card 3: Completed - Full Width */}
+            <SpotlightCard 
+              className="md:col-span-2 lg:col-span-3 p-6 group" 
+              glowColor="rgba(16,185,129,0.08)"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </motion.div>
+                  <div>
+                    <p className="text-sm font-medium text-dark-6 dark:text-slate-400">Completed Decisions</p>
+                    <p className="text-4xl font-bold tracking-tighter tabular-nums text-dark dark:text-white">
+                      <AnimatedCounter value={effectiveRequestStats.completed} />
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mini Chart */}
+                <div className="flex items-end gap-1 h-12">
+                  {[40, 65, 45, 80, 55, 70, 90].map((h, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ height: 0 }}
+                      animate={{ height: `${h}%` }}
+                      transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
+                      className="w-3 bg-emerald-500/20 rounded-t-sm hover:bg-emerald-500/40 transition-colors"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-gray-3 dark:bg-slate-800/50">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${Math.min((effectiveRequestStats.completed / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                  }}
+                  transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }}
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+                >
+                  <div className="absolute inset-0 bg-white/30 blur-sm" />
+                </motion.div>
+              </div>
+            </SpotlightCard>
+          </motion.div>
+
+          {/* Skeleton Loading State */}
+          {localIsLoadingRequests && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {[1, 2, 3].map((i) => (
+                <OrganicSkeleton key={i} className="h-32" />
+              ))}
+            </motion.div>
+          )}
+
+          {/* Quick Action Card */}
+          <motion.div variants={itemVariants}>
+            <SpotlightCard 
+              className="p-8 overflow-hidden" 
+              glowColor="rgba(99,102,241,0.1)"
+            >
+              <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              
+              <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-dark tracking-tight dark:text-white">
+                      Create New Approval Request
+                    </h3>
+                    <p className="mt-1 max-w-xl text-sm leading-relaxed text-dark-6 dark:text-slate-400">
+                      Start the multi-step ethical review form and submit your approval request to the review board.
+                    </p>
+                  </div>
+                </div>
+                <MagneticButton onClick={openNewApprovalFlow} className="self-start sm:self-center">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Open New Approval
+                </MagneticButton>
+              </div>
+            </SpotlightCard>
+          </motion.div>
+
+          {/* Submissions Tracking */}
+          <motion.div variants={itemVariants}>
+            <SpotlightCard className="p-6 lg:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-stroke bg-gray-2 text-dark-5 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-dark tracking-tight dark:text-white">
+                      Track Submitted Requests
+                    </h3>
+                    <p className="text-sm text-dark-6 dark:text-slate-500">
+                      Monitor application status and manage drafts
+                    </p>
+                  </div>
+                </div>
+                
+                {localIsLoadingRequests && (
+                  <motion.span 
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-gray-2 px-3 py-1.5 text-sm text-dark-6 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+                  >
+                    <svg className="animate-spin h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Refreshing...
+                  </motion.span>
+                )}
+              </div>
+
+              <div className="overflow-x-auto -mx-6 px-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-stroke hover:bg-transparent dark:border-white/10">
+                      <TableHead className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Application ID</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Request</TableHead>
+                      <TableHead className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Submitted</TableHead>
+                      <TableHead className="whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Expected</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Stage</TableHead>
+                      <TableHead className="text-right text-[11px] font-bold uppercase tracking-wider text-dark-6 dark:text-slate-500">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {localRequests.map((request, idx) => (
+                      <motion.tr
+                        key={request.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="group border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+                      >
+                        <TableCell className="whitespace-nowrap py-4">
+                          <Tooltip content="Application Identifier">
+                            <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-dark bg-gray-2 px-2.5 py-1 rounded-md border border-stroke cursor-help dark:text-white dark:bg-white/5 dark:border-white/10">
+                              {request.applicationId}
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <p className="font-semibold text-dark leading-tight dark:text-white">{request.title}</p>
+                          <p className="mt-0.5 text-xs text-dark-6 dark:text-slate-500">{request.id}</p>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap py-4 text-sm text-dark-6 dark:text-slate-400">{request.submittedOn}</TableCell>
+                        <TableCell className="whitespace-nowrap py-4 text-sm text-dark-6 dark:text-slate-400">
+                          {request.isDraft ? (
+                            <span className="inline-flex items-center gap-1.5 text-amber-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              Draft
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-dark-6 dark:text-slate-400">
+                              <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              2 days
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <StatusBadge stage={request.currentStage} isDraft={request.isDraft} />
+                        </TableCell>
+                        <TableCell className="py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {request.isDraft ? (
+                              <>
+                                <MagneticButton variant="secondary" onClick={() => handleContinueDraft(request)} className="px-3 py-1.5 text-xs">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                  </svg>
+                                  Continue
+                                </MagneticButton>
+                                <MagneticButton 
+                                  variant="danger" 
+                                  onClick={() => handleDiscardDraft(request)} 
+                                  disabled={discardingDraftId === request.numericId}
+                                  className="px-3 py-1.5 text-xs"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  {discardingDraftId === request.numericId ? "..." : "Discard"}
+                                </MagneticButton>
+                              </>
+                            ) : request.currentStage.includes("Rejected") ? (
+                              <>
+                                <MagneticButton variant="secondary" onClick={() => handleOpenRevision(request)} className="px-3 py-1.5 text-xs">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  Revise
+                                </MagneticButton>
+                                {request.latestFeedbackComment && (
+                                  <MagneticButton variant="secondary" onClick={() => setFeedbackModalRequest(request)} className="px-3 py-1.5 text-xs">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                    </svg>
+                                    Feedback
+                                  </MagneticButton>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <MagneticButton variant="secondary" onClick={() => void openSubmissionView(request.numericId)} className="px-3 py-1.5 text-xs">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                  View
+                                </MagneticButton>
+                                {request.latestFeedbackComment && (
+                                  <MagneticButton variant="secondary" onClick={() => setFeedbackModalRequest(request)} className="px-3 py-1.5 text-xs">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                    </svg>
+                                    Feedback
+                                  </MagneticButton>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))}
+                    {localRequests.length === 0 && !localIsLoadingRequests && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-12 text-center">
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex flex-col items-center justify-center text-dark-6 dark:text-slate-500"
+                          >
+                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-stroke bg-gray-2 dark:border-white/10 dark:bg-white/5">
+                              <svg className="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <p className="text-sm font-medium text-dark-6 dark:text-slate-400">No submissions found yet.</p>
+                            <p className="mt-1 text-xs text-dark-5 dark:text-slate-600">Create a new approval request to get started.</p>
+                          </motion.div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {localSubmissionError && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {localSubmissionError}
+                </motion.div>
+              )}
+            </SpotlightCard>
+          </motion.div>
+
+          {/* Timeline Section */}
+          <motion.div variants={itemVariants}>
+            <SpotlightCard className="p-6 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-stroke bg-gray-2 dark:border-white/10 dark:bg-white/5">
+                  <svg className="h-4 w-4 text-dark-6 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-dark-6 dark:text-slate-400">
+                  Application Progress
+                </h4>
+              </div>
+
+              <motion.div 
+                className="grid gap-4 lg:grid-cols-2"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+                }}
+              >
+                {localRequests.map((request) => (
+                  <motion.div key={`${request.id}-timeline`} variants={itemVariants}>
+                    <TimelineAccordion 
+                      request={request} 
+                      stages={effectiveStages} 
+                      getStageState={resolveStageState} 
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </SpotlightCard>
+          </motion.div>
+        </motion.div>
+
+        {/* Stepper Modal */}
+        <ApprovalRequestStepper
+          key={
+            localStepperMode === "create"
+              ? `create-${approvalDraftSessionId}-${localRequiredForm?.id ?? "none"}`
+              : localStepperMode === "resume"
+                ? `resume-${stepperViewSubmissionId ?? serverDraftSubmissionId ?? 0}-${localRequiredForm?.id ?? "none"}`
+                : localStepperMode === "edit"
+                  ? `edit-${(stepperSubmissionMeta as { revisionOfSubmissionId?: number } | null)?.revisionOfSubmissionId ?? 0}-${(stepperSubmissionMeta as { revisionNumber?: number } | null)?.revisionNumber ?? 0}`
+                  : `view-${stepperViewSubmissionId ?? 0}`
+          }
+          open={localIsStepperOpen}
+          onClose={() => {
+            setLocalIsStepperOpen(false);
+            setStepperViewSubmissionId(null);
+            if (localStepperMode === "create") setServerDraftSubmissionId(null);
+            if (localStepperMode === "view" || localStepperMode === "edit") {
+              setLocalStepperViewData(null);
+              setStepperSubmissionMeta(null);
+              setLocalStepperMode("create");
+              setRequiredForm(null);
+              setLocalRequiredForm(null);
+            }
+            if (localStepperMode === "resume") {
+              setLocalStepperViewData(null);
+              setLocalStepperMode("create");
+              setRequiredForm(null);
+              setLocalRequiredForm(null);
+              setServerDraftSubmissionId(null);
+            }
+          }}
+          onSubmit={handleCreateRequest}
+          mode={localStepperMode}
+          submissionMeta={stepperSubmissionMeta}
+          viewSubmissionData={localStepperViewData}
+          requiredForm={localRequiredForm}
+          userStorageId={userStorageId}
+          draftSessionId={localStepperMode === "create" || localStepperMode === "resume" ? approvalDraftSessionId : null}
+          serverDraftSubmissionId={serverDraftSubmissionId}
+          persistDraft={handlePersistDraft}
+          onServerDraftSaved={(id: number) => setServerDraftSubmissionId(id)}
+          applicantProfile={{
+            name: resolvedProfile.name,
+            regNo: resolvedProfile.regNo,
+            email: resolvedProfile.email,
+            faculty: resolvedProfile.faculty,
+            department: resolvedProfile.department,
+            program: resolvedProfile.degreeTitle,
+          }}
+        />
+
+        {/* Application Picker Modal */}
+        <AnimatePresence>
+          {localIsApplicationPickerOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-md dark:bg-slate-950/80"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-lg rounded-2xl border border-stroke bg-white/95 backdrop-blur-xl p-8 shadow-2xl dark:border-white/10 dark:bg-slate-900/90 dark:shadow-black/50"
+              >
+                <h3 className="text-xl font-bold text-dark tracking-tight dark:text-white">
+                  Select Application Type
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-dark-6 dark:text-slate-400">
+                  Choose your application type. The required form will be selected automatically based on your faculty.
+                </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <MagneticButton 
+                    variant="secondary" 
+                    onClick={() => selectApplicationType("thesis")}
+                    className="py-4 justify-center border-dashed hover:border-indigo-500/50 hover:bg-indigo-500/5"
+                  >
+                    <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    Thesis
+                  </MagneticButton>
+                  <MagneticButton 
+                    variant="secondary" 
+                    onClick={() => selectApplicationType("research-publication")}
+                    className="py-4 justify-center border-dashed hover:border-indigo-500/50 hover:bg-indigo-500/5"
+                  >
+                    <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2 2H7m2 13a2 2 0 01-2-2H7m2 13a2 2 0 01-2 2H7m2 13a2 2 0 01-2-2H7m2 13a2 2 0 01-2 2H7" />
+                    </svg>
+                    Research Publication
+                  </MagneticButton>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <MagneticButton variant="ghost" onClick={() => setLocalIsApplicationPickerOpen(false)}>
+                    Cancel
+                  </MagneticButton>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Feedback Modal */}
+        <AnimatePresence>
+          {feedbackModalRequest && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-md dark:bg-slate-950/80"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-2xl rounded-2xl border border-stroke bg-white/95 backdrop-blur-xl p-8 shadow-2xl dark:border-white/10 dark:bg-slate-900/90 dark:shadow-black/50"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-dark tracking-tight dark:text-white">
+                      Application Feedback
+                    </h3>
+                    <p className="mt-1 text-sm text-dark-6 dark:text-slate-400">
+                      Application ID {feedbackModalRequest.applicationId}
+                    </p>
+                  </div>
+                  <MagneticButton variant="ghost" onClick={() => setFeedbackModalRequest(null)}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </MagneticButton>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-stroke bg-gray-2 p-6 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-dark dark:text-slate-300">
+                    {feedbackModalRequest.latestFeedbackComment}
+                  </p>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Confirm Dialog */}
+        <ConfirmDialog
+          open={discardConfirmRequest != null}
+          title="Discard Draft Application"
+          description={
+            discardConfirmRequest
+              ? `Discard draft application ${discardConfirmRequest.applicationId}? This action cannot be undone.`
+              : undefined
+          }
+          confirmLabel="Discard"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          isConfirming={discardConfirmRequest != null && discardingDraftId === discardConfirmRequest.numericId}
+          onCancel={() => {
+            if (discardingDraftId != null) return;
+            setDiscardConfirmRequest(null);
+          }}
+          onConfirm={() => {
+            void confirmDiscardDraft();
+          }}
+        />
+      </div>
     </div>
   );
 }

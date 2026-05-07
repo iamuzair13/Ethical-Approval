@@ -162,7 +162,7 @@ export function Form3ThesisMedicalForm({
 
   if (currentStep === 0) {
     return (
-      <section className="grid gap-6" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <div>
         <h3 className="text-xl font-bold text-dark dark:text-white">
             Step 1: Researcher (s) and Thesis/Project Information
@@ -592,7 +592,7 @@ export function Form3ThesisMedicalForm({
     };
 
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 2: Ethical Considerations 
         </h3>
@@ -856,7 +856,7 @@ export function Form3ThesisMedicalForm({
 
   if (currentStep === 2) {
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 3: Biomedical &amp; Pharmaceutical Aspects (If Applicable) <RequiredMark />
         </h3>
@@ -1018,7 +1018,7 @@ export function Form3ThesisMedicalForm({
 
   if (currentStep === 3) {
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 4: Data Management <RequiredMark />
         </h3>
@@ -1152,7 +1152,7 @@ export function Form3ThesisMedicalForm({
 
   if (currentStep === 4) {
     return (
-      <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 5: Institutional Approvals &amp; Collaborations <RequiredMark />
         </h3>
@@ -1252,7 +1252,7 @@ export function Form3ThesisMedicalForm({
 
   if (currentStep === 5) {
     return (
-      <section className="grid gap-4">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 6: Required Attachments <RequiredMark />
         </h3>
@@ -1317,7 +1317,7 @@ export function Form3ThesisMedicalForm({
   const declarationName = form.scholarName.trim() || form.applicantName.trim() || "_____________________";
 
   return (
-    <section className="grid gap-4">
+    <section className="flex flex-col gap-6">
       <h3 className="text-xl font-bold text-dark dark:text-white">
         Step 7: Declaration and Submission <RequiredMark />
       </h3>

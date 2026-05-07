@@ -36,7 +36,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
   if (currentStep === 0) {
     return (
-      <section className="grid gap-4" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 1: Scholar&apos;s Information <RequiredMark />
         </h3>
@@ -81,7 +81,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
   if (currentStep === 1) {
     return (
-      <section className="grid gap-4" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 2: Ethical Considerations <RequiredMark />
         </h3>
@@ -115,7 +115,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
   if (currentStep === 2) {
     return (
-      <section className="grid gap-4" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 3: Data Integrity and Permissions <RequiredMark />
         </h3>
@@ -137,7 +137,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
   if (currentStep === 3) {
     return (
-      <section className="grid gap-4" {...allInlineRequiredProps()}>
+      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 4: Institutional Approvals & Collaboration <RequiredMark />
         </h3>
@@ -158,7 +158,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
   if (currentStep === 4) {
     return (
-      <section className="grid gap-4">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 5: Required Attachments <RequiredMark />
         </h3>
@@ -181,7 +181,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
   }
 
   return (
-    <section className="grid gap-4">
+    <section className="flex flex-col gap-6">
       <h3 className="text-xl font-bold text-dark dark:text-white">
         Step 6: Declaration and Submission <RequiredMark />
       </h3>

@@ -7,7 +7,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Satoshi"', ...defaultTheme.fontFamily.sans],
+        sans: ['"Satoshi"','Inter', 'Geist', 'system-ui', 'sans-serif', ...defaultTheme.fontFamily.sans],
       },
       screens: {
         "2xsm": "375px",

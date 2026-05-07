@@ -6,10 +6,7 @@ import {
 } from "@/app/profile/_components/forms/form-registry";
 import { resolveAttachmentSlotLabels } from "@/app/profile/_components/forms/attachment-lists-by-form";
 import { describeEthicsAttachmentValue } from "@/lib/ethics-attachment-meta";
-import {
-  buildApplicationReportHtml,
-  type SubmissionReportInput,
-} from "@/lib/application-report-html";
+import { type SubmissionReportInput } from "@/lib/application-report-html";
 import {
   buildApplicationStatusReportHtml,
   buildStudentLevelAnalysisReportHtml,
@@ -31,6 +28,7 @@ import {
   DropdownTrigger,
 } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
+import { ApplicationReportPdfGeneratorButton } from "./application-report-pdf-generator";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -523,21 +521,6 @@ export function LeadsReport({
     }
   };
 
-  const downloadFullApplicationReport = () => {
-    if (!attachmentModalLead || !attachmentModalPayload || typeof attachmentModalPayload !== "object") return;
-    const p = attachmentModalPayload as { submission?: SubmissionReportInput };
-    if (!p.submission) return;
-    const html = buildApplicationReportHtml(p.submission);
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `application-${attachmentModalLead.applicationId}-${attachmentModalLead.id}.html`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success("Application report downloaded.");
-  };
-
   const downloadNameOnlyReference = (slotLabel: string, fileName: string) => {
     if (!attachmentModalLead) return;
     const safe = fileName.replace(/[^\w.\-()+ ]/g, "_").slice(0, 120) || "file";
@@ -1005,17 +988,15 @@ export function LeadsReport({
                 typeof attachmentModalPayload === "object" && (
                 <>
                   <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <button
-                      type="button"
-                      onClick={downloadFullApplicationReport}
-                      className="shrink-0 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-opacity-90"
-                    >
-                      Download application report
-                    </button>
+                    <ApplicationReportPdfGeneratorButton
+                      submission={(attachmentModalPayload as { submission?: SubmissionReportInput }).submission ?? null}
+                      applicationId={attachmentModalLead.applicationId}
+                      submissionId={attachmentModalLead.id}
+                      className="shrink-0 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                    />
                     <p className="text-body-sm max-w-xl text-body">
-                      Opens as a clean, printable HTML document with every stepper section (scholar, supervisor,
-                      thesis/project or publication details, ethics, institutional, declaration) plus attachment file
-                      names. Use Print or &quot;Save as PDF&quot; from your browser if needed.
+                      Downloads a polished PDF report with structured application details and attachment audit
+                      sections for professional sharing and record-keeping.
                     </p>
                   </div>
 

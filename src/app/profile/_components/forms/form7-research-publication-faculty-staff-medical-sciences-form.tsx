@@ -63,7 +63,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
   if (currentStep === 0) {
     return (
-      <section className="grid gap-6">
+      <section className="flex flex-col gap-6">
         <div>
           <h3 className="text-xl font-bold text-dark dark:text-white">
             ETHICAL REVIEW FORM
@@ -77,7 +77,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           Step 1: Scholar&apos;s Information <RequiredMark />
         </h3>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3">
           <div className="grid gap-4 md:grid-cols-2">
             <input value={form.scholarName} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Scholar’s Name (Auto fetch)" />
             <input value={form.scholarSapId} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="SAP ID/Reg. No (Auto fetch)" />
@@ -88,7 +88,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3">
           <h4 className="font-semibold text-dark dark:text-white">
             1.2 Co-Authors&apos; Information
           </h4>
@@ -170,7 +170,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
+        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3 md:grid-cols-2">
           <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
             1.3 Research Details <RequiredMark />
           </h4>
@@ -244,7 +244,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
   if (currentStep === 1) {
     return (
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 2: Ethical Considerations <RequiredMark />
         </h3>
@@ -442,7 +442,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
   if (currentStep === 2) {
     return (
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 3: Data Integrity and Permissions <RequiredMark />
         </h3>
@@ -492,7 +492,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
   if (currentStep === 3) {
     return (
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
           Step 4: Institutional Approvals & Collaboration <RequiredMark />
         </h3>
@@ -542,7 +542,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
   if (currentStep === 4) {
     return (
-      <section className="grid gap-4">
+      <section className="flex flex-col gap-6">
         <h3 className="text-xl font-bold text-dark dark:text-white">
           Step 5: Required Attachments <RequiredMark />
         </h3>
@@ -578,7 +578,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
   }
 
   return (
-    <section className="grid gap-4">
+    <section className="flex flex-col gap-6">
       <h3 className="text-xl font-bold text-dark dark:text-white">
         Step 6: Declaration and Submission <RequiredMark />
       </h3>

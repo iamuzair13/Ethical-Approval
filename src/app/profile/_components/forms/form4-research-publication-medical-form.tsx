@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 
 export function Form4ResearchPublicationMedicalForm({ children }: { children: ReactNode }) {
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <p className="mb-3 inline-flex w-fit items-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
         <span
           aria-hidden="true"
@@ -14,7 +14,7 @@ export function Form4ResearchPublicationMedicalForm({ children }: { children: Re
         </span>
         All fields in this step are required
       </p>
-      {children}
-    </>
+      <div className="flex flex-col gap-6">{children}</div>
+    </div>
   );
 }
