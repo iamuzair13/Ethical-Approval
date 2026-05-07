@@ -6,7 +6,8 @@ export type ApprovalFormId =
   | "form3-thesis-medical"
   | "form4-publication-medical"
   | "form5-publication-faculty-staff"
-  | "form6-publication-faculty-non-medical";
+  | "form6-publication-faculty-non-medical"
+  | "form7-publication-faculty-staff-medical";
 
 export type RequiredForm = {
   id?: ApprovalFormId;
@@ -128,6 +129,9 @@ export function inferFormIdFromLegacyRequiredForm(
     requiredForm.applicationType === "research-publication" &&
     (label.includes("faculty/staff") || label.includes("faculty staff"))
   ) {
+    if (label.includes("medical")) {
+      return "form7-publication-faculty-staff-medical";
+    }
     return "form5-publication-faculty-staff";
   }
   if (

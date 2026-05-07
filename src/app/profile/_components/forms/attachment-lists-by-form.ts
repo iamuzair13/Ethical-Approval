@@ -37,6 +37,12 @@ export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[
     "Participant Information Letter Only",
     "Other Instituittional Approval Letter(s) (if applicable)",
   ],
+  "form7-publication-faculty-staff-medical": [
+    "Questionnaire/Interview Guide",
+    "Participant Consent Form",
+    "Participant Information Letter Only",
+    "Other Institutional Approval Letter(s) (If applicable)",
+  ],
 };
 
 /**
