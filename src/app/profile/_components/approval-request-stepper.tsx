@@ -28,6 +28,19 @@ import {
 import { Form2ResearchPublicationForm } from "./forms/form2-research-publication-form";
 import { Form5ResearchPublicationFacultyStaffForm } from "./forms/form5-research-publication-faculty-staff";
 import { Form6ResearchPublicationFacultyNonMedicalForm } from "./forms/form6-research-publication-faculty-non-medical-form";
+import {
+  shortenToastLabel,
+  validateRequiredMarkFields,
+  REQUIRED_CONTROL_SELECTOR,
+} from "@/lib/validate-required-mark-fields";
+import {
+  requiredMarkField,
+  requiredRadioGroupProps,
+  requiredSelectionGroupProps,
+  allInlineRequiredProps,
+  ignoreRequiredValidationProps,
+} from "./forms/form-validation-mark";
+import { Required } from "./forms/required";
 
 type RequestPayload = {
   title: string;
@@ -188,6 +201,13 @@ const FORM_2_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 const FORM_6_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
   "Participant Information Letter Only",
+];
+
+const FORM_5_REQUIRED_ATTACHMENT_LABELS: readonly string[] = [
+  "Questionnaire/Interview Guide",
+  "Participant Consent Form",
+  "Participant Information Letter Only",
+  "Other Institutional Approval Letter(s) (If applicable)",
 ];
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */
@@ -908,7 +928,7 @@ export default function ApprovalRequestStepper({
 
     const controls = Array.from(
       formElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-        "input[required], textarea[required], select[required]",
+        REQUIRED_CONTROL_SELECTOR,
       ),
     );
     controls.forEach((control) => {
@@ -973,221 +993,76 @@ export default function ApprovalRequestStepper({
       *
     </span>
   );
-  const shortenErrorLabel = (raw: string, max = 72) => {
-    const compact = raw.replace(/\s+/g, " ").trim();
-    if (!compact) return "this field";
-    return compact.length > max ? `${compact.slice(0, max - 1).trimEnd()}...` : compact;
-  };
-  const normalizeLabelCandidate = (raw: string | null | undefined) => {
-    if (!raw) return null;
-    const compact = raw
-      .replace(/\s+/g, " ")
-      .replace(/\*/g, "")
-      .replace(/\(required\)/gi, "")
-      .trim();
-    if (!compact) return null;
-    const lowered = compact.toLowerCase();
-    if (
-      lowered === "select" ||
-      lowered === "yes" ||
-      lowered === "no" ||
-      lowered === "n/a" ||
-      lowered === "faculty" ||
-      lowered === "department" ||
-      lowered === "email" ||
-      lowered === "sap id"
-    ) {
-      return null;
-    }
-    return compact;
-  };
-  const getControlErrorLabel = (
-    control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-    formElement: HTMLFormElement,
-  ) => {
-    const candidates: string[] = [];
-
-    const byForRaw =
-      control.id &&
-      formElement.querySelector<HTMLLabelElement>(`label[for="${control.id}"]`)?.textContent;
-    const byFor = normalizeLabelCandidate(byForRaw ?? undefined);
-    if (byFor) candidates.push(byFor);
-
-    const closestLabel = normalizeLabelCandidate(control.closest("label")?.textContent ?? undefined);
-    if (closestLabel) candidates.push(closestLabel);
-
-    const ariaLabelledBy = control.getAttribute("aria-labelledby");
-    if (ariaLabelledBy) {
-      for (const id of ariaLabelledBy.split(/\s+/).filter(Boolean)) {
-        const nodeText = normalizeLabelCandidate(document.getElementById(id)?.textContent ?? undefined);
-        if (nodeText) candidates.push(nodeText);
-      }
-    }
-
-    const previousSiblingLabel = normalizeLabelCandidate(
-      control.previousElementSibling?.textContent ?? undefined,
-    );
-    if (previousSiblingLabel) candidates.push(previousSiblingLabel);
-
-    const containerLabel = normalizeLabelCandidate(
-      control.parentElement?.querySelector(":scope > label, :scope > p, :scope > h4, :scope > h3")
-        ?.textContent ?? undefined,
-    );
-    if (containerLabel) candidates.push(containerLabel);
-
-    const placeholder =
-      control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement
-        ? control.placeholder
-        : "";
-    const placeholderLabel = normalizeLabelCandidate(placeholder);
-    if (placeholderLabel) candidates.push(placeholderLabel);
-
-    if (control instanceof HTMLSelectElement) {
-      const firstOptionText = normalizeLabelCandidate(control.options[0]?.textContent ?? undefined);
-      if (firstOptionText) candidates.push(firstOptionText);
-    }
-
-    const ariaLabel = control.getAttribute("aria-label");
-    const ariaLabelText = normalizeLabelCandidate(ariaLabel ?? undefined);
-    if (ariaLabelText) candidates.push(ariaLabelText);
-
-    const nameLabel = normalizeLabelCandidate(control.name);
-    if (nameLabel) candidates.push(nameLabel);
-    if (candidates.length > 0) return shortenErrorLabel(candidates[0]);
-    return "this field";
-  };
-  const validateVisibleStepFields = (): string | null => {
-    const formElement = formElementRef.current;
-    if (!formElement) return null;
-
-    const allControls = Array.from(
-      formElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-        "input, textarea, select",
-      ),
-    );
-    const controls = allControls.filter((control) => {
-      if (control.disabled) return false;
-      if (control instanceof HTMLInputElement) {
-        if (control.readOnly) return false;
-        if (
-          control.type === "hidden" ||
-          control.type === "button" ||
-          control.type === "submit" ||
-          control.type === "file"
-        ) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    const radioGroups = new Map<string, HTMLInputElement[]>();
-    for (const control of controls) {
-      if (!(control instanceof HTMLInputElement) || control.type !== "radio") continue;
-      const groupName = control.name?.trim();
-      if (!groupName) {
-        if (!control.checked) return "Please complete all required fields before proceeding.";
-        continue;
-      }
-      const group = radioGroups.get(groupName) ?? [];
-      group.push(control);
-      radioGroups.set(groupName, group);
-    }
-    for (const group of radioGroups.values()) {
-      if (!group.some((radio) => radio.checked)) {
-        return "Please complete all required fields before proceeding.";
-      }
-    }
-
-    for (const control of controls) {
-      if (control instanceof HTMLInputElement) {
-        if (control.type === "radio") continue;
-        if (control.type === "checkbox") {
-          continue;
-        }
-        if (!hasValue(control.value)) {
-          return `Required field: ${getControlErrorLabel(control, formElement)}.`;
-        }
-        continue;
-      }
-      if (!hasValue(control.value)) {
-        return `Required field: ${getControlErrorLabel(control, formElement)}.`;
-      }
-    }
-
-    return null;
-  };
 
   const validateCurrentStep = (): string | null => {
-    const declarationOnlyValidationForms = new Set<string>([
-      "form2-research-publication",
-      "form5-research-publication-faculty-staff",
-    ]);
-    const shouldValidateVisibleFields = !declarationOnlyValidationForms.has(formMode);
-    if (shouldValidateVisibleFields) {
-      const visibleStepValidationError = validateVisibleStepFields();
-      if (visibleStepValidationError) return visibleStepValidationError;
-    }
+    const formElement = formElementRef.current;
+    const markedError = validateRequiredMarkFields(formElement);
+    if (markedError) return markedError;
 
-    if (formMode === "form4-research-publication-medical") {
-      if (currentStep === 4) {
-        for (const label of FORM_4_MANDATORY_ATTACHMENT_LABELS) {
-          if (!hasCsvOption("requiredAttachments", label)) {
-            return `Please confirm the required attachment "${label}" in Step 5 (tick the checkbox).`;
-          }
-          if (!hasRequiredAttachmentUpload(label)) {
-            return `Please upload "${label}" in Step 5: Required Attachments.`;
-          }
+    if (formMode === "form2-research-publication" && currentStep === 3) {
+      for (const label of FORM_2_MANDATORY_ATTACHMENT_LABELS) {
+        if (!hasCsvOption("requiredAttachments", label)) {
+          return `Required field: tick "${shortenToastLabel(label)}".`;
         }
-        return null;
-      }
-      if (currentStep === 5) {
-        if (form.publicationDeclarationAccepted !== "yes") {
-          return "Please accept the declaration in Step 6.";
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
         }
-        return null;
       }
       return null;
     }
 
-    if (formMode === "form5-research-publication-faculty-staff") {
-      if (currentStep === 5) {
-        if (form.form3DeclarationAccepted !== "yes") {
-          return "Please accept the declaration in Step 6.";
+    if (formMode === "form4-research-publication-medical" && currentStep === 4) {
+      for (const label of FORM_4_MANDATORY_ATTACHMENT_LABELS) {
+        if (!hasCsvOption("requiredAttachments", label)) {
+          return `Required field: tick "${shortenToastLabel(label)}".`;
         }
-        return null;
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
+        }
       }
       return null;
     }
 
-    if (formMode === "form6-research-publication-faculty-non-medical") {
-      if (currentStep === 3) {
-        for (const label of FORM_6_MANDATORY_ATTACHMENT_LABELS) {
-          if (!hasCsvOption("requiredAttachments", label)) {
-            return `Please confirm the required attachment "${label}" in Step 4 (tick the checkbox).`;
-          }
-          if (!hasRequiredAttachmentUpload(label)) {
-            return `Please upload "${label}" in Step 4: Required Attachments.`;
-          }
+    if (formMode === "form6-research-publication-faculty-non-medical" && currentStep === 3) {
+      for (const label of FORM_6_MANDATORY_ATTACHMENT_LABELS) {
+        if (!hasCsvOption("requiredAttachments", label)) {
+          return `Required field: tick "${shortenToastLabel(label)}".`;
         }
-        return null;
-      }
-      if (currentStep === 4) {
-        if (form.form3DeclarationAccepted !== "yes") {
-          return "Please accept the declaration in Step 5.";
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
         }
-        if (![form.declaration].every(hasValue)) {
-          return "Please complete declaration (Step 5).";
-        }
-        return null;
       }
       return null;
     }
 
-    if (formMode === "form2-research-publication" && currentStep === 3) return null;
-    if (formMode === "form2-research-publication" && currentStep === 4) {
-      if (form.form3DeclarationAccepted !== "yes") {
-        return "Please accept the declaration in Step 5.";
+    if (formMode === "form5-research-publication-faculty-staff" && currentStep === 4) {
+      for (const label of FORM_5_REQUIRED_ATTACHMENT_LABELS) {
+        if (!hasCsvOption("requiredAttachments", label)) {
+          return `Required field: tick "${shortenToastLabel(label)}".`;
+        }
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
+        }
+      }
+      return null;
+    }
+
+    if (formMode === "form3-thesis-medical" && currentStep === 5) {
+      for (const label of FORM_3_MANDATORY_ATTACHMENTS) {
+        if (!hasCsvOption("requiredAttachments", label)) {
+          return `Required field: tick "${shortenToastLabel(label)}".`;
+        }
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
+        }
+      }
+      const selectedOptional = FORM_3_MEDICAL_ATTACHMENT_LABELS.filter((label) =>
+        hasCsvOption("requiredAttachments", label),
+      );
+      for (const label of selectedOptional) {
+        if (!hasRequiredAttachmentUpload(label)) {
+          return `Required field: upload "${shortenToastLabel(label)}".`;
+        }
       }
       return null;
     }
@@ -1198,17 +1073,6 @@ export default function ApprovalRequestStepper({
       }
       if (![form.declaration, form.applicantName, form.submissionDate].every(hasValue)) {
         return "Please complete applicant name, submission date, and declaration.";
-      }
-      return null;
-    }
-
-    if (formMode === "form3-thesis-medical") {
-      if (currentStep >= 0 && currentStep <= 5) return null;
-      if (currentStep === 6) {
-        if (form.form3DeclarationAccepted !== "yes") {
-          return "Please accept the declaration in Step 7.";
-        }
-        return null;
       }
       return null;
     }
@@ -1471,12 +1335,6 @@ export default function ApprovalRequestStepper({
   const handleSaveProgress = () => {
     if (isViewMode) return;
     void (async () => {
-      const validationError = validateCurrentStep();
-      if (validationError) {
-        setSubmitError(validationError);
-        toast.warning(validationError);
-        return;
-      }
       const uid = userStorageId.trim();
       const sid = draftSessionId?.trim();
       if (uid && sid) {
@@ -1880,11 +1738,11 @@ export default function ApprovalRequestStepper({
                   <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
                     1.2 Supervisor(s)&apos;s Information <RequiredMark />
                   </h4>
-                  <input required value={form.supervisorSapId} onChange={onFieldChange("supervisorSapId")} placeholder="SAP ID *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input required value={form.supervisorName} onChange={onFieldChange("supervisorName")} placeholder="Supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input required value={form.supervisorEmail} onChange={onFieldChange("supervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <select required value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty *</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                  <select required value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} disabled={!form.supervisorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department *</option>{getDepartmentsForFaculty(form.supervisorFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                  <input value={form.supervisorSapId} onChange={onFieldChange("supervisorSapId")} placeholder="SAP ID *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" /> <RequiredMark/>
+                  <input value={form.supervisorName} onChange={onFieldChange("supervisorName")} placeholder="Supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" /> <RequiredMark/>
+                  <input value={form.supervisorEmail} onChange={onFieldChange("supervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" /> <RequiredMark/>
+                  <select value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty *</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                  <select value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} disabled={!form.supervisorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department *</option>{getDepartmentsForFaculty(form.supervisorFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                 </div>
 
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
@@ -1906,12 +1764,12 @@ export default function ApprovalRequestStepper({
                       </>
                     ) : (
                       <>
-                        <input required value={form.externalCoSupervisorName} onChange={onFieldChange("externalCoSupervisorName")} placeholder="Co-supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input required value={form.externalCoSupervisorRegNo} onChange={onFieldChange("externalCoSupervisorRegNo")} placeholder="Reg. No. *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input required value={form.externalCoSupervisorEmail} onChange={onFieldChange("externalCoSupervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <input required value={form.externalUniversity} onChange={onFieldChange("externalUniversity")} placeholder="University *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                        <select required value={form.externalFaculty} onChange={onFieldChange("externalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty *</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                        <select required value={form.externalDepartment} onChange={onFieldChange("externalDepartment")} disabled={!form.externalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department *</option>{getDepartmentsForFaculty(form.externalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <input value={form.externalCoSupervisorName} onChange={onFieldChange("externalCoSupervisorName")} placeholder="Co-supervisor's Name *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input value={form.externalCoSupervisorRegNo} onChange={onFieldChange("externalCoSupervisorRegNo")} placeholder="Reg. No. *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input value={form.externalCoSupervisorEmail} onChange={onFieldChange("externalCoSupervisorEmail")} placeholder="Email *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <input value={form.externalUniversity} onChange={onFieldChange("externalUniversity")} placeholder="University *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                        <select value={form.externalFaculty} onChange={onFieldChange("externalFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty *</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                        <select value={form.externalDepartment} onChange={onFieldChange("externalDepartment")} disabled={!form.externalFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department *</option>{getDepartmentsForFaculty(form.externalFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
                       </>
                     )}
                   </div>
@@ -1921,11 +1779,11 @@ export default function ApprovalRequestStepper({
                   <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
                     1.4 Thesis/Project Details <RequiredMark />
                   </h4>
-                  <input required value={form.thesisTitle} onChange={onFieldChange("thesisTitle")} placeholder="Thesis / Project Title *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <input required type="date" value={form.expectedStartDate} onChange={onFieldChange("expectedStartDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input required type="date" value={form.expectedEndDate} onChange={onFieldChange("expectedEndDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input required value={form.researchLocations} onChange={onFieldChange("researchLocations")} placeholder="Research Location(s) *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea required value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} placeholder="Research Objective 1 *" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <input value={form.thesisTitle} onChange={onFieldChange("thesisTitle")} placeholder="Thesis / Project Title *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <input type="date" value={form.expectedStartDate} onChange={onFieldChange("expectedStartDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input type="date" value={form.expectedEndDate} onChange={onFieldChange("expectedEndDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                  <input value={form.researchLocations} onChange={onFieldChange("researchLocations")} placeholder="Research Location(s) *" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} placeholder="Research Objective 1 *" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective2} onChange={onFieldChange("researchObjective2")} placeholder="Research Objective 2" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective3} onChange={onFieldChange("researchObjective3")} placeholder="Research Objective 3" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective4} onChange={onFieldChange("researchObjective4")} placeholder="Research Objective 4" rows={2} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
@@ -2653,15 +2511,25 @@ export default function ApprovalRequestStepper({
                     <input value={form.scholarProgram} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Program" />
                   </div>
                 </div>
-                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
+                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2" >
                   <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.2 Coauthor&apos;s Information</h4>
-                  <input value={form.coauthorSapId} onChange={onFieldChange("coauthorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.coauthorName} onChange={onFieldChange("coauthorName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <input value={form.coauthorEmail} onChange={onFieldChange("coauthorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                  <select value={form.coauthorFaculty} onChange={onFieldChange("coauthorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
-                  <select value={form.coauthorDepartment} onChange={onFieldChange("coauthorDepartment")} disabled={!form.coauthorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3"><option value="">Department</option>{getDepartmentsForFaculty(form.coauthorFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                  <Required label="Coauthor's SAP ID *" className="w-full">
+                  <input value={form.coauthorSapId} onChange={onFieldChange("coauthorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <Required label="Coauthor's Name *" className="w-full">
+                  <input value={form.coauthorName} onChange={onFieldChange("coauthorName")} placeholder="Coauthor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <Required label="Coauthor's Email *" className="w-full">
+                  <input type="email" value={form.coauthorEmail} onChange={onFieldChange("coauthorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <Required label="Coauthor's Faculty *" className="w-full">
+                  <select value={form.coauthorFaculty} onChange={onFieldChange("coauthorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"><option value="">Faculty</option>{facultyOptions.map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                  </Required>
+                  <Required label="Coauthor's Department *" className="w-full">
+                  <select value={form.coauthorDepartment} onChange={onFieldChange("coauthorDepartment")} disabled={!form.coauthorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3 w-full"><option value="">Department</option>{getDepartmentsForFaculty(form.coauthorFaculty).map((item) => (<option key={item} value={item}>{item}</option>))}</select>
+                  </Required>
                 </div>
-                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3" {...ignoreRequiredValidationProps()}>
                   <h4 className="font-semibold text-dark dark:text-white">1.3 Co-Author</h4>
                   <select required={false} value={form.publicationCoAuthor1Type} onChange={onFieldChange("publicationCoAuthor1Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
                     <option value="UOL">Option 1: UOL</option>
@@ -2687,7 +2555,7 @@ export default function ApprovalRequestStepper({
                     )}
                   </div>
                 </div>
-                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3" {...ignoreRequiredValidationProps()}>
                   <h4 className="font-semibold text-dark dark:text-white">Add another Co-Author</h4>
                   <select required={false} value={form.publicationCoAuthor2Type} onChange={onFieldChange("publicationCoAuthor2Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
                     <option value="UOL">Option 1: UOL</option>
@@ -2713,20 +2581,27 @@ export default function ApprovalRequestStepper({
                     )}
                   </div>
                 </div>
-                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-                  <h4 className="font-semibold text-dark dark:text-white">1.3 External researcher in team?</h4>
+                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3" {...ignoreRequiredValidationProps()}>
+                  <h4 className="font-semibold text-dark dark:text-white">External researcher in team?</h4>
                   <select required={false} value={form.hasExternalResearcher} onChange={onFieldChange("hasExternalResearcher")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                   {form.hasExternalResearcher === "Yes" && (
                     <textarea required={false} value={form.externalResearcherDetails} onChange={onFieldChange("externalResearcherDetails")} rows={3} placeholder="Provide names, qualifications and affiliations." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                   )}
                 </div>
-                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
+                <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2" >
                   <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.4 Research Details</h4>
-                  <input value={form.publicationTitle} onChange={onFieldChange("publicationTitle")} placeholder="Research Title" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.publicationObjective1} onChange={onFieldChange("publicationObjective1")} rows={2} placeholder="Research Objective 1" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.publicationObjective2} onChange={onFieldChange("publicationObjective2")} rows={2} placeholder="Research Objective 2" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.publicationObjective3} onChange={onFieldChange("publicationObjective3")} rows={2} placeholder="Research Objective 3" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2">
+                  <Required label="Research Title *" className="w-full">  
+                  <input value={form.publicationTitle} onChange={onFieldChange("publicationTitle")} placeholder="Research Title" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <Required label="Research Objective 1 *" className="w-full">
+                  <textarea value={form.publicationObjective1} onChange={onFieldChange("publicationObjective1")} rows={2} placeholder="Research Objective 1" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <Required label="Research Objective 2 *" className="w-full">
+                  <textarea value={form.publicationObjective2} onChange={onFieldChange("publicationObjective2")} rows={2} placeholder="Research Objective 2" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
+                  <textarea value={form.publicationObjective3} onChange={onFieldChange("publicationObjective3")} rows={2} placeholder="Research Objective 3" className="rounded-lg border border-stroke bg-transparent px-4 py-2 dark:border-dark-3 w-full" />
+                  <Required label="Sustainable Development Goals (multi-select)" className="w-full">
+                  <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 w-full">
                     <p className="mb-2 text-sm font-semibold text-dark dark:text-white">Sustainable Development Goals (multi-select)</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {["No Poverty","Zero Hunger","Good Health and Well-Being","Quality Education","Gender Equality","Clean Water and Sanitation","Affordable and Clean Energy","Decent Work and Economic Growth","Industry, Innovation, and Infrastructure","Reduced Inequalities","Sustainable Cities and Communities","Responsible Consumption and Production","Climate Action","Life Below Water","Life on Land","Peace, Justice and Strong Institutions","Partnership for the Goals"].map((item) => (
@@ -2737,42 +2612,44 @@ export default function ApprovalRequestStepper({
                       ))}
                     </div>
                   </div>
-                  <select value={form.publicationParticipantsEstimate} onChange={onFieldChange("publicationParticipantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Participants Estimate</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select>
-                  <select value={form.publicationPopulationType} onChange={onFieldChange("publicationPopulationType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+                  </Required>
+                  <Required label="Participants Estimate *" className="w-full">
+                  <select value={form.publicationParticipantsEstimate} onChange={onFieldChange("publicationParticipantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2 dark:border-dark-3 w-full"><option value="">Participants Estimate</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select>
+                  </Required>
+                  <Required label="Research Population Type *" className="w-full">
+                  <select value={form.publicationPopulationType} onChange={onFieldChange("publicationPopulationType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full">
                     <option value="">Select Research Population (type)</option>
                     <option>University students</option><option>Faculty members</option><option>Researchers/Laboratory staff</option><option>Patients/clinical participants</option><option>Specific disease groups/diagnosed patients</option><option>Patients/healthcare workers</option><option>Children/minors</option><option>General adults</option><option>Employees/staff members</option><option>Other (specify in methodology)</option>
                   </select>
-                  <textarea value={form.publicationMethodology} onChange={onFieldChange("publicationMethodology")} rows={4} placeholder="Study Design and Methodology" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  </Required>
+                  <Required label="Study Design and Methodology *" className="w-full">
+                  <textarea value={form.publicationMethodology} onChange={onFieldChange("publicationMethodology")} rows={4} placeholder="Study Design and Methodology" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full" />
+                  </Required>
                 </div>
               </section>
             )}
 
             {formMode === "form4-research-publication-medical" && currentStep === 1 && (
-              <section className="grid gap-6 md:grid-cols-2">
+              <section className="grid gap-6 md:grid-cols-2" {...allInlineRequiredProps()}>
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
                   Step 2: Ethical Considerations
                 </h3>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q01" className="text-sm font-medium text-dark dark:text-white">
-                    2.1 Does the article report findings from research involving human subjects?
-                  </label>
+                 
+                  <Required label="Does the article report findings from research involving human subjects? *" className="w-full">
                   <select
                     id="f4-s2-q01"
                     value={form.publicationHumanSubjects}
                     onChange={onFieldChange("publicationHumanSubjects")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                  </Required>
 
-                <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2">
-                  <p className="mb-2 text-sm font-medium text-dark dark:text-white">
-                    2.2 How will participants be recruited? (Select multiple)
-                  </p>
+                <Required label="How will participants be recruited? (Select multiple)" className="w-full">
                   <div className="grid gap-2 sm:grid-cols-2">
                     {[
                       "Emails",
@@ -2795,16 +2672,13 @@ export default function ApprovalRequestStepper({
                       </label>
                     ))}
                   </div>
-                </div>
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q03" className="text-sm font-medium text-dark dark:text-white">
-                    2.3 Did the research obtain informed consent from participants/patients?
-                  </label>
+                </Required>
+                <Required label="Did the research obtain informed consent from participants/patients? *" className="w-full">
                   <select
                     id="f4-s2-q03"
                     value={form.publicationInformedConsent}
                     onChange={onFieldChange("publicationInformedConsent")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Written informed consent</option>
@@ -2816,17 +2690,14 @@ export default function ApprovalRequestStepper({
                     Note: Provide attach the consent form (as per UOL format) in the concerned section [Link of
                     the Form].
                   </p>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q04" className="text-sm font-medium text-dark dark:text-white">
-                    2.4 Have any research data been collected prior to receiving ethical approval?
-                  </label>
+                <Required label="Have any research data been collected prior to receiving ethical approval? *" className="w-full">
                   <select
                     id="f4-s2-q04"
                     value={form.publicationPreApprovalDataCollected}
                     onChange={onFieldChange("publicationPreApprovalDataCollected")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -2837,50 +2708,40 @@ export default function ApprovalRequestStepper({
                     Note: If &apos;yes&apos; is selected, please attach the participant information letter (cover letter) and
                     participant consent form.
                   </p>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q05" className="text-sm font-medium text-dark dark:text-white">
-                    2.5 Can participants withdraw from the study at any time?
-                  </label>
+                <Required label="Can participants withdraw from the study at any time? *" className="w-full">
                   <select
                     id="f4-s2-q05"
                     value={form.publicationCanWithdraw}
                     onChange={onFieldChange("publicationCanWithdraw")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                  </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q06" className="text-sm font-medium text-dark dark:text-white">
-                    2.6 Will participants receive any compensation?
-                  </label>
+                <Required label="Will participants receive any compensation? *" className="w-full">
                   <select
                     id="f4-s2-q06"
                     value={form.publicationCompensation}
                     onChange={onFieldChange("publicationCompensation")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q07" className="text-sm font-medium text-dark dark:text-white">
-                    2.7 Are all patient/participant identities adequately anonymized or de-identified in the
-                    manuscript?
-                  </label>
+                <Required label="Are all patient/participant identities adequately anonymized or de-identified in the manuscript? *" className="w-full">
                   <select
                     id="f4-s2-q07"
                     value={form.publicationAnonymized}
                     onChange={onFieldChange("publicationAnonymized")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -2888,35 +2749,27 @@ export default function ApprovalRequestStepper({
                     <option>Partially</option>
                     <option>N/A</option>
                   </select>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q08" className="text-sm font-medium text-dark dark:text-white">
-                    2.8 Does the manuscript address sensitive health topics (e.g., mental health, infectious
-                    disease, sensitive procedures)?
-                  </label>
+                <Required label="Does the manuscript address sensitive health topics (e.g., mental health, infectious disease, sensitive procedures)? *" className="w-full">
                   <select
                     id="f4-s2-q08"
                     value={form.publicationSensitiveHealthTopics}
                     onChange={onFieldChange("publicationSensitiveHealthTopics")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q09" className="text-sm font-medium text-dark dark:text-white">
-                    2.9 Does the article involve vulnerable patient populations (children, elderly,
-                    institutionalized)?
-                  </label>
+                <Required label="Does the article involve vulnerable patient populations (children, elderly, institutionalized)? *" className="w-full">
                   <select
                     id="f4-s2-q09"
                     value={form.publicationVulnerablePopulation}
                     onChange={onFieldChange("publicationVulnerablePopulation")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -2937,17 +2790,14 @@ export default function ApprovalRequestStepper({
                       />
                     </div>
                   )}
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q10" className="text-sm font-medium text-dark dark:text-white">
-                    2.10 Will this research involve biological specimens (blood, tissue, genetic material, etc.)?
-                  </label>
+                <Required label="Will this research involve biological specimens (blood, tissue, genetic material, etc.)? *" className="w-full">
                   <select
                     id="f4-s2-q10"
                     value={form.publicationBiologicalSpecimens}
                     onChange={onFieldChange("publicationBiologicalSpecimens")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -2967,17 +2817,14 @@ export default function ApprovalRequestStepper({
                       />
                     </div>
                   )}
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q11" className="text-sm font-medium text-dark dark:text-white">
-                    2.11 Does the manuscript involve pharmacological or therapeutic interventions?
-                  </label>
+                <Required label="Does the manuscript involve pharmacological or therapeutic interventions? *" className="w-full">
                   <select
                     id="f4-s2-q11"
                     value={form.publicationPharmaInterventions}
                     onChange={onFieldChange("publicationPharmaInterventions")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -2998,17 +2845,14 @@ export default function ApprovalRequestStepper({
                       />
                     </div>
                   )}
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q12" className="text-sm font-medium text-dark dark:text-white">
-                    2.12 Will animal subjects be used in this research?
-                  </label>
+                <Required label="Will animal subjects be used in this research? *" className="w-full">
                   <select
                     id="f4-s2-q12"
                     value={form.publicationAnimalSubjects}
                     onChange={onFieldChange("publicationAnimalSubjects")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3028,17 +2872,14 @@ export default function ApprovalRequestStepper({
                       />
                     </div>
                   )}
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q13" className="text-sm font-medium text-dark dark:text-white">
-                    2.13 If yes to 2.12, has approval from the concerned ethics committee been obtained?
-                  </label>
+                <Required label="If yes to 2.12, has approval from the concerned ethics committee been obtained? *" className="w-full">
                   <select
                     id="f4-s2-q13"
                     value={form.publicationAnimalEthicsApproval}
                     onChange={onFieldChange("publicationAnimalEthicsApproval")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3049,12 +2890,9 @@ export default function ApprovalRequestStepper({
                   <p className="text-xs leading-relaxed text-body dark:text-dark-6">
                     Note: Please attach the approval letter in the required attachments section.
                   </p>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q14" className="text-sm font-medium text-dark dark:text-white">
-                    2.14 Are there any undisclosed conflicts of interest or funding sources?
-                  </label>
+                <Required label="Are there any undisclosed conflicts of interest or funding sources? *" className="w-full">
                   <select
                     id="f4-s2-q14"
                     value={form.publicationConflictsUndisclosed}
@@ -3077,62 +2915,52 @@ export default function ApprovalRequestStepper({
                         value={form.publicationConflictDisclosureDetails}
                         onChange={onFieldChange("publicationConflictDisclosureDetails")}
                         rows={3}
-                        className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                        className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                       />
                     </div>
                   )}
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q15" className="text-sm font-medium text-dark dark:text-white">
-                    2.15 If applicable, identify all potential risks and adverse effects (physical, psychological, social,
-                    legal):
-                  </label>
+                <Required label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *" className="w-full">
                   <textarea
                     id="f4-s2-q15"
                     value={form.publicationPotentialRisks}
                     onChange={onFieldChange("publicationPotentialRisks")}
                     rows={4}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   />
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q16" className="text-sm font-medium text-dark dark:text-white">
-                    2.16 Is this manuscript being submitted simultaneously to multiple journals?
-                  </label>
+                <Required label="Is this manuscript being submitted simultaneously to multiple journals? *" className="w-full">
                   <select
                     id="f4-s2-q16"
                     value={form.publicationSimultaneousJournals}
                     onChange={onFieldChange("publicationSimultaneousJournals")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                </Required>
 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label htmlFor="f4-s2-q17" className="text-sm font-medium text-dark dark:text-white">
-                    2.17 Has this research (or substantially similar research) been previously published?
-                  </label>
+                <Required label="Has this research (or substantially similar research) been previously published? *" className="w-full">
                   <select
                     id="f4-s2-q17"
                     value={form.publicationPreviouslyPublished}
                     onChange={onFieldChange("publicationPreviouslyPublished")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
                     <option>No</option>
                   </select>
-                </div>
+                </Required>
               </section>
             )}
 
             {formMode === "form4-research-publication-medical" && currentStep === 2 && (
-              <section className="grid gap-4 md:grid-cols-2">
+              <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 3: Data Integrity and Permissions</h3>
 
                 <div className="flex flex-col gap-2 md:col-span-2">
@@ -3143,7 +2971,7 @@ export default function ApprovalRequestStepper({
                     id="f4-s3-q01"
                     value={form.publicationDataAccurate}
                     onChange={onFieldChange("publicationDataAccurate")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3160,7 +2988,7 @@ export default function ApprovalRequestStepper({
                     id="f4-s3-q02"
                     value={form.publicationReportingGuidelines}
                     onChange={onFieldChange("publicationReportingGuidelines")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3177,7 +3005,7 @@ export default function ApprovalRequestStepper({
                     id="f4-s3-q03"
                     value={form.publicationAdverseEventsReported}
                     onChange={onFieldChange("publicationAdverseEventsReported")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3194,7 +3022,7 @@ export default function ApprovalRequestStepper({
                     id="f4-s3-q04"
                     value={form.publicationThirdPartyPermissions}
                     onChange={onFieldChange("publicationThirdPartyPermissions")}
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   >
                     <option value="">Select</option>
                     <option>Yes</option>
@@ -3210,7 +3038,7 @@ export default function ApprovalRequestStepper({
                         value={form.publicationThirdPartyPermissionDetails}
                         onChange={onFieldChange("publicationThirdPartyPermissionDetails")}
                         rows={3}
-                        className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                        className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                       />
                     </div>
                   )}
@@ -3219,7 +3047,7 @@ export default function ApprovalRequestStepper({
             )}
 
             {formMode === "form4-research-publication-medical" && currentStep === 3 && (
-              <section className="grid gap-4 md:grid-cols-2">
+              <section className="grid gap-4 md:grid-cols-2" {...allInlineRequiredProps()}>
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 4: Institutional Approvals & Collaboration</h3>
                 <select value={form.institutionalFunding} onChange={onFieldChange("institutionalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">4.1 Has your research received institutional funding? </option><option>Yes</option><option>No</option></select>
                 <select value={form.externalFunding} onChange={onFieldChange("externalFunding")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">4.2 Has your research received external funding? ?</option><option>Yes</option><option>No</option></select>
@@ -3270,6 +3098,7 @@ export default function ApprovalRequestStepper({
                 <label className="flex items-start gap-2 rounded-lg border border-stroke px-3 py-2 dark:border-dark-3">
                   <input
                     type="checkbox"
+                    {...requiredMarkField("Declaration and submission")}
                     className="mt-1 shrink-0"
                     checked={form.publicationDeclarationAccepted === "yes"}
                     onChange={(e) => {
