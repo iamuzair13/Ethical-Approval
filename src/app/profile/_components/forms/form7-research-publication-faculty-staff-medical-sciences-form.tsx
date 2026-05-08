@@ -2,7 +2,21 @@
 
 import type { CommonFormProps } from "./form-stepper-types";
 import { Required } from "./required";
-import { requiredMarkField } from "./form-validation-mark";
+import {
+  AttachmentCard,
+  BaseInput,
+  BaseSelect,
+  BaseTextarea,
+  CheckboxGroup,
+  ConditionalCallout,
+  DeclarationCheckbox,
+  FieldRow,
+  FormSection,
+  InfoNote,
+  RadioTileGroup,
+  ReadOnlyInput,
+  StepHeader,
+} from "./form-ui";
 
 const SDGS = [
   "No Poverty",
@@ -43,6 +57,31 @@ const REQUIRED_ATTACHMENTS = [
   "Other Institutional Approval Letter(s) (If applicable)",
 ] as const;
 
+const PARTICIPANT_BANDS = [
+  "1-20",
+  "21-50",
+  "51-100",
+  "101-150",
+  "151-200",
+  "201-300",
+  "301-400",
+  "401-500",
+  "501+",
+] as const;
+
+const RESEARCH_POPULATION_OPTIONS = [
+  "University students",
+  "Faculty members",
+  "Researchers/Laboratory staff",
+  "Patients/clinical participants",
+  "Specific disease groups/diagnosed patients",
+  "Patients/healthcare workers",
+  "Children/minors",
+  "General adults",
+  "Employees/staff members",
+  "Other (specify in methodology)",
+] as const;
+
 function buildMedicalFacultyPublicationDeclaration(name: string): string {
   return `I/We ${name} hereby certify that: this manuscript is original, not previously published in any form. All research involving human subjects was conducted with appropriate ethical approval from the relevant departments. All participant/patient identities are adequately protected and anonymized where required. All funding sources, conflicts of interest, and potential biases have been fully disclosed. The manuscript accurately and completely reports all methods, results, and adverse events. The manuscript adheres to established ethical guidelines for responsible reporting in medical research. All authors have reviewed and approved this manuscript and agree with its content. No portion of this work has been plagiarized or previously published without proper attribution.`;
 }
@@ -57,557 +96,869 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
   attachmentFiles,
   handleRequiredAttachmentUpload,
 }: CommonFormProps) {
-  const RequiredMark = () => (
-    <span className="ml-1 font-extrabold text-red-600 dark:text-red-400">*</span>
-  );
-
+  /* ---------- STEP 0: Scholar Information ---------- */
   if (currentStep === 0) {
     return (
       <section className="flex flex-col gap-6">
-        <div>
-          <h3 className="text-xl font-bold text-dark dark:text-white">
-            ETHICAL REVIEW FORM
-          </h3>
-          <p className="mt-1 text-sm text-body">
-            Research Publication (for Faculty/Staff of Medical Sciences)
-          </p>
-        </div>
+        <StepHeader
+          index={1}
+          title="Scholar's Information"
+          required
+          subtitle="Ethical Review Form — Research Publication (for Faculty/Staff of Medical Sciences)"
+        />
 
-        <h3 className="text-xl font-bold text-dark dark:text-white">
-          Step 1: Scholar&apos;s Information <RequiredMark />
-        </h3>
+        <FormSection title="1.1 Scholar Profile">
+          <FieldRow>
+            <ReadOnlyInput value={form.scholarName} placeholder="Scholar's Name (Auto fetch)" />
+            <ReadOnlyInput value={form.scholarSapId} placeholder="SAP ID/Reg. No (Auto fetch)" />
+            <ReadOnlyInput value={form.scholarEmail} placeholder="Email (Auto fetch)" />
+            <ReadOnlyInput value={form.scholarFaculty} placeholder="Faculty (Auto fetch)" />
+            <ReadOnlyInput value={form.scholarDepartment} placeholder="Department (Auto fetch)" />
+            <ReadOnlyInput value={form.scholarProgram} placeholder="Program (Auto fetch)" />
+          </FieldRow>
+        </FormSection>
 
-        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3">
-          <div className="grid gap-4 md:grid-cols-2">
-            <input value={form.scholarName} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Scholar’s Name (Auto fetch)" />
-            <input value={form.scholarSapId} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="SAP ID/Reg. No (Auto fetch)" />
-            <input value={form.scholarEmail} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Email (Auto fetch)" />
-            <input value={form.scholarFaculty} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Faculty (Auto fetch)" />
-            <input value={form.scholarDepartment} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Department (Auto fetch)" />
-            <input value={form.scholarProgram} readOnly className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2" placeholder="Program (Auto fetch)" />
-          </div>
-        </div>
-
-        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3">
-          <h4 className="font-semibold text-dark dark:text-white">
-            1.2 Co-Authors&apos; Information
-          </h4>
-
-          <p className="text-sm font-medium text-dark dark:text-white">(Please select):</p>
-          <select value={form.publicationCoAuthor1Type} onChange={onFieldChange("publicationCoAuthor1Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+        <FormSection
+          title="1.2 Co-Authors' Information"
+          subtitle="(Please select)"
+        >
+          <BaseSelect
+            value={form.publicationCoAuthor1Type}
+            onChange={onFieldChange("publicationCoAuthor1Type")}
+            className="max-w-xs"
+          >
             <option value="UOL">Option 1: UOL</option>
             <option value="External">Option 2: External</option>
-          </select>
+          </BaseSelect>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <FieldRow className="mt-4">
             {form.publicationCoAuthor1Type === "UOL" ? (
               <>
-                <input value={form.publicationAuthor1UolSapId} onChange={onFieldChange("publicationAuthor1UolSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1UolName} onChange={onFieldChange("publicationAuthor1UolName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1UolEmail} onChange={onFieldChange("publicationAuthor1UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1UolFaculty} onChange={onFieldChange("publicationAuthor1UolFaculty")} placeholder="Faculty (Dropdown window)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1UolDepartment} onChange={onFieldChange("publicationAuthor1UolDepartment")} placeholder="Department (Dropdown window)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor1UolSapId}
+                  onChange={onFieldChange("publicationAuthor1UolSapId")}
+                  placeholder="SAP ID"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1UolName}
+                  onChange={onFieldChange("publicationAuthor1UolName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1UolEmail}
+                  onChange={onFieldChange("publicationAuthor1UolEmail")}
+                  placeholder="Email"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1UolFaculty}
+                  onChange={onFieldChange("publicationAuthor1UolFaculty")}
+                  placeholder="Faculty (Dropdown window)"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1UolDepartment}
+                  onChange={onFieldChange("publicationAuthor1UolDepartment")}
+                  placeholder="Department (Dropdown window)"
+                />
               </>
             ) : (
               <>
-                <input value={form.publicationAuthor1ExternalName} onChange={onFieldChange("publicationAuthor1ExternalName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1ExternalEmail} onChange={onFieldChange("publicationAuthor1ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1ExternalUniversity} onChange={onFieldChange("publicationAuthor1ExternalUniversity")} placeholder="University" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1ExternalFaculty} onChange={onFieldChange("publicationAuthor1ExternalFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor1ExternalDepartment} onChange={onFieldChange("publicationAuthor1ExternalDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor1ExternalName}
+                  onChange={onFieldChange("publicationAuthor1ExternalName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1ExternalEmail}
+                  onChange={onFieldChange("publicationAuthor1ExternalEmail")}
+                  placeholder="Email"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1ExternalUniversity}
+                  onChange={onFieldChange("publicationAuthor1ExternalUniversity")}
+                  placeholder="University"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1ExternalFaculty}
+                  onChange={onFieldChange("publicationAuthor1ExternalFaculty")}
+                  placeholder="Faculty"
+                />
+                <BaseInput
+                  value={form.publicationAuthor1ExternalDepartment}
+                  onChange={onFieldChange("publicationAuthor1ExternalDepartment")}
+                  placeholder="Department"
+                />
               </>
             )}
-          </div>
+          </FieldRow>
+        </FormSection>
 
-          <p className="font-semibold text-dark dark:text-white">Add another</p>
-          <select value={form.publicationCoAuthor2Type} onChange={onFieldChange("publicationCoAuthor2Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+        <FormSection
+          title="Add Another Co-Author"
+          subtitle="Co-Author #2 (optional)"
+        >
+          <BaseSelect
+            value={form.publicationCoAuthor2Type}
+            onChange={onFieldChange("publicationCoAuthor2Type")}
+            className="max-w-xs"
+          >
             <option value="UOL">Option 1: UOL</option>
             <option value="External">Option 2: External</option>
-          </select>
-          <div className="grid gap-4 md:grid-cols-2">
+          </BaseSelect>
+
+          <FieldRow className="mt-4">
             {form.publicationCoAuthor2Type === "UOL" ? (
               <>
-                <input value={form.publicationAuthor2UolSapId} onChange={onFieldChange("publicationAuthor2UolSapId")} placeholder="SAP ID (Auto fetch from SAP database)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2UolName} onChange={onFieldChange("publicationAuthor2UolName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2UolEmail} onChange={onFieldChange("publicationAuthor2UolEmail")} placeholder="Email (Auto fetch from SAP database)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2UolFaculty} onChange={onFieldChange("publicationAuthor2UolFaculty")} placeholder="Faculty (Auto fetch from SAP database)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2UolDepartment} onChange={onFieldChange("publicationAuthor2UolDepartment")} placeholder="Department (Auto fetch from SAP database)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor2UolSapId}
+                  onChange={onFieldChange("publicationAuthor2UolSapId")}
+                  placeholder="SAP ID (Auto fetch from SAP database)"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2UolName}
+                  onChange={onFieldChange("publicationAuthor2UolName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2UolEmail}
+                  onChange={onFieldChange("publicationAuthor2UolEmail")}
+                  placeholder="Email (Auto fetch from SAP database)"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2UolFaculty}
+                  onChange={onFieldChange("publicationAuthor2UolFaculty")}
+                  placeholder="Faculty (Auto fetch from SAP database)"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2UolDepartment}
+                  onChange={onFieldChange("publicationAuthor2UolDepartment")}
+                  placeholder="Department (Auto fetch from SAP database)"
+                />
               </>
             ) : (
               <>
-                <input value={form.publicationAuthor2ExternalName} onChange={onFieldChange("publicationAuthor2ExternalName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2ExternalEmail} onChange={onFieldChange("publicationAuthor2ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2ExternalUniversity} onChange={onFieldChange("publicationAuthor2ExternalUniversity")} placeholder="University" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2ExternalFaculty} onChange={onFieldChange("publicationAuthor2ExternalFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor2ExternalDepartment} onChange={onFieldChange("publicationAuthor2ExternalDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor2ExternalName}
+                  onChange={onFieldChange("publicationAuthor2ExternalName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2ExternalEmail}
+                  onChange={onFieldChange("publicationAuthor2ExternalEmail")}
+                  placeholder="Email"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2ExternalUniversity}
+                  onChange={onFieldChange("publicationAuthor2ExternalUniversity")}
+                  placeholder="University"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2ExternalFaculty}
+                  onChange={onFieldChange("publicationAuthor2ExternalFaculty")}
+                  placeholder="Faculty"
+                />
+                <BaseInput
+                  value={form.publicationAuthor2ExternalDepartment}
+                  onChange={onFieldChange("publicationAuthor2ExternalDepartment")}
+                  placeholder="Department"
+                />
               </>
             )}
-          </div>
+          </FieldRow>
+        </FormSection>
 
-          <p className="font-semibold text-dark dark:text-white">Add another</p>
-          <select value={form.publicationCoAuthor3Type} onChange={onFieldChange("publicationCoAuthor3Type")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
+        <FormSection
+          title="Add Another Co-Author"
+          subtitle="Co-Author #3 (optional)"
+        >
+          <BaseSelect
+            value={form.publicationCoAuthor3Type}
+            onChange={onFieldChange("publicationCoAuthor3Type")}
+            className="max-w-xs"
+          >
             <option value="UOL">Option 1: UOL</option>
             <option value="External">Option 2: External</option>
-          </select>
-          <div className="grid gap-4 md:grid-cols-2">
+          </BaseSelect>
+
+          <FieldRow className="mt-4">
             {form.publicationCoAuthor3Type === "UOL" ? (
               <>
-                <input value={form.publicationAuthor3UolSapId} onChange={onFieldChange("publicationAuthor3UolSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3UolName} onChange={onFieldChange("publicationAuthor3UolName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3UolEmail} onChange={onFieldChange("publicationAuthor3UolEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3UolFaculty} onChange={onFieldChange("publicationAuthor3UolFaculty")} placeholder="Faculty (Dropdown window)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3UolDepartment} onChange={onFieldChange("publicationAuthor3UolDepartment")} placeholder="Department (Dropdown window)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor3UolSapId}
+                  onChange={onFieldChange("publicationAuthor3UolSapId")}
+                  placeholder="SAP ID"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3UolName}
+                  onChange={onFieldChange("publicationAuthor3UolName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3UolEmail}
+                  onChange={onFieldChange("publicationAuthor3UolEmail")}
+                  placeholder="Email"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3UolFaculty}
+                  onChange={onFieldChange("publicationAuthor3UolFaculty")}
+                  placeholder="Faculty (Dropdown window)"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3UolDepartment}
+                  onChange={onFieldChange("publicationAuthor3UolDepartment")}
+                  placeholder="Department (Dropdown window)"
+                />
               </>
             ) : (
               <>
-                <input value={form.publicationAuthor3ExternalName} onChange={onFieldChange("publicationAuthor3ExternalName")} placeholder="Co-Author’s Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3ExternalEmail} onChange={onFieldChange("publicationAuthor3ExternalEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3ExternalUniversity} onChange={onFieldChange("publicationAuthor3ExternalUniversity")} placeholder="University" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3ExternalFaculty} onChange={onFieldChange("publicationAuthor3ExternalFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.publicationAuthor3ExternalDepartment} onChange={onFieldChange("publicationAuthor3ExternalDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <BaseInput
+                  value={form.publicationAuthor3ExternalName}
+                  onChange={onFieldChange("publicationAuthor3ExternalName")}
+                  placeholder="Co-Author's Name"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3ExternalEmail}
+                  onChange={onFieldChange("publicationAuthor3ExternalEmail")}
+                  placeholder="Email"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3ExternalUniversity}
+                  onChange={onFieldChange("publicationAuthor3ExternalUniversity")}
+                  placeholder="University"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3ExternalFaculty}
+                  onChange={onFieldChange("publicationAuthor3ExternalFaculty")}
+                  placeholder="Faculty"
+                />
+                <BaseInput
+                  value={form.publicationAuthor3ExternalDepartment}
+                  onChange={onFieldChange("publicationAuthor3ExternalDepartment")}
+                  placeholder="Department"
+                />
               </>
             )}
-          </div>
-        </div>
+          </FieldRow>
+        </FormSection>
 
-        <div className="grid gap-4 rounded-xl border border-stroke p-5 dark:border-dark-3 md:grid-cols-2">
-          <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
-            1.3 Research Details <RequiredMark />
-          </h4>
+        <FormSection title="1.3 Research Details">
+          <FieldRow>
+            <Required label="a) Research Title *" className="md:col-span-2">
+              <BaseInput
+                value={form.publicationTitle}
+                onChange={onFieldChange("publicationTitle")}
+              />
+            </Required>
 
-          <Required label="a) Research Title *" className="md:col-span-2">
-            <input value={form.publicationTitle} onChange={onFieldChange("publicationTitle")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          </Required>
+            <Required label="b) Research Objectives 1 *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.publicationObjective1}
+                onChange={onFieldChange("publicationObjective1")}
+                rows={2}
+              />
+            </Required>
+            <Required label="b) Research Objectives 2 *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.publicationObjective2}
+                onChange={onFieldChange("publicationObjective2")}
+                rows={2}
+              />
+            </Required>
+            <Required label="b) Research Objectives 3 *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.publicationObjective3}
+                onChange={onFieldChange("publicationObjective3")}
+                rows={2}
+              />
+            </Required>
 
-          <Required label="b) Research Objectives 1 *" className="md:col-span-2">
-            <textarea value={form.publicationObjective1} onChange={onFieldChange("publicationObjective1")} rows={2} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          </Required>
-          <Required label="b) Research Objectives 2 *" className="md:col-span-2">
-            <textarea value={form.publicationObjective2} onChange={onFieldChange("publicationObjective2")} rows={2} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          </Required>
-          <Required label="b) Research Objectives 3 *" className="md:col-span-2">
-            <textarea value={form.publicationObjective3} onChange={onFieldChange("publicationObjective3")} rows={2} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          </Required>
+            <Required
+              label="c) Sustainable Development Goals (multiple options) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
+                c) Please select relevant Sustainable Development Goals (multiple
+                options can also be selected) as per your research:
+              </p>
+              <CheckboxGroup
+                options={SDGS}
+                checkedFn={(item) => hasCsvOption("sdgs", item)}
+                toggleFn={(item) => toggleCsvOption("sdgs", item)}
+                columns={2}
+              />
+            </Required>
 
-          <Required
-            label="c) Sustainable Development Goals (multiple options) *"
-            kind="selection"
-            className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2"
-          >
-            <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-              c) Please select relevant Sustainable Development Goals (multiple options can also be selected) as per your research:
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {SDGS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("sdgs", item)}
-                    onChange={() => toggleCsvOption("sdgs", item)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-          </Required>
+            <Required label="d) How many participants will you be recruiting? *">
+              <BaseSelect
+                value={form.publicationParticipantsEstimate}
+                onChange={onFieldChange("publicationParticipantsEstimate")}
+              >
+                <option value="">Select an Estimated Number</option>
+                {PARTICIPANT_BANDS.map((b) => (
+                  <option key={b}>{b}</option>
+                ))}
+              </BaseSelect>
+            </Required>
 
-          <Required label="d) How many participants will you be recruiting? *">
-            <select value={form.publicationParticipantsEstimate} onChange={onFieldChange("publicationParticipantsEstimate")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-              <option value="">Select an Estimated Number</option>
-              <option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option>
-            </select>
-          </Required>
+            <Required label="e) Select Research Population (type) *" className="md:col-span-2">
+              <BaseSelect
+                value={form.publicationPopulationType}
+                onChange={onFieldChange("publicationPopulationType")}
+              >
+                <option value="">Select Research Population (type)</option>
+                {RESEARCH_POPULATION_OPTIONS.map((opt) => (
+                  <option key={opt}>{opt}</option>
+                ))}
+              </BaseSelect>
+            </Required>
 
-          <Required label="e) Select Research Population (type) *" className="md:col-span-2">
-            <select value={form.publicationPopulationType} onChange={onFieldChange("publicationPopulationType")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-              <option value="">Select Research Population (type)</option>
-              <option>University students</option>
-              <option>Faculty members</option>
-              <option>Researchers/Laboratory staff</option>
-              <option>Patients/clinical participants</option>
-              <option>Specific disease groups/diagnosed patients</option>
-              <option>Patients/healthcare workers</option>
-              <option>Children/minors</option>
-              <option>General adults</option>
-              <option>Employees/staff members</option>
-              <option>Other (specify in methodology)</option>
-            </select>
-          </Required>
-
-          <Required label="f) Study Design and Methodology *" className="md:col-span-2">
-            <textarea value={form.publicationMethodology} onChange={onFieldChange("publicationMethodology")} rows={5} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-          </Required>
-        </div>
+            <Required label="f) Study Design and Methodology *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.publicationMethodology}
+                onChange={onFieldChange("publicationMethodology")}
+                rows={5}
+              />
+            </Required>
+          </FieldRow>
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 1: Ethical Considerations ---------- */
   if (currentStep === 1) {
     return (
       <section className="flex flex-col gap-6">
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 2: Ethical Considerations <RequiredMark />
-        </h3>
+        <StepHeader index={2} title="Ethical Considerations" required />
 
-        <Required label="2.1 Does the article report findings from research involving human subjects? *" kind="radio" className="md:col-span-2 rounded-lg border border-stroke p-3 dark:border-dark-3">
-          <div className="flex flex-wrap gap-6">
-            {["Yes", "No"].map((v) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="pubMedicalHumanSubjects" checked={form.publicationHumanSubjects === v} onChange={() => setForm((p) => ({ ...p, publicationHumanSubjects: v }))} />
-                <span>{v}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="2.2 How will participants be recruited? (Multiple Select) *" kind="selection" className="md:col-span-2 rounded-lg border border-stroke p-3 dark:border-dark-3">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {RECRUITMENT_CHANNELS.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={hasCsvOption("publicationRecruitmentChannels", item)} onChange={() => toggleCsvOption("publicationRecruitmentChannels", item)} />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="2.3 Did the research obtain informed consent from participants/patients? *" className="md:col-span-2">
-          <select value={form.publicationInformedConsent} onChange={onFieldChange("publicationInformedConsent")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Written informed consent</option>
-            <option>Oral informed consent</option>
-            <option>Waived consent</option>
-            <option>Not applicable</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            Note: Provide attach the consent form (as per UOL format) in the concerned section [Link of the Form].
-          </p>
-        </Required>
-
-        <Required label="2.4 Have any research data been collected prior to receiving ethical approval? *" className="md:col-span-2">
-          <select value={form.publicationPreApprovalDataCollected} onChange={onFieldChange("publicationPreApprovalDataCollected")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Not applicable</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            Note: If ‘yes’ is selected, please attach the participant information letter (cover letter) and participant consent form.
-          </p>
-        </Required>
-
-        <Required label="2.5 Can participants withdraw from the study at any time? *" kind="radio" className="rounded-lg border border-stroke p-3 dark:border-dark-3">
-          <div className="flex flex-wrap gap-6">
-            {["Yes", "No"].map((v) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="pubMedicalWithdraw" checked={form.publicationCanWithdraw === v} onChange={() => setForm((p) => ({ ...p, publicationCanWithdraw: v }))} />
-                <span>{v}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="2.6 Will participants receive any compensation? *" kind="radio" className="rounded-lg border border-stroke p-3 dark:border-dark-3">
-          <div className="flex flex-wrap gap-6">
-            {["Yes", "No"].map((v) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="pubMedicalComp" checked={form.publicationCompensation === v} onChange={() => setForm((p) => ({ ...p, publicationCompensation: v }))} />
-                <span>{v}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="2.7 Are all patient/participant identities adequately anonymized or de-identified in the manuscript? *" className="md:col-span-2">
-          <select value={form.publicationAnonymized} onChange={onFieldChange("publicationAnonymized")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Partially</option>
-            <option>N/A</option>
-          </select>
-        </Required>
-
-        <Required label="2.8 Does the manuscript address sensitive health topics? *" kind="radio" className="rounded-lg border border-stroke p-3 dark:border-dark-3">
-          <div className="flex flex-wrap gap-6">
-            {["Yes", "No"].map((v) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input type="radio" name="pubMedicalSensitive" checked={form.publicationSensitiveHealthTopics === v} onChange={() => setForm((p) => ({ ...p, publicationSensitiveHealthTopics: v }))} />
-                <span>{v}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="2.9 Does the article involve vulnerable patient populations? *" className="md:col-span-2">
-          <select value={form.publicationVulnerablePopulation} onChange={onFieldChange("publicationVulnerablePopulation")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>N/A</option>
-          </select>
-        </Required>
-
-        <Required label="2.10 Will this research involve biological specimens? *" className="md:col-span-2">
-          <select value={form.publicationBiologicalSpecimens} onChange={onFieldChange("publicationBiologicalSpecimens")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
-        {form.publicationBiologicalSpecimens === "Yes" && (
-          <Required label="If 'Yes', describe collection, storage, handling and biosafety measures. *" className="md:col-span-2">
-            <textarea value={form.publicationBiologicalSpecimenDetails} onChange={onFieldChange("publicationBiologicalSpecimenDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+        <FormSection title="Human Subjects, Recruitment & Consent">
+          <Required
+            label="2.1 Does the article report findings from research involving human subjects? *"
+            kind="radio"
+          >
+            <RadioTileGroup
+              name="pubMedicalHumanSubjects"
+              value={form.publicationHumanSubjects}
+              onChange={(v) =>
+                setForm((p) => ({ ...p, publicationHumanSubjects: v }))
+              }
+              options={["Yes", "No"]}
+            />
           </Required>
-        )}
 
-        <Required label="2.11 Does the manuscript involve pharmacological or therapeutic interventions? *" className="md:col-span-2">
-          <select value={form.publicationPharmaInterventions} onChange={onFieldChange("publicationPharmaInterventions")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            If &apos;Yes&apos;, verify drug names, dosages, and adverse effects are accurately reported. Also attach the approval for pharmaceutical substance use.
-          </p>
-        </Required>
-        {form.publicationPharmaInterventions === "Yes" && (
-          <Required label="2.11 Intervention details *" className="md:col-span-2">
-            <textarea value={form.publicationPharmaInterventionDetails} onChange={onFieldChange("publicationPharmaInterventionDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+          <Required
+            label="2.2 How will participants be recruited? (Multiple Select) *"
+            kind="selection"
+            className="mt-4"
+          >
+            <CheckboxGroup
+              options={RECRUITMENT_CHANNELS}
+              checkedFn={(item) => hasCsvOption("publicationRecruitmentChannels", item)}
+              toggleFn={(item) =>
+                toggleCsvOption("publicationRecruitmentChannels", item)
+              }
+              columns={2}
+            />
           </Required>
-        )}
 
-        <Required label="2.12 Will animal subjects be used in this research? *" className="md:col-span-2">
-          <select value={form.publicationAnimalSubjects} onChange={onFieldChange("publicationAnimalSubjects")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
-        {form.publicationAnimalSubjects === "Yes" && (
-          <Required label="If 'Yes', justify use and describe animal care/welfare measures. *" className="md:col-span-2">
-            <textarea value={form.publicationAnimalWelfareDetails} onChange={onFieldChange("publicationAnimalWelfareDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+          <Required
+            label="2.3 Did the research obtain informed consent from participants/patients? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationInformedConsent}
+              onChange={onFieldChange("publicationInformedConsent")}
+            >
+              <option value="">Select</option>
+              <option>Written informed consent</option>
+              <option>Oral informed consent</option>
+              <option>Waived consent</option>
+              <option>Not applicable</option>
+            </BaseSelect>
+            <InfoNote className="mt-2">
+              Note: Provide attach the consent form (as per UOL format) in the
+              concerned section [Link of the Form].
+            </InfoNote>
           </Required>
-        )}
 
-        <Required label="2.13 If yes to 2.12, has approval from the concerned ethics committee been obtained? *" className="md:col-span-2">
-          <select value={form.publicationAnimalEthicsApproval} onChange={onFieldChange("publicationAnimalEthicsApproval")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Pending</option>
-            <option>Not Applicable</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            Note: Please attach the approval letter in the required attachments section.
-          </p>
-        </Required>
-
-        <Required label="2.14 Are there any undisclosed conflicts of interest or funding sources? *" className="md:col-span-2">
-          <select value={form.publicationConflictsUndisclosed} onChange={onFieldChange("publicationConflictsUndisclosed")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Undecided</option>
-          </select>
-        </Required>
-        {form.publicationConflictsUndisclosed === "Yes" && (
-          <Required label="If 'Yes', provide complete disclosure. *" className="md:col-span-2">
-            <textarea value={form.publicationConflictDisclosureDetails} onChange={onFieldChange("publicationConflictDisclosureDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+          <Required
+            label="2.4 Have any research data been collected prior to receiving ethical approval? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationPreApprovalDataCollected}
+              onChange={onFieldChange("publicationPreApprovalDataCollected")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Not applicable</option>
+            </BaseSelect>
+            <InfoNote className="mt-2">
+              Note: If &lsquo;yes&rsquo; is selected, please attach the participant
+              information letter (cover letter) and participant consent form.
+            </InfoNote>
           </Required>
-        )}
+        </FormSection>
 
-        <Required label="2.15 If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *" className="md:col-span-2">
-          <textarea value={form.publicationPotentialRisks} onChange={onFieldChange("publicationPotentialRisks")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-        </Required>
+        <FormSection title="Withdrawal, Compensation & Anonymization">
+          <FieldRow>
+            <Required
+              label="2.5 Can participants withdraw from the study at any time? *"
+              kind="radio"
+            >
+              <RadioTileGroup
+                name="pubMedicalWithdraw"
+                value={form.publicationCanWithdraw}
+                onChange={(v) =>
+                  setForm((p) => ({ ...p, publicationCanWithdraw: v }))
+                }
+                options={["Yes", "No"]}
+              />
+            </Required>
 
-        <Required label="2.16 Is this manuscript being submitted simultaneously to multiple journals? *" className="md:col-span-2">
-          <select value={form.publicationSimultaneousJournals} onChange={onFieldChange("publicationSimultaneousJournals")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
+            <Required
+              label="2.6 Will participants receive any compensation? *"
+              kind="radio"
+            >
+              <RadioTileGroup
+                name="pubMedicalComp"
+                value={form.publicationCompensation}
+                onChange={(v) =>
+                  setForm((p) => ({ ...p, publicationCompensation: v }))
+                }
+                options={["Yes", "No"]}
+              />
+            </Required>
+          </FieldRow>
 
-        <Required label="2.17 Has this research (or substantially similar research) been previously published? *" className="md:col-span-2">
-          <select value={form.publicationPreviouslyPublished} onChange={onFieldChange("publicationPreviouslyPublished")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
+          <Required
+            label="2.7 Are all patient/participant identities adequately anonymized or de-identified in the manuscript? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationAnonymized}
+              onChange={onFieldChange("publicationAnonymized")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Partially</option>
+              <option>N/A</option>
+            </BaseSelect>
+          </Required>
+        </FormSection>
+
+        <FormSection title="Sensitive Topics, Vulnerable Populations & Specimens">
+          <Required
+            label="2.8 Does the manuscript address sensitive health topics? *"
+            kind="radio"
+          >
+            <RadioTileGroup
+              name="pubMedicalSensitive"
+              value={form.publicationSensitiveHealthTopics}
+              onChange={(v) =>
+                setForm((p) => ({ ...p, publicationSensitiveHealthTopics: v }))
+              }
+              options={["Yes", "No"]}
+            />
+          </Required>
+
+          <Required
+            label="2.9 Does the article involve vulnerable patient populations? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationVulnerablePopulation}
+              onChange={onFieldChange("publicationVulnerablePopulation")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>N/A</option>
+            </BaseSelect>
+          </Required>
+
+          <Required
+            label="2.10 Will this research involve biological specimens? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationBiologicalSpecimens}
+              onChange={onFieldChange("publicationBiologicalSpecimens")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+
+          {form.publicationBiologicalSpecimens === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="If 'Yes', describe collection, storage, handling and biosafety measures. *">
+                <BaseTextarea
+                  value={form.publicationBiologicalSpecimenDetails}
+                  onChange={onFieldChange("publicationBiologicalSpecimenDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+        </FormSection>
+
+        <FormSection title="Pharmaceutical & Animal Subjects">
+          <Required label="2.11 Does the manuscript involve pharmacological or therapeutic interventions? *">
+            <BaseSelect
+              value={form.publicationPharmaInterventions}
+              onChange={onFieldChange("publicationPharmaInterventions")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+            <InfoNote className="mt-2">
+              If &apos;Yes&apos;, verify drug names, dosages, and adverse effects are
+              accurately reported. Also attach the approval for pharmaceutical
+              substance use.
+            </InfoNote>
+          </Required>
+          {form.publicationPharmaInterventions === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="2.11 Intervention details *">
+                <BaseTextarea
+                  value={form.publicationPharmaInterventionDetails}
+                  onChange={onFieldChange("publicationPharmaInterventionDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+
+          <Required
+            label="2.12 Will animal subjects be used in this research? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationAnimalSubjects}
+              onChange={onFieldChange("publicationAnimalSubjects")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+          {form.publicationAnimalSubjects === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="If 'Yes', justify use and describe animal care/welfare measures. *">
+                <BaseTextarea
+                  value={form.publicationAnimalWelfareDetails}
+                  onChange={onFieldChange("publicationAnimalWelfareDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+
+          <Required
+            label="2.13 If yes to 2.12, has approval from the concerned ethics committee been obtained? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationAnimalEthicsApproval}
+              onChange={onFieldChange("publicationAnimalEthicsApproval")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Pending</option>
+              <option>Not Applicable</option>
+            </BaseSelect>
+            <InfoNote className="mt-2">
+              Note: Please attach the approval letter in the required attachments
+              section.
+            </InfoNote>
+          </Required>
+        </FormSection>
+
+        <FormSection title="Conflicts, Risks & Submission History">
+          <Required label="2.14 Are there any undisclosed conflicts of interest or funding sources? *">
+            <BaseSelect
+              value={form.publicationConflictsUndisclosed}
+              onChange={onFieldChange("publicationConflictsUndisclosed")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Undecided</option>
+            </BaseSelect>
+          </Required>
+          {form.publicationConflictsUndisclosed === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="If 'Yes', provide complete disclosure. *">
+                <BaseTextarea
+                  value={form.publicationConflictDisclosureDetails}
+                  onChange={onFieldChange("publicationConflictDisclosureDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+
+          <Required
+            label="2.15 If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *"
+            className="mt-4"
+          >
+            <BaseTextarea
+              value={form.publicationPotentialRisks}
+              onChange={onFieldChange("publicationPotentialRisks")}
+              rows={3}
+            />
+          </Required>
+
+          <Required
+            label="2.16 Is this manuscript being submitted simultaneously to multiple journals? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationSimultaneousJournals}
+              onChange={onFieldChange("publicationSimultaneousJournals")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+
+          <Required
+            label="2.17 Has this research (or substantially similar research) been previously published? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationPreviouslyPublished}
+              onChange={onFieldChange("publicationPreviouslyPublished")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 2: Data Integrity and Permissions ---------- */
   if (currentStep === 2) {
     return (
       <section className="flex flex-col gap-6">
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 3: Data Integrity and Permissions <RequiredMark />
-        </h3>
+        <StepHeader index={3} title="Data Integrity and Permissions" required />
 
-        <Required label="3.1 Will the data be presented accurately and completely in the manuscript? *" className="md:col-span-2">
-          <select value={form.publicationDataAccurate} onChange={onFieldChange("publicationDataAccurate")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Partial disclosure</option>
-          </select>
-        </Required>
-
-        <Required label="3.2 Does the article follow relevant reporting guidelines (CONSORT, STROBE, PRISMA, etc.)? *" className="md:col-span-2">
-          <select value={form.publicationReportingGuidelines} onChange={onFieldChange("publicationReportingGuidelines")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Not applicable</option>
-          </select>
-        </Required>
-
-        <Required label="3.3 Have all adverse events and safety data been accurately reported? *" className="md:col-span-2">
-          <select value={form.publicationAdverseEventsReported} onChange={onFieldChange("publicationAdverseEventsReported")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Not applicable</option>
-          </select>
-        </Required>
-
-        <Required label="3.4 Are there any third-party copyrights or permissions required? *" className="md:col-span-2">
-          <select value={form.publicationThirdPartyPermissions} onChange={onFieldChange("publicationThirdPartyPermissions")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
-        {form.publicationThirdPartyPermissions === "Yes" && (
-          <Required label="If 'Yes', confirm permissions have been obtained and documented. *" className="md:col-span-2">
-            <textarea value={form.publicationThirdPartyPermissionDetails} onChange={onFieldChange("publicationThirdPartyPermissionDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+        <FormSection>
+          <Required label="3.1 Will the data be presented accurately and completely in the manuscript? *">
+            <BaseSelect
+              value={form.publicationDataAccurate}
+              onChange={onFieldChange("publicationDataAccurate")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Partial disclosure</option>
+            </BaseSelect>
           </Required>
-        )}
+
+          <Required
+            label="3.2 Does the article follow relevant reporting guidelines (CONSORT, STROBE, PRISMA, etc.)? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationReportingGuidelines}
+              onChange={onFieldChange("publicationReportingGuidelines")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Not applicable</option>
+            </BaseSelect>
+          </Required>
+
+          <Required
+            label="3.3 Have all adverse events and safety data been accurately reported? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationAdverseEventsReported}
+              onChange={onFieldChange("publicationAdverseEventsReported")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Not applicable</option>
+            </BaseSelect>
+          </Required>
+
+          <Required
+            label="3.4 Are there any third-party copyrights or permissions required? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.publicationThirdPartyPermissions}
+              onChange={onFieldChange("publicationThirdPartyPermissions")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+          {form.publicationThirdPartyPermissions === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="If 'Yes', confirm permissions have been obtained and documented. *">
+                <BaseTextarea
+                  value={form.publicationThirdPartyPermissionDetails}
+                  onChange={onFieldChange("publicationThirdPartyPermissionDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 3: Institutional Approvals ---------- */
   if (currentStep === 3) {
     return (
       <section className="flex flex-col gap-6">
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 4: Institutional Approvals & Collaboration <RequiredMark />
-        </h3>
+        <StepHeader
+          index={4}
+          title="Institutional Approvals & Collaboration"
+          required
+        />
 
-        <Required label="4.1 Has your research received institutional funding? *" className="w-full">
-          <select value={form.institutionalFunding} onChange={onFieldChange("institutionalFunding")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
+        <FormSection title="Funding & Collaboration">
+          <FieldRow>
+            <Required label="4.1 Has your research received institutional funding? *">
+              <BaseSelect
+                value={form.institutionalFunding}
+                onChange={onFieldChange("institutionalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
 
-        <Required label="4.2 Has your research received external funding? *" className="w-full">
-          <select value={form.externalFunding} onChange={onFieldChange("externalFunding")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
+            <Required label="4.2 Has your research received external funding? *">
+              <BaseSelect
+                value={form.externalFunding}
+                onChange={onFieldChange("externalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
 
-        <Required label="4.3 Does your research involve an international collaboration? *" className="md:col-span-2">
-          <select value={form.internationalCollaboration} onChange={onFieldChange("internationalCollaboration")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
-        {form.internationalCollaboration === "Yes" && (
-          <Required label="If yes, give details (if not provided during step 1) *" className="md:col-span-2">
-            <textarea value={form.internationalCollaborationDetails} onChange={onFieldChange("internationalCollaborationDetails")} rows={3} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+          <Required
+            label="4.3 Does your research involve an international collaboration? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.internationalCollaboration}
+              onChange={onFieldChange("internationalCollaboration")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
           </Required>
-        )}
+          {form.internationalCollaboration === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="If yes, give details (if not provided during step 1) *">
+                <BaseTextarea
+                  value={form.internationalCollaborationDetails}
+                  onChange={onFieldChange("internationalCollaborationDetails")}
+                  rows={3}
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
 
-        <Required label="4.4 Will your research, or a part of it, be conducted overseas/abroad? *" className="md:col-span-2">
-          <select value={form.conductedAbroad} onChange={onFieldChange("conductedAbroad")} className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3">
-            <option value="">Select</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            Note: If yes, the concerned institute&apos;s ethical approval form must be attached in the concerned section.
-          </p>
-        </Required>
+          <Required
+            label="4.4 Will your research, or a part of it, be conducted overseas/abroad? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.conductedAbroad}
+              onChange={onFieldChange("conductedAbroad")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+            <InfoNote className="mt-2">
+              Note: If yes, the concerned institute&apos;s ethical approval form must
+              be attached in the concerned section.
+            </InfoNote>
+          </Required>
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 4: Required Attachments ---------- */
   if (currentStep === 4) {
     return (
       <section className="flex flex-col gap-6">
-        <h3 className="text-xl font-bold text-dark dark:text-white">
-          Step 5: Required Attachments <RequiredMark />
-        </h3>
-        <div className="grid gap-2">
+        <StepHeader index={5} title="Required Attachments" required />
+
+        <div className="flex flex-col gap-3">
           {REQUIRED_ATTACHMENTS.map((item) => (
-            <div key={item} className="rounded border border-stroke px-3 py-2 dark:border-dark-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("requiredAttachments", item)}
-                    onChange={() => toggleCsvOption("requiredAttachments", item)}
-                  />
-                  <span className="text-sm">{item}</span>
-                </label>
-                <label className="cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10">
-                  Upload document
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleRequiredAttachmentUpload(item)}
-                  />
-                </label>
-              </div>
-              {attachmentFiles[item] && (
-                <p className="mt-2 text-xs text-body">Selected: {attachmentFiles[item]}</p>
-              )}
-            </div>
+            <AttachmentCard
+              key={item}
+              label={item}
+              isMandatory={false}
+              isChecked={hasCsvOption("requiredAttachments", item)}
+              onToggle={() => toggleCsvOption("requiredAttachments", item)}
+              fileName={attachmentFiles[item]}
+              onUpload={handleRequiredAttachmentUpload(item)}
+            />
           ))}
         </div>
       </section>
     );
   }
 
+  /* ---------- STEP 5: Declaration ---------- */
   return (
     <section className="flex flex-col gap-6">
-      <h3 className="text-xl font-bold text-dark dark:text-white">
-        Step 6: Declaration and Submission <RequiredMark />
-      </h3>
-      <label className="flex items-start gap-2 rounded-lg border border-stroke px-3 py-2 dark:border-dark-3">
-        <input
-          type="checkbox"
-          {...requiredMarkField("Declaration and submission")}
-          className="mt-1 shrink-0"
-          checked={form.form3DeclarationAccepted === "yes"}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            setForm((prev) => {
-              const declarationName =
-                prev.scholarName.trim() || prev.applicantName.trim() || "_____________________";
-              return {
-                ...prev,
-                form3DeclarationAccepted: checked ? "yes" : "",
-                declaration: checked ? buildMedicalFacultyPublicationDeclaration(declarationName) : "",
-              };
-            });
-          }}
-        />
-        <span className="text-sm">
-          {buildMedicalFacultyPublicationDeclaration(
-            form.scholarName.trim() || form.applicantName.trim() || "_____________________",
-          )}
-        </span>
-      </label>
+      <StepHeader index={6} title="Declaration and Submission" required />
+
+      <DeclarationCheckbox
+        checked={form.form3DeclarationAccepted === "yes"}
+        onChange={(checked) => {
+          setForm((prev) => {
+            const declarationName =
+              prev.scholarName.trim() ||
+              prev.applicantName.trim() ||
+              "_____________________";
+            return {
+              ...prev,
+              form3DeclarationAccepted: checked ? "yes" : "",
+              declaration: checked
+                ? buildMedicalFacultyPublicationDeclaration(declarationName)
+                : "",
+            };
+          });
+        }}
+      >
+        {buildMedicalFacultyPublicationDeclaration(
+          form.scholarName.trim() ||
+            form.applicantName.trim() ||
+            "_____________________",
+        )}
+      </DeclarationCheckbox>
     </section>
   );
 }
-

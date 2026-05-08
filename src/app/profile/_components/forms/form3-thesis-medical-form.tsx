@@ -2,14 +2,26 @@
 
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import type { CommonFormProps } from "./form-stepper-types";
-import {
-  allInlineRequiredProps,
-  ignoreRequiredValidationProps,
-  requiredMarkField,
-  requiredRadioGroupProps,
-  requiredSelectionGroupProps,
-} from "./form-validation-mark";
 import { Required } from "./required";
+import {
+  AttachmentCard,
+  BaseInput,
+  BaseSelect,
+  BaseTextarea,
+  CheckboxGroup,
+  ConditionalCallout,
+  DeclarationCheckbox,
+  ExtraUploadCard,
+  FieldGroup,
+  FieldRow,
+  FormSection,
+  InfoNote,
+  ReadOnlyInput,
+  RequiredMark,
+  StepHeader,
+  SubsectionTitle,
+  WarnNote,
+} from "./form-ui";
 
 /** Match Step 6 checklist on Form #3 (Medical Sciences). */
 export const FORM_3_REQUIRED_ATTACHMENTS = [
@@ -133,7 +145,37 @@ const DATA_PROTECTION_OPTIONS = [
   "Others",
 ] as const;
 
-const PARTICIPANT_BANDS = ["1-20", "21-50", "51-100", "101-150", "151-200", "201-300", "301-400", "401-500", "501+"] as const;
+const PARTICIPANT_BANDS = [
+  "1-20",
+  "21-50",
+  "51-100",
+  "101-150",
+  "151-200",
+  "201-300",
+  "301-400",
+  "401-500",
+  "501+",
+] as const;
+
+const RECRUITMENT_CHANNELS = [
+  "Emails",
+  "Google Forms/ Online Surveys",
+  "Social Media (Facebook, Instagram, etc.)",
+  "LinkedIn (professional networking platforms)",
+  "Institutional Mailing Lists",
+  "Online forms",
+  "Academic Networks",
+  "In-person",
+  "Other",
+] as const;
+
+const PII_TYPES = [
+  ["piiName", "Name"],
+  ["piiEmailPhone", "Email/phone"],
+  ["piiStudentEmployeeId", "Student/employee ID"],
+  ["piiMedicalRecordNumber", "Medical record number"],
+  ["piiAudioVideoRecordings", "Audio/video recordings"],
+] as const;
 
 export type Form3ThesisMedicalFormProps = CommonFormProps & {
   extraUploadFiles: string[];
@@ -156,429 +198,422 @@ export function Form3ThesisMedicalForm({
   facultyOptions,
   getDepartmentsForFaculty,
 }: Form3ThesisMedicalFormProps) {
-  const RequiredMark = () => (
-    <span className="ml-1 font-extrabold text-red-600 dark:text-red-400">*</span>
-  );
-
+  /* ---------- STEP 0: Researcher & Thesis ---------- */
   if (currentStep === 0) {
     return (
-      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
-        <div>
-        <h3 className="text-xl font-bold text-dark dark:text-white">
-            Step 1: Researcher (s) and Thesis/Project Information
-        </h3>
-          <p className="mt-1 text-sm text-body">
-            Students&apos; Thesis/Projects (for Medical Sciences)
-          </p>
-        </div>
+      <section className="flex flex-col gap-6">
+        <StepHeader
+          index={1}
+          title="Researcher(s) and Thesis/Project Information"
+          subtitle="Students' Thesis/Projects (for Medical Sciences)"
+        />
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-          <h4 className="font-semibold text-dark dark:text-white">1.1 Scholar&apos;s Information</h4>
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              value={form.scholarName}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="Scholar's Name"
-            />
-            <input
-              value={form.scholarSapId}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="SAP ID / Reg. No."
-            />
-            <input
-              value={form.scholarEmail}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="Email"
-            />
-            <input
-              value={form.scholarFaculty}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="Faculty"
-            />
-            <input
-              value={form.scholarDepartment}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="Department"
-            />
-            <input
-              value={form.scholarProgram}
-              readOnly
-              className="rounded-lg border border-stroke bg-gray-1 px-4 py-2.5 dark:border-dark-3 dark:bg-dark-2"
-              placeholder="Program"
-            />
-          </div>
-        </div>
+        {/* 1.1 Scholar's Information */}
+        <FormSection title="1.1 Scholar's Information">
+          <FieldRow>
+            <ReadOnlyInput value={form.scholarName} placeholder="Scholar's Name" />
+            <ReadOnlyInput value={form.scholarSapId} placeholder="SAP ID / Reg. No." />
+            <ReadOnlyInput value={form.scholarEmail} placeholder="Email" />
+            <ReadOnlyInput value={form.scholarFaculty} placeholder="Faculty" />
+            <ReadOnlyInput value={form.scholarDepartment} placeholder="Department" />
+            <ReadOnlyInput value={form.scholarProgram} placeholder="Program" />
+          </FieldRow>
+        </FormSection>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
-          <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
-            1.2 Supervisor(s)&apos;s Information
-          </h4>
-          <Required label="Supervisor's SAP ID *">
-            <input
-              placeholder="Enter Sap ID"
-              value={form.supervisorSapId}
-              onChange={onFieldChange("supervisorSapId")}
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-            />
-          </Required>
-          <Required label="Supervisor's Name *">
-          <input
-            placeholder="Enter Supervisor's Name"
-            value={form.supervisorName}
-            onChange={onFieldChange("supervisorName")}
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-          />
-          </Required>
-          <Required label="Supervisor's	Email *">
-          <input
-            placeholder="Enter Supervisor's Email"
-            value={form.supervisorEmail}
-            onChange={onFieldChange("supervisorEmail")}
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-            />
-          </Required>
-          <Required label="Faculty">
-          <select value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full">
-            <option value="">Select Faculty</option>
-              {facultyOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </Required>
-          <Required label="Department">
-          <select value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} disabled={!form.supervisorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3 md:col-span-2 w-full">
-            <option value="">Select Department</option>
-            {getDepartmentsForFaculty(form.supervisorFaculty).map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-          </Required>
-        </div>
+        {/* 1.2 Supervisor's Information */}
+        <FormSection title="1.2 Supervisor(s)'s Information">
+          <FieldRow>
+            <Required label="Supervisor's SAP ID *">
+              <BaseInput
+                placeholder="Enter SAP ID"
+                value={form.supervisorSapId}
+                onChange={onFieldChange("supervisorSapId")}
+              />
+            </Required>
+            <Required label="Supervisor's Name *">
+              <BaseInput
+                placeholder="Enter Supervisor's Name"
+                value={form.supervisorName}
+                onChange={onFieldChange("supervisorName")}
+              />
+            </Required>
+            <Required label="Supervisor's Email *">
+              <BaseInput
+                placeholder="Enter Supervisor's Email"
+                value={form.supervisorEmail}
+                onChange={onFieldChange("supervisorEmail")}
+              />
+            </Required>
+            <Required label="Faculty">
+              <BaseSelect
+                value={form.supervisorFaculty}
+                onChange={onFieldChange("supervisorFaculty")}
+              >
+                <option value="">Select Faculty</option>
+                {facultyOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </BaseSelect>
+            </Required>
+            <Required label="Department" className="md:col-span-2">
+              <BaseSelect
+                value={form.supervisorDepartment}
+                onChange={onFieldChange("supervisorDepartment")}
+                disabled={!form.supervisorFaculty}
+              >
+                <option value="">Select Department</option>
+                {getDepartmentsForFaculty(form.supervisorFaculty).map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+        </FormSection>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-          <h4 className="font-semibold text-dark dark:text-white">
-            1.3 Co-supervisor (please select:)
-          </h4>
-          
-          <select
+        {/* 1.3 Co-supervisor */}
+        <FormSection
+          title="1.3 Co-supervisor"
+          subtitle="Choose UOL or External and provide their details."
+        >
+          <BaseSelect
             value={form.coSupervisorType}
             onChange={onFieldChange("coSupervisorType")}
-            className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
+            className="mb-4 max-w-xs"
           >
             <option value="">Select Option</option>
             <option value="UOL">Option 1: UOL</option>
             <option value="External">Option 2: External</option>
-          </select>
+          </BaseSelect>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <FieldRow>
             {form.coSupervisorType === "UOL" ? (
               <>
                 <Required label="Co-supervisor SAP ID *">
-                  <input
+                  <BaseInput
                     value={form.uolCoSupervisorSapId}
                     onChange={onFieldChange("uolCoSupervisorSapId")}
                     placeholder="SAP ID"
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
                   />
-                  </Required>
-                  <Required label="Co-supervisor's Name *">
-                    <input
+                </Required>
+                <Required label="Co-supervisor's Name *">
+                  <BaseInput
                     value={form.uolCoSupervisorName}
                     onChange={onFieldChange("uolCoSupervisorName")}
                     placeholder="Supervisor's Name"
-                    className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                    />
-                  </Required>
-                  <Required label="Co-supervisor's Email *">
-                      <input
-                      value={form.uolCoSupervisorEmail}
-                      onChange={onFieldChange("uolCoSupervisorEmail")}
-                      placeholder="Email"
-                      className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                    />
-                  </Required>
-                  <Required label="Co-supervisor's Faculty *">
-                    <select value={form.uolCoSupervisorFaculty} onChange={onFieldChange("uolCoSupervisorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full">
-                      <option value="">Select Faculty</option>
-                      {facultyOptions.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
-                    </select>
-                  </Required>
-                  <Required label="Co-supervisor's Department *">
-                    <select value={form.uolCoSupervisorDepartment} onChange={onFieldChange("uolCoSupervisorDepartment")} disabled={!form.uolCoSupervisorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3 md:col-span-2">
-                      <option value="">Select Department</option>
-                      {getDepartmentsForFaculty(form.uolCoSupervisorFaculty).map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
-                    </select>
-                  </Required>
+                  />
+                </Required>
+                <Required label="Co-supervisor's Email *">
+                  <BaseInput
+                    value={form.uolCoSupervisorEmail}
+                    onChange={onFieldChange("uolCoSupervisorEmail")}
+                    placeholder="Email"
+                  />
+                </Required>
+                <Required label="Co-supervisor's Faculty *">
+                  <BaseSelect
+                    value={form.uolCoSupervisorFaculty}
+                    onChange={onFieldChange("uolCoSupervisorFaculty")}
+                  >
+                    <option value="">Select Faculty</option>
+                    {facultyOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </BaseSelect>
+                </Required>
+                <Required
+                  label="Co-supervisor's Department *"
+                  className="md:col-span-2"
+                >
+                  <BaseSelect
+                    value={form.uolCoSupervisorDepartment}
+                    onChange={onFieldChange("uolCoSupervisorDepartment")}
+                    disabled={!form.uolCoSupervisorFaculty}
+                  >
+                    <option value="">Select Department</option>
+                    {getDepartmentsForFaculty(form.uolCoSupervisorFaculty).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </BaseSelect>
+                </Required>
               </>
             ) : (
               <>
                 <Required label="Co-supervisor's Name">
-                <input
-
-                  value={form.externalCoSupervisorName}
-                  onChange={onFieldChange("externalCoSupervisorName")}
-                  placeholder="Co-supervisor's Name"
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                />
+                  <BaseInput
+                    value={form.externalCoSupervisorName}
+                    onChange={onFieldChange("externalCoSupervisorName")}
+                    placeholder="Co-supervisor's Name"
+                  />
                 </Required>
                 <Required label="Co-supervisor's Reg. No.">
-                <input
-
-                  value={form.externalCoSupervisorRegNo}
-                  onChange={onFieldChange("externalCoSupervisorRegNo")}
-                  placeholder="Reg. No."
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                />
+                  <BaseInput
+                    value={form.externalCoSupervisorRegNo}
+                    onChange={onFieldChange("externalCoSupervisorRegNo")}
+                    placeholder="Reg. No."
+                  />
                 </Required>
                 <Required label="Co-supervisor's Email">
-                <input
-
-                  value={form.externalCoSupervisorEmail}
-                  onChange={onFieldChange("externalCoSupervisorEmail")}
-                  placeholder="Email"
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                />
+                  <BaseInput
+                    value={form.externalCoSupervisorEmail}
+                    onChange={onFieldChange("externalCoSupervisorEmail")}
+                    placeholder="Email"
+                  />
                 </Required>
                 <Required label="Co-supervisor's University">
-                <input
-                  value={form.externalCoSupervisorUniversity}
-                  onChange={onFieldChange("externalCoSupervisorUniversity")}
-                  placeholder="University"
-                  className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-                />
+                  <BaseInput
+                    value={form.externalCoSupervisorUniversity}
+                    onChange={onFieldChange("externalCoSupervisorUniversity")}
+                    placeholder="University"
+                  />
                 </Required>
                 <Required label="Co-supervisor's Faculty">
-                <select value={form.externalCoSupervisorFaculty} onChange={onFieldChange("externalCoSupervisorFaculty")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full">
-                  <option value="">Faculty</option>
-                  {facultyOptions.map((item) => (
-                    <option key={item} value={item}>{item}</option>
-                  ))}
-                </select>
+                  <BaseSelect
+                    value={form.externalCoSupervisorFaculty}
+                    onChange={onFieldChange("externalCoSupervisorFaculty")}
+                  >
+                    <option value="">Faculty</option>
+                    {facultyOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </BaseSelect>
                 </Required>
-                <Required label="Co-supervisor's Department">
-                <select value={form.externalCoSupervisorDepartment} onChange={onFieldChange("externalCoSupervisorDepartment")} disabled={!form.externalCoSupervisorFaculty} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-3 md:col-span-2 w-full">
-                  <option value="">Department</option>
-                  {getDepartmentsForFaculty(form.externalCoSupervisorFaculty).map((item) => (
-                    <option key={item} value={item}>{item}</option>
-                  ))}
-                </select>
+                <Required
+                  label="Co-supervisor's Department"
+                  className="md:col-span-2"
+                >
+                  <BaseSelect
+                    value={form.externalCoSupervisorDepartment}
+                    onChange={onFieldChange("externalCoSupervisorDepartment")}
+                    disabled={!form.externalCoSupervisorFaculty}
+                  >
+                    <option value="">Department</option>
+                    {getDepartmentsForFaculty(form.externalCoSupervisorFaculty).map(
+                      (item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ),
+                    )}
+                  </BaseSelect>
                 </Required>
               </>
             )}
-          </div>
-        </div>
+          </FieldRow>
+        </FormSection>
 
-        <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
-          <h4 className="font-semibold text-dark dark:text-white md:col-span-2">
-            1.4 Thesis/Project Details 
-          </h4>
-          <Required label="Thesis/Project Title *">
-          <input
+        {/* 1.4 Thesis/Project Details */}
+        <FormSection title="1.4 Thesis/Project Details">
+          <FieldRow>
+            <Required label="Thesis/Project Title *" className="md:col-span-2">
+              <BaseInput
+                value={form.thesisTitle}
+                onChange={onFieldChange("thesisTitle")}
+                placeholder="a) Thesis/Project Title"
+              />
+            </Required>
+            <Required label="Research Discipline *" className="md:col-span-2">
+              <BaseInput
+                value={form.researchDiscipline}
+                onChange={onFieldChange("researchDiscipline")}
+                placeholder="b) Research Discipline"
+              />
+            </Required>
+            <Required label="Expected Start Date *">
+              <BaseInput
+                type="date"
+                value={form.expectedStartDate}
+                onChange={onFieldChange("expectedStartDate")}
+                placeholder="c) Expected Start Date"
+              />
+            </Required>
+            <Required label="Expected End Date *">
+              <BaseInput
+                type="date"
+                value={form.expectedEndDate}
+                onChange={onFieldChange("expectedEndDate")}
+                placeholder="d) Expected End Date"
+              />
+            </Required>
+            <Required label="Research Location(s) *" className="md:col-span-2">
+              <BaseInput
+                value={form.researchLocations}
+                onChange={onFieldChange("researchLocations")}
+                placeholder="e) Research Location(s)"
+              />
+            </Required>
+            <FieldGroup label="Funding Source (if applicable)" fullWidth>
+              <BaseInput
+                value={form.fundingSource}
+                onChange={onFieldChange("fundingSource")}
+                placeholder="f) Funding Source (if applicable)"
+              />
+            </FieldGroup>
 
-            value={form.thesisTitle}
-            onChange={onFieldChange("thesisTitle")}
-            placeholder="a) Thesis/Project Title"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-          <Required label="Research Discipline *">  
-            <input
-
-            value={form.researchDiscipline}
-            onChange={onFieldChange("researchDiscipline")}
-            placeholder="b) Research Discipline"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-          <Required label="Expected Start Date *">  
-          <input
-            type="date"
-            value={form.expectedStartDate}
-            onChange={onFieldChange("expectedStartDate")}
-            placeholder="c) Expected Start Date"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-          <Required label="Expected End Date *">
-          <input
-            type="date"
-            value={form.expectedEndDate}
-            onChange={onFieldChange("expectedEndDate")}
-            placeholder="d) Expected End Date"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-          <Required label="Research Location(s) *">
-            <input
-            value={form.researchLocations}
-            onChange={onFieldChange("researchLocations")}
-            placeholder="e) Research Location(s)"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-
-          <input
-              value={form.fundingSource}
-              onChange={onFieldChange("fundingSource")}
-              placeholder="f) Funding Source (if applicable)"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-
-
-          <Required label="Research Objectives *">
-            
-            <textarea
-              value={form.researchObjective1}
-              onChange={onFieldChange("researchObjective1")}
-              placeholder="Objective 1"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-          <Required label="Research Objective 2 *">
-            <textarea
+            <Required label="Research Objective 1 *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.researchObjective1}
+                onChange={onFieldChange("researchObjective1")}
+                placeholder="Objective 1"
+                rows={2}
+              />
+            </Required>
+            <Required label="Research Objective 2 *" className="md:col-span-2">
+              <BaseTextarea
                 value={form.researchObjective2}
-              onChange={onFieldChange("researchObjective2")}
-              placeholder="Objective 2"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-            <textarea
+                onChange={onFieldChange("researchObjective2")}
+                placeholder="Objective 2"
+                rows={2}
+              />
+            </Required>
+            <FieldGroup label="Research Objective 3" fullWidth>
+              <BaseTextarea
                 value={form.researchObjective3}
-              onChange={onFieldChange("researchObjective3")}
-              placeholder="Objective 3"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-            <textarea
+                onChange={onFieldChange("researchObjective3")}
+                placeholder="Objective 3"
+                rows={2}
+              />
+            </FieldGroup>
+            <FieldGroup label="Research Objective 4" fullWidth>
+              <BaseTextarea
                 value={form.researchObjective4}
-              onChange={onFieldChange("researchObjective4")}
-              placeholder="Objective 4"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+                onChange={onFieldChange("researchObjective4")}
+                placeholder="Objective 4"
+                rows={2}
+              />
+            </FieldGroup>
 
-
-          <Required
-            label="Please select relevant Sustainable Development Goals (multiple options can also be
-                selected) as per your research *"
-            kind="selection"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          >
-            <div className="grid gap-2 sm:grid-cols-2">
-              {SDG_OPTIONS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("sdgs", item)}
-                    onChange={() => toggleCsvOption("sdgs", item)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-          </Required>
-
-          <Required label="Purpose of research (multiple) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {RESEARCH_PURPOSE_OPTIONS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("researchPurpose", item)}
-                    onChange={() => toggleCsvOption("researchPurpose", item)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-            </Required>
-
-          <Required label="Research Classification (multiple) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {RESEARCH_CLASSIFICATION_OPTIONS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("researchClassification", item)}
-                    onChange={() => toggleCsvOption("researchClassification", item)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-            </Required>
-
-          <Required label="Select the chosen method of data collection: (single-select) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <div className="grid gap-2">
-              {DATA_COLLECTION_OPTIONS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="dataCollectionMethodForm3"
-                    checked={form.dataCollectionMethod === item}
-                    onChange={() => setForm((prev) => ({ ...prev, dataCollectionMethod: item }))}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-            </Required>
-
-          <Required label="Select Research Population (type) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {RESEARCH_POPULATION_OPTIONS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("researchPopulation", item)}
-                    onChange={() => toggleCsvOption("researchPopulation", item)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-            </Required>
-
-          
-            <Required label="Describe methods and materials *">
-            <textarea
-
-              value={form.methodology}
-              onChange={onFieldChange("methodology")}
-              rows={5}
-              placeholder="Describe methods and materials"
-              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-
-
-          <Required label="How many participants will you be recruiting? (estimated number) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <select
-
-              value={form.participantsEstimate}
-              onChange={onFieldChange("participantsEstimate")}
-              className="w-full max-w-md rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+            <Required
+              label="Please select relevant Sustainable Development Goals (multiple options can also be selected) as per your research *"
+              kind="selection"
+              className="md:col-span-2"
             >
-              <option value="">Select range</option>
-              {PARTICIPANT_BANDS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+              <CheckboxGroup
+                options={SDG_OPTIONS}
+                checkedFn={(item) => hasCsvOption("sdgs", item)}
+                toggleFn={(item) => toggleCsvOption("sdgs", item)}
+                columns={2}
+              />
             </Required>
-        </div>
+
+            <Required
+              label="Purpose of research (multiple) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <CheckboxGroup
+                options={RESEARCH_PURPOSE_OPTIONS}
+                checkedFn={(item) => hasCsvOption("researchPurpose", item)}
+                toggleFn={(item) => toggleCsvOption("researchPurpose", item)}
+                columns={2}
+              />
+            </Required>
+
+            <Required
+              label="Research Classification (multiple) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <CheckboxGroup
+                options={RESEARCH_CLASSIFICATION_OPTIONS}
+                checkedFn={(item) => hasCsvOption("researchClassification", item)}
+                toggleFn={(item) =>
+                  toggleCsvOption("researchClassification", item)
+                }
+                columns={2}
+              />
+            </Required>
+
+            <Required
+              label="Select the chosen method of data collection: (single-select) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <div className="grid gap-2">
+                {DATA_COLLECTION_OPTIONS.map((item) => {
+                  const checked = form.dataCollectionMethod === item;
+                  return (
+                    <label
+                      key={item}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                        checked
+                          ? "border-primary bg-primary/5 dark:border-primary/50 dark:bg-primary/10"
+                          : "border-stroke hover:bg-gray-1 dark:border-dark-3 dark:hover:bg-dark-3"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="dataCollectionMethodForm3"
+                        checked={checked}
+                        onChange={() =>
+                          setForm((prev) => ({ ...prev, dataCollectionMethod: item }))
+                        }
+                        className="h-4 w-4 shrink-0 accent-primary"
+                      />
+                      <span className="text-sm leading-snug text-dark dark:text-white">
+                        {item}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </Required>
+
+            <Required
+              label="Select Research Population (type) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <CheckboxGroup
+                options={RESEARCH_POPULATION_OPTIONS}
+                checkedFn={(item) => hasCsvOption("researchPopulation", item)}
+                toggleFn={(item) => toggleCsvOption("researchPopulation", item)}
+                columns={2}
+              />
+            </Required>
+
+            <Required label="Describe methods and materials *" className="md:col-span-2">
+              <BaseTextarea
+                value={form.methodology}
+                onChange={onFieldChange("methodology")}
+                rows={5}
+                placeholder="Describe methods and materials"
+              />
+            </Required>
+
+            <Required
+              label="How many participants will you be recruiting? (estimated number) *"
+              className="md:col-span-2"
+            >
+              <BaseSelect
+                value={form.participantsEstimate}
+                onChange={onFieldChange("participantsEstimate")}
+                className="max-w-md"
+              >
+                <option value="">Select range</option>
+                {PARTICIPANT_BANDS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 1: Ethical Considerations ---------- */
   if (currentStep === 1) {
     const togglePii = (
       key:
@@ -592,704 +627,711 @@ export function Form3ThesisMedicalForm({
     };
 
     return (
-      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 2: Ethical Considerations 
-        </h3>
+      <section className="flex flex-col gap-6">
+        <StepHeader index={2} title="Ethical Considerations" />
 
-        <Required label="Does this research involve human subjects or patients? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-          value={form.involveHumanParticipants}
-          onChange={onFieldChange("involveHumanParticipants")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">2.1 Does this research involve human subjects or patients?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        <Required label="Will personally identifiable information be collected? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.collectPii}
-          onChange={onFieldChange("collectPii")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">2.2 Will personally identifiable information be collected?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.collectPii === "Yes" && (
-          <Required label="If Yes, specify the type(s) *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <div className="flex flex-wrap gap-x-6 gap-y-2 w-full">
-              {(
-                [
-                  ["piiName", "Name"],
-                  ["piiEmailPhone", "Email/phone"],
-                  ["piiStudentEmployeeId", "Student/employee ID"],
-                  ["piiMedicalRecordNumber", "Medical record number"],
-                  ["piiAudioVideoRecordings", "Audio/video recordings"],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form[key] === "yes"} onChange={() => togglePii(key)} />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-            <br />
-            <Required label="Other: *" className="w-full">
-            <input
-              value={form.piiOther}
-              onChange={onFieldChange("piiOther")}
-              placeholder="Other:"
-              className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-            />
+        {/* Human subjects + PII */}
+        <FormSection title="Human Subjects & Personal Information">
+          <FieldRow>
+            <Required label="Does this research involve human subjects or patients? *">
+              <BaseSelect
+                value={form.involveHumanParticipants}
+                onChange={onFieldChange("involveHumanParticipants")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
             </Required>
+
+            <Required label="Will personally identifiable information be collected? *">
+              <BaseSelect
+                value={form.collectPii}
+                onChange={onFieldChange("collectPii")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
             </Required>
-        )}
+          </FieldRow>
 
-        <Required label="How will participants be recruited? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              "Emails",
-              "Google Forms/ Online Surveys",
-              "Social Media (Facebook, Instagram, etc.)",
-              "LinkedIn (professional networking platforms)",
-              "Institutional Mailing Lists",
-              "Online forms",
-              "Academic Networks",
-              "In-person",
-              "Other",
-            ].map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={hasCsvOption("recruitmentChannels", item)}
-                  onChange={() => toggleCsvOption("recruitmentChannels", item)}
+          {form.collectPii === "Yes" && (
+            <ConditionalCallout className="mt-4">
+              <Required
+                label="If Yes, specify the type(s) *"
+                kind="selection"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {PII_TYPES.map(([key, label]) => {
+                    const checked = form[key] === "yes";
+                    return (
+                      <label
+                        key={key}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          checked
+                            ? "border-primary bg-primary/5 dark:border-primary/50 dark:bg-primary/10"
+                            : "border-stroke hover:bg-gray-1 dark:border-dark-3 dark:hover:bg-dark-3"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => togglePii(key)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                        />
+                        <span className="text-sm leading-snug text-dark dark:text-white">
+                          {label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </Required>
+              <Required label="Other: *" className="mt-3">
+                <BaseInput
+                  value={form.piiOther}
+                  onChange={onFieldChange("piiOther")}
+                  placeholder="Other"
                 />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="Select the type of informed consent *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">	
-          <select
-
-            value={form.informedConsentType}
-            onChange={onFieldChange("informedConsentType")}
-            className="w-full max-w-xl rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-          >
-            <option value="">Select</option>
-            <option>Written informed consent</option>
-            <option>Oral informed consent (with witness)</option>
-            <option>Waiver of consent</option>
-            <option>Not applicable</option>
-          </select>
-          <p className="mt-2 text-xs text-body">
-            Note: Attach the consent form (UOL format) in the Attachments section.
-          </p>
-        </Required>
-
-
-        <Required label="Have any research data been collected prior to ethical approval? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.preApprovalDataCollected}
-          onChange={onFieldChange("preApprovalDataCollected")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">2.5 Have any research data been collected prior to ethical approval?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        {form.preApprovalDataCollected === "Yes" && (
-          <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 md:col-span-2">
-            Attach the participant information letter and consent form where applicable.
-          </p>
-        )}
-        </Required>
-
-        <Required label="Does the research involve vulnerable populations? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {VULNERABLE_GROUP_OPTIONS.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={hasCsvOption("vulnerableGroups", item)}
-                  onChange={() => toggleCsvOption("vulnerableGroups", item)}
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
-        </Required>
-
-        <Required label="Can participants withdraw from the study at any time? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.canWithdraw}
-          onChange={onFieldChange("canWithdraw")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">2.7 Can participants withdraw from the study at any time?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-
-        <Required label="Will participants receive any compensation? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-        <select
-
-          value={form.compensation}
-          onChange={onFieldChange("compensation")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">2.8 Will participants receive any compensation?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        
-        <Required label="Describe how you will manage adverse events or participant complaints: *" className="w-full">
-          <textarea
-
-            value={form.adverseEventsManagement}
-            onChange={onFieldChange("adverseEventsManagement")}
-            rows={3}
-            className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-            placeholder=""
-          />
-        </Required>
-
-
-        <Required label="Will this involve biological specimens (blood, tissue, genetic material)? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.thesisBiologicalSpecimensInvolved}
-          onChange={onFieldChange("thesisBiologicalSpecimensInvolved")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
-        >
-          <option value="">2.10 Will this involve biological specimens (blood, tissue, genetic material)?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.thesisBiologicalSpecimensInvolved === "Yes" && (
-          <Required label="Describe collection, storage, handling and biosafety *" className="w-full">
-          <textarea
-
-            value={form.thesisBiologicalSpecimensDetails}
-            onChange={onFieldChange("thesisBiologicalSpecimensDetails")}
-            rows={3}
-            placeholder="Describe collection, storage, handling and biosafety *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-        )}
-
-        <Required label="Risk Level of Research: *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-            value={form.researchRiskLevel}
-            onChange={onFieldChange("researchRiskLevel")}
-            className="w-full max-w-xl rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-          >
-            <option value="">Select</option>
-            <option value="Minimal risk">Minimal risk (ordinary daily activities)</option>
-            <option value="Low risk">Low risk (minimal discomfort or inconvenience)</option>
-            <option value="Moderate risk">Moderate risk (some potential harm or discomfort)</option>
-            <option value="High risk">High risk (significant potential for harm)</option>
-          </select>
-          {(form.researchRiskLevel === "Moderate risk" || form.researchRiskLevel === "High risk") && (
-            <textarea
-
-              value={form.researchRiskJustification}
-              onChange={onFieldChange("researchRiskJustification")}
-              rows={2}
-              placeholder="Justification for moderate/high risk *"
-              className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-            />
+              </Required>
+            </ConditionalCallout>
           )}
-        </Required>
+        </FormSection>
 
-        <Required label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *" className="w-full">
-          <textarea
-
-            value={form.potentialRiskDetails}
-            onChange={onFieldChange("potentialRiskDetails")}
-            rows={4}
-            className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-            placeholder=""
-          />
-        </Required>
-
-        <Required label="Do you have any real or perceived conflict of interest that could bias the research? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.conflictOfInterest}
-          onChange={onFieldChange("conflictOfInterest")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 w-full"
-        >
-          <option value="">2.13 Do you have any real or perceived conflict of interest that could bias the research?</option>
-          <option>Yes</option>
-          <option>No</option>
-          <option>Undecided</option>
-        </select>
-        </Required>
-        {form.conflictOfInterest === "Yes" && (
-          <Required label="Provide full disclosure *" className="w-full">
-          <textarea
-            value={form.conflictManagement}
-            onChange={onFieldChange("conflictManagement")}
-            rows={3}
-            placeholder="Provide full disclosure *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+        {/* Recruitment & Consent */}
+        <FormSection title="Recruitment, Consent & Pre-approval Data">
+          <Required
+            label="How will participants be recruited? *"
+            kind="selection"
+          >
+            <CheckboxGroup
+              options={RECRUITMENT_CHANNELS}
+              checkedFn={(item) => hasCsvOption("recruitmentChannels", item)}
+              toggleFn={(item) => toggleCsvOption("recruitmentChannels", item)}
+              columns={2}
+            />
           </Required>
-        )}
+
+          <FieldRow className="mt-4">
+            <Required label="Select the type of informed consent *">
+              <BaseSelect
+                value={form.informedConsentType}
+                onChange={onFieldChange("informedConsentType")}
+              >
+                <option value="">Select</option>
+                <option>Written informed consent</option>
+                <option>Oral informed consent (with witness)</option>
+                <option>Waiver of consent</option>
+                <option>Not applicable</option>
+              </BaseSelect>
+            </Required>
+
+            <Required label="Have any research data been collected prior to ethical approval? *">
+              <BaseSelect
+                value={form.preApprovalDataCollected}
+                onChange={onFieldChange("preApprovalDataCollected")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+
+          <InfoNote className="mt-3">
+            Note: Attach the consent form (UOL format) in the Attachments section.
+          </InfoNote>
+          {form.preApprovalDataCollected === "Yes" && (
+            <WarnNote className="mt-2">
+              Attach the participant information letter and consent form where applicable.
+            </WarnNote>
+          )}
+        </FormSection>
+
+        {/* Vulnerable, Withdraw, Compensation */}
+        <FormSection title="Participant Welfare">
+          <Required
+            label="Does the research involve vulnerable populations? *"
+            kind="selection"
+          >
+            <CheckboxGroup
+              options={VULNERABLE_GROUP_OPTIONS}
+              checkedFn={(item) => hasCsvOption("vulnerableGroups", item)}
+              toggleFn={(item) => toggleCsvOption("vulnerableGroups", item)}
+              columns={2}
+            />
+          </Required>
+
+          <FieldRow className="mt-4">
+            <Required label="Can participants withdraw from the study at any time? *">
+              <BaseSelect
+                value={form.canWithdraw}
+                onChange={onFieldChange("canWithdraw")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+
+            <Required label="Will participants receive any compensation? *">
+              <BaseSelect
+                value={form.compensation}
+                onChange={onFieldChange("compensation")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+
+          <Required
+            label="Describe how you will manage adverse events or participant complaints: *"
+            className="mt-4"
+          >
+            <BaseTextarea
+              value={form.adverseEventsManagement}
+              onChange={onFieldChange("adverseEventsManagement")}
+              rows={3}
+            />
+          </Required>
+        </FormSection>
+
+        {/* Biological & Risk */}
+        <FormSection title="Biological Specimens, Risk & Conflicts">
+          <Required label="Will this involve biological specimens (blood, tissue, genetic material)? *">
+            <BaseSelect
+              value={form.thesisBiologicalSpecimensInvolved}
+              onChange={onFieldChange("thesisBiologicalSpecimensInvolved")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+
+          {form.thesisBiologicalSpecimensInvolved === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Describe collection, storage, handling and biosafety *">
+                <BaseTextarea
+                  value={form.thesisBiologicalSpecimensDetails}
+                  onChange={onFieldChange("thesisBiologicalSpecimensDetails")}
+                  rows={3}
+                  placeholder="Describe collection, storage, handling and biosafety"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+
+          <Required label="Risk Level of Research: *" className="mt-4">
+            <BaseSelect
+              value={form.researchRiskLevel}
+              onChange={onFieldChange("researchRiskLevel")}
+            >
+              <option value="">Select</option>
+              <option value="Minimal risk">Minimal risk (ordinary daily activities)</option>
+              <option value="Low risk">Low risk (minimal discomfort or inconvenience)</option>
+              <option value="Moderate risk">
+                Moderate risk (some potential harm or discomfort)
+              </option>
+              <option value="High risk">High risk (significant potential for harm)</option>
+            </BaseSelect>
+            {(form.researchRiskLevel === "Moderate risk" ||
+              form.researchRiskLevel === "High risk") && (
+              <BaseTextarea
+                value={form.researchRiskJustification}
+                onChange={onFieldChange("researchRiskJustification")}
+                rows={2}
+                placeholder="Justification for moderate/high risk *"
+                className="mt-3"
+              />
+            )}
+          </Required>
+
+          <Required
+            label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *"
+            className="mt-4"
+          >
+            <BaseTextarea
+              value={form.potentialRiskDetails}
+              onChange={onFieldChange("potentialRiskDetails")}
+              rows={4}
+            />
+          </Required>
+
+          <Required
+            label="Do you have any real or perceived conflict of interest that could bias the research? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.conflictOfInterest}
+              onChange={onFieldChange("conflictOfInterest")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Undecided</option>
+            </BaseSelect>
+          </Required>
+
+          {form.conflictOfInterest === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Provide full disclosure *">
+                <BaseTextarea
+                  value={form.conflictManagement}
+                  onChange={onFieldChange("conflictManagement")}
+                  rows={3}
+                  placeholder="Provide full disclosure"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 2: Biomedical & Pharmaceutical ---------- */
   if (currentStep === 2) {
     return (
-      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 3: Biomedical &amp; Pharmaceutical Aspects (If Applicable) <RequiredMark />
-        </h3>
+      <section className="flex flex-col gap-6">
+        <StepHeader
+          index={3}
+          title="Biomedical & Pharmaceutical Aspects (If Applicable)"
+          required
+        />
 
-        <Required label="Will this research involve pharmaceutical substances or drug administration? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.publicationPharmaInterventions}
-          onChange={onFieldChange("publicationPharmaInterventions")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
-        >
-          <option value="">3.1 Will this research involve pharmaceutical substances or drug administration?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.publicationPharmaInterventions === "Yes" && (
-          <>
-            <Required label="Drug/Pharmaceutical Details  *" className="w-full">
-            <input
-
-              value={form.drugName}
-              onChange={onFieldChange("drugName")}
-              placeholder="Drug/Pharmaceutical Details  *"
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-            <Required label="Dosage and frequency *" className="w-full">
-            <input
-
-              value={form.drugDosageFrequency}
-              onChange={onFieldChange("drugDosageFrequency")}
-              placeholder="Dosage and frequency *"
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-            <Required label="Known side effects *" className="w-full">
-            <textarea
-
-              value={form.drugKnownSideEffects}
-              onChange={onFieldChange("drugKnownSideEffects")}
-              rows={2}
-              placeholder="Known side effects *"
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-            <Required label="Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <select
-
-              value={form.drugRegulatoryApproval}
-              onChange={onFieldChange("drugRegulatoryApproval")}
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
+        <FormSection title="Pharmaceutical Substances / Drug Administration">
+          <Required label="Will this research involve pharmaceutical substances or drug administration? *">
+            <BaseSelect
+              value={form.publicationPharmaInterventions}
+              onChange={onFieldChange("publicationPharmaInterventions")}
             >
-              <option value="">2.13 Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product?
-              </option>
+              <option value="">Select</option>
               <option>Yes</option>
               <option>No</option>
-              <option>Pending</option>
-              <option>Not Applicable</option>
-            </select>
-            </Required>
-            <Required label="Route of administration *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-              <div className="flex flex-wrap gap-x-6 gap-y-2 w-full">
-                {DRUG_ROUTE_OPTIONS.map((route) => (
-                  <label key={route} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={hasCsvOption("drugAdministrationRoutes", route)}
-                      onChange={() => toggleCsvOption("drugAdministrationRoutes", route)}
+            </BaseSelect>
+          </Required>
+
+          {form.publicationPharmaInterventions === "Yes" && (
+            <ConditionalCallout className="mt-4">
+              <FieldRow>
+                <Required label="Drug/Pharmaceutical Details *" className="md:col-span-2">
+                  <BaseInput
+                    value={form.drugName}
+                    onChange={onFieldChange("drugName")}
+                    placeholder="Drug/Pharmaceutical Details"
+                  />
+                </Required>
+                <Required label="Dosage and frequency *" className="md:col-span-2">
+                  <BaseInput
+                    value={form.drugDosageFrequency}
+                    onChange={onFieldChange("drugDosageFrequency")}
+                    placeholder="Dosage and frequency"
+                  />
+                </Required>
+                <Required label="Known side effects *" className="md:col-span-2">
+                  <BaseTextarea
+                    value={form.drugKnownSideEffects}
+                    onChange={onFieldChange("drugKnownSideEffects")}
+                    rows={2}
+                    placeholder="Known side effects"
+                  />
+                </Required>
+                <Required
+                  label="Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product? *"
+                  className="md:col-span-2"
+                >
+                  <BaseSelect
+                    value={form.drugRegulatoryApproval}
+                    onChange={onFieldChange("drugRegulatoryApproval")}
+                  >
+                    <option value="">Select</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>Pending</option>
+                    <option>Not Applicable</option>
+                  </BaseSelect>
+                </Required>
+                <Required
+                  label="Route of administration *"
+                  kind="selection"
+                  className="md:col-span-2"
+                >
+                  <CheckboxGroup
+                    options={DRUG_ROUTE_OPTIONS}
+                    checkedFn={(item) => hasCsvOption("drugAdministrationRoutes", item)}
+                    toggleFn={(item) => toggleCsvOption("drugAdministrationRoutes", item)}
+                    columns={2}
+                  />
+                </Required>
+                <Required
+                  label="Will participants be monitored after administration? *"
+                  className="md:col-span-2"
+                >
+                  <BaseSelect
+                    value={form.monitoredAfterAdministration}
+                    onChange={onFieldChange("monitoredAfterAdministration")}
+                  >
+                    <option value="">Select</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>Not Applicable</option>
+                  </BaseSelect>
+                </Required>
+                {form.monitoredAfterAdministration === "Yes" && (
+                  <Required label="Follow-up duration *" className="md:col-span-2">
+                    <BaseInput
+                      value={form.followUpDuration}
+                      onChange={onFieldChange("followUpDuration")}
+                      placeholder="Follow-up duration"
                     />
-                    <span>{route}</span>
-                  </label>
-                ))}
-              </div>
-            </Required>
-            <Required label="Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <select
+                  </Required>
+                )}
+                <Required
+                  label="Emergency procedures and adverse-event handling *"
+                  className="md:col-span-2"
+                >
+                  <BaseTextarea
+                    value={form.emergencyProcedures}
+                    onChange={onFieldChange("emergencyProcedures")}
+                    rows={3}
+                    placeholder="Describe emergency procedures and how adverse events are handled."
+                  />
+                </Required>
+              </FieldRow>
+            </ConditionalCallout>
+          )}
+        </FormSection>
 
-              value={form.monitoredAfterAdministration}
-              onChange={onFieldChange("monitoredAfterAdministration")}
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
+        <FormSection title="Animal Subjects">
+          <Required label="Will animal subjects be used in this research? *">
+            <BaseSelect
+              value={form.thesisAnimalSubjectsUsed}
+              onChange={onFieldChange("thesisAnimalSubjectsUsed")}
             >
-              <option value="">3.5 Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product?</option>
+              <option value="">Select</option>
               <option>Yes</option>
               <option>No</option>
-              <option>Not Applicable</option>
-            </select>
-            </Required>
-            {form.monitoredAfterAdministration === "Yes" && (
-              <Required label="Follow-up duration *" className="w-full">
-              <input
+            </BaseSelect>
+          </Required>
 
-                value={form.followUpDuration}
-                onChange={onFieldChange("followUpDuration")}
-                placeholder="Follow-up duration *"
-                className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-              />
+          {form.thesisAnimalSubjectsUsed === "Yes" && (
+            <ConditionalCallout className="mt-4">
+              <Required label="Justify animal use and describe welfare measures *">
+                <BaseTextarea
+                  value={form.thesisAnimalCareWelfareDetails}
+                  onChange={onFieldChange("thesisAnimalCareWelfareDetails")}
+                  rows={3}
+                  placeholder="Justify animal use and describe welfare measures"
+                />
               </Required>
-            )}
-            <Required label="Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product? *" className="w-full">
-            <textarea
-
-              value={form.emergencyProcedures}
-              onChange={onFieldChange("emergencyProcedures")}
-              rows={3}
-              placeholder="3.6 Has regulatory and ethical approval been obtained for the pharmaceutical substance / investigational product? *"
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-          </>
-        )}
-
-        <Required label="Will animal subjects be used in this research? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.thesisAnimalSubjectsUsed}
-          onChange={onFieldChange("thesisAnimalSubjectsUsed")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">3.7 Will animal subjects be used in this research?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.thesisAnimalSubjectsUsed === "Yes" && (
-          <>
-            <Required label="Justify animal use and describe welfare measures *" className="w-full">
-            <textarea
-
-              value={form.thesisAnimalCareWelfareDetails}
-              onChange={onFieldChange("thesisAnimalCareWelfareDetails")}
-              rows={3}
-              placeholder="Justify animal use and describe welfare measures *"
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            />
-            </Required>
-            <Required label="Ethics committee approval for animal research? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-            <select
-
-              value={form.thesisAnimalEthicsCommitteeApproval}
-              onChange={onFieldChange("thesisAnimalEthicsCommitteeApproval")}
-              className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-            >
-              <option value="">3.8 Ethics committee approval for animal research?</option>
-              <option>Yes</option>
-              <option>No</option>
-              <option>Pending</option>
-              <option>Not Applicable</option>
-            </select>
-            </Required>
-            <p className="text-xs text-body md:col-span-2">
-              Provide approval letters/forms in Attachments where applicable.
-            </p>
-          </>
-        )}
+              <Required
+                label="Ethics committee approval for animal research? *"
+                className="mt-3"
+              >
+                <BaseSelect
+                  value={form.thesisAnimalEthicsCommitteeApproval}
+                  onChange={onFieldChange("thesisAnimalEthicsCommitteeApproval")}
+                >
+                  <option value="">Select</option>
+                  <option>Yes</option>
+                  <option>No</option>
+                  <option>Pending</option>
+                  <option>Not Applicable</option>
+                </BaseSelect>
+              </Required>
+              <InfoNote className="mt-3">
+                Provide approval letters/forms in Attachments where applicable.
+              </InfoNote>
+            </ConditionalCallout>
+          )}
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 3: Data Management ---------- */
   if (currentStep === 3) {
     return (
-      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 4: Data Management <RequiredMark />
-        </h3>
-        <Required label="How will research data be stored, secured, and protected? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {DATA_PROTECTION_OPTIONS.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={hasCsvOption("dataProtectionOptions", item)}
-                  onChange={() => toggleCsvOption("dataProtectionOptions", item)}
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
-          {hasCsvOption("dataProtectionOptions", "Others") && (
-            <input
+      <section className="flex flex-col gap-6">
+        <StepHeader index={4} title="Data Management" required />
 
-              value={form.dataProtectionOtherDetails}
-              onChange={onFieldChange("dataProtectionOtherDetails")}
-              placeholder="Others, please specify *"
-              className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+        <FormSection title="Data Storage & Protection">
+          <Required
+            label="How will research data be stored, secured, and protected? *"
+            kind="selection"
+          >
+            <CheckboxGroup
+              options={DATA_PROTECTION_OPTIONS}
+              checkedFn={(item) => hasCsvOption("dataProtectionOptions", item)}
+              toggleFn={(item) => toggleCsvOption("dataProtectionOptions", item)}
+              columns={2}
             />
+            {hasCsvOption("dataProtectionOptions", "Others") && (
+              <BaseInput
+                value={form.dataProtectionOtherDetails}
+                onChange={onFieldChange("dataProtectionOtherDetails")}
+                placeholder="Others, please specify *"
+                className="mt-3"
+              />
+            )}
+          </Required>
+        </FormSection>
+
+        <FormSection title="Data Sharing">
+          <Required label="Will data be shared with third parties, collaborators, or external institutions? *">
+            <BaseSelect
+              value={form.sharedWithThirdParties}
+              onChange={onFieldChange("sharedWithThirdParties")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
+          </Required>
+          {form.sharedWithThirdParties === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Institution(s), purpose, data protection measures *">
+                <BaseTextarea
+                  value={form.thirdPartySharingDetails}
+                  onChange={onFieldChange("thirdPartySharingDetails")}
+                  rows={3}
+                  placeholder="Institution(s), purpose, data protection measures"
+                />
+              </Required>
+            </ConditionalCallout>
           )}
-        </Required>
 
-        <Required label="Will data be shared with third parties, collaborators, or external institutions? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.sharedWithThirdParties}
-          onChange={onFieldChange("sharedWithThirdParties")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">4.2 Will data be shared with third parties, collaborators, or external institutions?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.sharedWithThirdParties === "Yes" && (
-          <Required label="Institution(s), purpose, data protection measures *" className="w-full">
-          <textarea
-
-            value={form.thirdPartySharingDetails}
-            onChange={onFieldChange("thirdPartySharingDetails")}
-            rows={3}
-            placeholder="Institution(s), purpose, data protection measures *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+          <Required
+            label="Will cloud-based or online platforms be used for data collection or storage? *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.cloudPlatformsUsed}
+              onChange={onFieldChange("cloudPlatformsUsed")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
           </Required>
-        )}
+          {form.cloudPlatformsUsed === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Specify platform(s) *">
+                <BaseInput
+                  value={form.cloudPlatformDetails}
+                  onChange={onFieldChange("cloudPlatformDetails")}
+                  placeholder="Specify platform(s)"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+        </FormSection>
 
-        <Required label="Will cloud-based or online platforms be used for data collection or storage? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.cloudPlatformsUsed}
-          onChange={onFieldChange("cloudPlatformsUsed")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">4.3 Will cloud-based or online platforms be used for data collection or storage?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.cloudPlatformsUsed === "Yes" && (
-          <Required label="Specify platform(s) *" className="w-full">
-          <input
-
-            value={form.cloudPlatformDetails}
-            onChange={onFieldChange("cloudPlatformDetails")}
-            placeholder="Specify platform(s) *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+        <FormSection title="Future Use & Retention">
+          <Required label="Will data be used for future research beyond the current study? *">
+            <BaseSelect
+              value={form.futureResearchDataUse}
+              onChange={onFieldChange("futureResearchDataUse")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
           </Required>
-        )}
+          {form.futureResearchDataUse === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Specify conditions *">
+                <BaseTextarea
+                  value={form.futureResearchDataUseConditions}
+                  onChange={onFieldChange("futureResearchDataUseConditions")}
+                  rows={2}
+                  placeholder="Specify conditions"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
 
-        <Required label="Will data be used for future research beyond the current study? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.futureResearchDataUse}
-          onChange={onFieldChange("futureResearchDataUse")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-        >
-          <option value="">4.4 Will data be used for future research beyond the current study?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.futureResearchDataUse === "Yes" && (
-          <Required label="Specify conditions *" className="w-full">
-          <textarea
-
-            value={form.futureResearchDataUseConditions}
-            onChange={onFieldChange("futureResearchDataUseConditions")}
-            rows={2}
-            placeholder="Specify conditions *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+          <Required
+            label="How long will personal data be retained, please select the estimated time: *"
+            className="mt-4"
+          >
+            <BaseSelect
+              value={form.dataRetentionYears}
+              onChange={onFieldChange("dataRetentionYears")}
+            >
+              <option value="">Select</option>
+              <option>1-5 years</option>
+              <option>6-10 years</option>
+              <option>11-15 years</option>
+              <option>More than 16 years</option>
+            </BaseSelect>
           </Required>
-        )}
-
-        <Required label="How long will personal data be retained, please select the estimated time: *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.dataRetentionYears}
-          onChange={onFieldChange("dataRetentionYears")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">4.5 How long will personal data be retained, please select the estimated time:  *</option>
-          <option>1-5 years</option>
-          <option>6-10 years</option>
-          <option>11-15 years</option>
-          <option>More than 16 years</option>
-        </select>
-        </Required>
-        {form.dataRetentionYears === "More than 16 years" && (
-          <Required label="Explain need for retention beyond 16 years *" className="w-full">
-          <textarea
-
-            value={form.longRetentionReason}
-            onChange={onFieldChange("longRetentionReason")}
-            rows={2}
-            placeholder="Explain need for retention beyond 16 years *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
-          </Required>
-        )}
+          {form.dataRetentionYears === "More than 16 years" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Explain need for retention beyond 16 years *">
+                <BaseTextarea
+                  value={form.longRetentionReason}
+                  onChange={onFieldChange("longRetentionReason")}
+                  rows={2}
+                  placeholder="Explain need for retention beyond 16 years"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 4: Institutional Approvals ---------- */
   if (currentStep === 4) {
     return (
-      <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
-        <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">
-          Step 5: Institutional Approvals &amp; Collaborations <RequiredMark />
-        </h3>
+      <section className="flex flex-col gap-6">
+        <StepHeader
+          index={5}
+          title="Institutional Approvals & Collaborations"
+          required
+        />
 
-        <Required label="Will research be conducted at healthcare facilities or external institutions? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
-
-          value={form.healthcareExternalInstitutions}
-          onChange={onFieldChange("healthcareExternalInstitutions")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">5.1 Will research be conducted at healthcare facilities or external institutions?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.healthcareExternalInstitutions === "Yes" && (
-          <Required label="Attach institutional approval letters in Attachments *" className="w-full">
-          <input
-
-            value={form.healthcareExternalInstitutionsDetails}
-            onChange={onFieldChange("healthcareExternalInstitutionsDetails")}
-            placeholder="Attach institutional approval letters in Attachments *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          />
+        <FormSection title="External Institutions & Funding">
+          <Required label="Will research be conducted at healthcare facilities or external institutions? *">
+            <BaseSelect
+              value={form.healthcareExternalInstitutions}
+              onChange={onFieldChange("healthcareExternalInstitutions")}
+            >
+              <option value="">Select</option>
+              <option>Yes</option>
+              <option>No</option>
+            </BaseSelect>
           </Required>
-        )}
-        <Required label="Has your research received institutional funding? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
+          {form.healthcareExternalInstitutions === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <Required label="Attach institutional approval letters in Attachments *">
+                <BaseInput
+                  value={form.healthcareExternalInstitutionsDetails}
+                  onChange={onFieldChange("healthcareExternalInstitutionsDetails")}
+                  placeholder="Institutional approval letters details"
+                />
+              </Required>
+            </ConditionalCallout>
+          )}
 
-          value={form.institutionalFunding}
-          onChange={onFieldChange("institutionalFunding")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">5.2 Has your research received institutional funding? </option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        <Required label="Has your research received external funding? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-        <select
+          <FieldRow className="mt-4">
+            <Required label="Has your research received institutional funding? *">
+              <BaseSelect
+                value={form.institutionalFunding}
+                onChange={onFieldChange("institutionalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
 
-          value={form.externalFunding}
-          onChange={onFieldChange("externalFunding")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">5.3 Has your research received external funding? ?</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        <Required label="Does your research involve an international collaboration? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
+            <Required label="Has your research received external funding? *">
+              <BaseSelect
+                value={form.externalFunding}
+                onChange={onFieldChange("externalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+        </FormSection>
 
-            value={form.internationalCollaboration}
-            onChange={onFieldChange("internationalCollaboration")}
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-          >
-            <option value="">Does your research involve an international collaboration? </option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Required>
-        
-      
-        <Required label="Will your research, or a part of it, be conducted overseas/abroad? *" kind="selection" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full">
-          <select
+        <FormSection title="International Collaboration & Overseas">
+          <FieldRow>
+            <Required label="Does your research involve an international collaboration? *">
+              <BaseSelect
+                value={form.internationalCollaboration}
+                onChange={onFieldChange("internationalCollaboration")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
 
-          value={form.conductedAbroad}
-          onChange={onFieldChange("conductedAbroad")}
-          className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2 w-full"
-        >
-          <option value="">5.5 Will your research, or a part of it, be conducted overseas/abroad? </option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        </Required>
-        {form.conductedAbroad === "Yes" && (
-          <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 md:col-span-2">
-            Attach the overseas institution&apos;s ethical approval when applicable.
-          </p>
-        )}
+            <Required label="Will your research, or a part of it, be conducted overseas/abroad? *">
+              <BaseSelect
+                value={form.conductedAbroad}
+                onChange={onFieldChange("conductedAbroad")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
 
-        {form.internationalCollaboration === "Yes" && (
-          <textarea
+          {form.conductedAbroad === "Yes" && (
+            <WarnNote className="mt-3">
+              Attach the overseas institution&apos;s ethical approval when applicable.
+            </WarnNote>
+          )}
 
-            value={form.internationalCollaborationDetails}
-            onChange={onFieldChange("internationalCollaborationDetails")}
-            rows={4}
-            placeholder="Collaboration details (if not stated in Step 1) *"
-            className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2"
-          />
-        )}
+          {form.internationalCollaboration === "Yes" && (
+            <ConditionalCallout className="mt-3">
+              <FieldGroup
+                label="Collaboration details (if not stated in Step 1)"
+                fullWidth
+              >
+                <BaseTextarea
+                  value={form.internationalCollaborationDetails}
+                  onChange={onFieldChange("internationalCollaborationDetails")}
+                  rows={4}
+                  placeholder="Collaboration details (if not stated in Step 1)"
+                />
+              </FieldGroup>
+            </ConditionalCallout>
+          )}
+        </FormSection>
       </section>
     );
   }
 
+  /* ---------- STEP 5: Required Attachments ---------- */
   if (currentStep === 5) {
     return (
       <section className="flex flex-col gap-6">
-        <h3 className="text-xl font-bold text-dark dark:text-white">
-          Step 6: Required Attachments <RequiredMark />
-        </h3>
-        <p className="text-sm">Please attach the following documents (check all that apply):</p>
-        <div className="grid gap-2">
+        <StepHeader
+          index={6}
+          title="Required Attachments"
+          required
+          subtitle="Please attach the following documents (check all that apply)."
+        />
+
+        <div className="flex flex-col gap-3">
           {FORM_3_REQUIRED_ATTACHMENTS.map((item) => (
-            <div key={item} className="rounded border border-stroke px-3 py-2 dark:border-dark-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={hasCsvOption("requiredAttachments", item)}
-                    onChange={() => toggleCsvOption("requiredAttachments", item)}
-                  />
-                  <span className="text-sm">
-                    {item}
-                    {FORM_3_MANDATORY_ATTACHMENT_SET.has(item) ? <RequiredMark /> : null}
-                  </span>
-                </label>
-                <label className="cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10">
-                  Upload document
-                  <input type="file" className="hidden" onChange={handleRequiredAttachmentUpload(item)} />
-                </label>
-              </div>
-              {attachmentFiles[item] && (
-                <p className="mt-2 text-xs text-body">Selected: {attachmentFiles[item]}</p>
-              )}
-            </div>
+            <AttachmentCard
+              key={item}
+              label={item}
+              isMandatory={FORM_3_MANDATORY_ATTACHMENT_SET.has(item)}
+              isChecked={hasCsvOption("requiredAttachments", item)}
+              onToggle={() => toggleCsvOption("requiredAttachments", item)}
+              fileName={attachmentFiles[item]}
+              onUpload={handleRequiredAttachmentUpload(item)}
+            />
           ))}
         </div>
-        <div className="rounded border border-dashed border-stroke p-3 dark:border-dark-3">
+
+        <FormSection
+          title="Additional Documents"
+          subtitle="Attach any other documents that support your application."
+          className="border-dashed"
+        >
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-dark dark:text-white">Additional Documents</p>
+            <SubsectionTitle>Add more files as needed</SubsectionTitle>
             <button
               type="button"
               onClick={() => setExtraUploadFiles((prev) => [...prev, ""])}
-              className="inline-flex size-8 items-center justify-center rounded-full border border-primary text-lg font-bold text-primary transition hover:bg-primary/10"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-primary text-lg font-bold text-primary transition hover:bg-primary hover:text-white"
               aria-label="Add additional upload"
             >
               +
@@ -1297,47 +1339,47 @@ export function Form3ThesisMedicalForm({
           </div>
           <div className="grid gap-3">
             {extraUploadFiles.map((fileName, index) => (
-              <div key={`${index}-extra-upload`} className="rounded border border-stroke px-3 py-2 dark:border-dark-3">
-                <label className="inline-block cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10">
-                  Upload document
-                  <input type="file" className="hidden" onChange={handleExtraUploadChange(index)} />
-                </label>
-                {fileName && <p className="mt-2 text-xs text-body">Selected: {fileName}</p>}
-              </div>
+              <ExtraUploadCard
+                key={`${index}-extra-upload`}
+                index={index}
+                fileName={fileName}
+                onUpload={handleExtraUploadChange(index)}
+              />
             ))}
           </div>
-        </div>
+        </FormSection>
       </section>
     );
   }
 
-  /* Step 7 */
-  const medicalDeclarationSnippet =
-    "I hereby certify that I have read and understood the ethical guidelines for medical and health sciences research.";
-  const declarationName = form.scholarName.trim() || form.applicantName.trim() || "_____________________";
+  /* ---------- STEP 6: Declaration and Submission ---------- */
+  const declarationName =
+    form.scholarName.trim() || form.applicantName.trim() || "_____________________";
 
   return (
     <section className="flex flex-col gap-6">
-      <h3 className="text-xl font-bold text-dark dark:text-white">
-        Step 7: Declaration and Submission <RequiredMark />
-      </h3>
-      
+      <StepHeader index={7} title="Declaration and Submission" required />
 
-      <label className="flex items-center gap-2 rounded-lg border border-stroke px-3 py-2 dark:border-dark-3">
-        <input
-          type="checkbox"
-          {...requiredMarkField("Declaration and submission")}
-          checked={form.form3DeclarationAccepted === "yes"}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, form3DeclarationAccepted: e.target.checked ? "yes" : "" }))
-          }
-        />
-        <span className="text-sm">
-        I {declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.<RequiredMark />
-        </span>
-      </label>
-
-     
+      <DeclarationCheckbox
+        checked={form.form3DeclarationAccepted === "yes"}
+        onChange={(checked) =>
+          setForm((prev) => ({
+            ...prev,
+            form3DeclarationAccepted: checked ? "yes" : "",
+          }))
+        }
+      >
+        I <span className="font-semibold">{declarationName}</span> hereby certify that:
+        I have read and understood the ethical guidelines for medical and health
+        sciences research. The information provided in this application is accurate
+        and complete to the best of my knowledge. I will conduct this research
+        strictly according to the approved protocol. I will report all adverse events
+        and protocol deviations to my supervisor and the IREB immediately. I will
+        obtain updated approvals if any significant changes to the protocol are
+        necessary. I will not proceed with data collection without formal ethical
+        approval.
+        <RequiredMark />
+      </DeclarationCheckbox>
     </section>
   );
 }
