@@ -46,6 +46,7 @@ export type DashboardLead = {
   name: string;
   email: string;
   faculty: string;
+  department: string;
   project: string;
   duration: string;
   passedStatus: LeadStatus;
@@ -64,6 +65,7 @@ type SubmissionScopeRow = {
   applicant_name: string;
   applicant_email: string;
   faculty: string;
+  department: string;
   current_status:
     | "draft"
     | "submitted"
@@ -257,6 +259,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           sas.name AS applicant_name,
           sas.email AS applicant_email,
           sas.faculty,
+          sas.department,
           s.current_status,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
@@ -315,6 +318,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       applicant_name: row.applicant_name,
       applicant_email: row.applicant_email,
       faculty: row.faculty,
+      department: row.department,
       current_status: row.current_status,
       latest_feedback_comment: feedbackMap.get(row.id)?.comment ?? null,
       latest_audit_note: null,
@@ -335,6 +339,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           sas.name AS applicant_name,
           sas.email AS applicant_email,
           sas.faculty,
+          sas.department,
           s.current_status,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
@@ -727,6 +732,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       name: row.applicant_name,
       email: row.applicant_email,
       faculty: row.faculty,
+      department: row.department,
       project,
       duration: `${days} days`,
       passedStatus,

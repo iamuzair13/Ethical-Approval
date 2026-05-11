@@ -44,6 +44,178 @@ type LeadStatus =
   | "Approved by IREB"
   | "Rejected by IREB";
 
+const STATUS_ORDER: LeadStatus[] = [
+  "Submitted",
+  "Under Review by Dean",
+  "Approved by Dean",
+  "Rejected by Dean",
+  "Under Review by IREB",
+  "Approved by IREB",
+  "Rejected by IREB",
+];
+
+type CountEntry = { value: string; count: number };
+
+function buildCountsList<T>(
+  items: readonly T[],
+  pick: (item: T) => string,
+): CountEntry[] {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    const key = pick(item);
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort(
+      (a, b) => b.count - a.count || a.value.localeCompare(b.value),
+    );
+}
+
+function FilterMenu({
+  label,
+  value,
+  options,
+  totalCount,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  options: CountEntry[];
+  totalCount: number;
+  onChange: (next: string | null) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerLabel = value ? value : `All ${label}s`;
+
+  return (
+    <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
+      <DropdownTrigger
+        className={cn(
+          "flex min-w-[10rem] items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
+          value
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-stroke text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2",
+        )}
+        aria-label={`Filter by ${label}`}
+      >
+        <span className="flex flex-col items-start">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+            {label}
+          </span>
+          <span className="max-w-[12rem] truncate text-sm font-medium">
+            {triggerLabel}
+          </span>
+        </span>
+        <svg
+          className="size-3 shrink-0"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M3 4.5 6 7.5l3-3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </DropdownTrigger>
+      <DropdownContent
+        align="end"
+        className="z-30 mt-1 max-h-[18rem] w-[16rem] overflow-y-auto overflow-x-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            onChange(null);
+            setIsOpen(false);
+          }}
+          className={cn(
+            "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+            value === null
+              ? "bg-primary/10 text-primary"
+              : "text-dark hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3",
+          )}
+        >
+          <span>All {label}s</span>
+          <span className="text-[11px] font-semibold text-dark-5 dark:text-dark-6">
+            {totalCount}
+          </span>
+        </button>
+        {options.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-dark-5 dark:text-dark-6">
+            No values to filter by.
+          </div>
+        ) : (
+          options.map((entry) => (
+            <button
+              key={entry.value}
+              type="button"
+              onClick={() => {
+                onChange(entry.value === value ? null : entry.value);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+                entry.value === value
+                  ? "bg-primary/10 text-primary"
+                  : "text-dark hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3",
+              )}
+            >
+              <span className="truncate">{entry.value}</span>
+              <span className="shrink-0 rounded bg-gray-2 px-1.5 py-0.5 text-[10px] font-semibold text-dark dark:bg-dark-3 dark:text-white">
+                {entry.count}
+              </span>
+            </button>
+          ))
+        )}
+      </DropdownContent>
+    </Dropdown>
+  );
+}
+
+function FilterChip({
+  label,
+  value,
+  onClear,
+}: {
+  label: string;
+  value: string;
+  onClear: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+        {label}:
+      </span>
+      <span className="max-w-[12rem] truncate">{value}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear ${label} filter`}
+        className="ml-0.5 -mr-0.5 grid size-4 place-items-center rounded-full hover:bg-primary/20"
+      >
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M2 2 8 8M8 2 2 8"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+    </span>
+  );
+}
+
 type Lead = {
   id: number;
   /** 6-digit application reference */
@@ -51,6 +223,7 @@ type Lead = {
   name: string;
   email: string;
   faculty: string;
+  department: string;
   project: string;
   duration: string;
   passedStatus: LeadStatus;
@@ -68,7 +241,8 @@ const LEADS: Lead[] = [
     applicationId: "482913",
     name: "Ayesha Khan",
     email: "ayesha.khan@uol.edu.pk",
-    faculty: "Faculty",
+    faculty: "Faculty of Information Technology",
+    department: "Computer Science",
     project: "12 Jan 2026 - 18 Jan 2026",
     duration: "6 days",
     passedStatus: "Submitted",
@@ -81,7 +255,8 @@ const LEADS: Lead[] = [
     applicationId: "571204",
     name: "Muhammad Ali",
     email: "m.ali@uol.edu.pk",
-    faculty: "Faculty",
+    faculty: "Faculty of Medical Sciences",
+    department: "Medicine",
     project: "03 Feb 2026 - 4 Feb 2026",
     duration: "1 days",
     passedStatus: "Approved by Dean",
@@ -94,7 +269,8 @@ const LEADS: Lead[] = [
     applicationId: "639847",
     name: "Fatima Noor",
     email: "fatima.noor@uol.edu.pk",
-    faculty: "Faculty",
+    faculty: "Faculty of Information Technology",
+    department: "Software Engineering",
     project: "20 Mar 2026 - 27 Mar 2026",
     duration: "7 days",
     passedStatus: "Approved by Dean",
@@ -107,7 +283,8 @@ const LEADS: Lead[] = [
     applicationId: "204815",
     name: "Hassan Raza",
     email: "hassan.raza@uol.edu.pk",
-    faculty: "Faculty",
+    faculty: "Faculty of Pharmacy",
+    department: "Pharmacy",
     project: "01 Apr 2026 - 04 Apr 2026",
     duration: "3 days",
     passedStatus: "Submitted",
@@ -120,7 +297,8 @@ const LEADS: Lead[] = [
     applicationId: "918376",
     name: "Zainab Ahmed",
     email: "zainab.ahmed@uol.edu.pk",
-    faculty: "Faculty",
+    faculty: "Faculty of Information Technology",
+    department: "Computer Science",
     project: "15 May 2026 - 25 May 2026",
     duration: "10 days",
     passedStatus: "Approved by Dean",
@@ -241,6 +419,12 @@ export function LeadsReport({
   }>({ deanOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [facultyFilter, setFacultyFilter] = useState<string | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+  const [passedStatusFilter, setPassedStatusFilter] =
+    useState<LeadStatus | null>(null);
+  const [currentStatusFilter, setCurrentStatusFilter] =
+    useState<LeadStatus | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [attachmentModalLead, setAttachmentModalLead] = useState<Lead | null>(null);
@@ -275,17 +459,85 @@ export function LeadsReport({
 
   const leads = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return scopeFilteredLeads;
     return scopeFilteredLeads.filter((lead) => {
+      if (facultyFilter && lead.faculty !== facultyFilter) return false;
+      if (departmentFilter && lead.department !== departmentFilter)
+        return false;
+      if (passedStatusFilter && lead.passedStatus !== passedStatusFilter)
+        return false;
+      if (currentStatusFilter && lead.currentStatus !== currentStatusFilter)
+        return false;
+      if (!q) return true;
       const app = lead.applicationId.toLowerCase();
       return (
         app.includes(q) ||
         lead.name.toLowerCase().includes(q) ||
         lead.email.toLowerCase().includes(q) ||
-        lead.faculty.toLowerCase().includes(q)
+        lead.faculty.toLowerCase().includes(q) ||
+        lead.department.toLowerCase().includes(q)
       );
     });
-  }, [scopeFilteredLeads, searchQuery]);
+  }, [
+    scopeFilteredLeads,
+    searchQuery,
+    facultyFilter,
+    departmentFilter,
+    passedStatusFilter,
+    currentStatusFilter,
+  ]);
+
+  // Live counts (entity + count) — derived from the scope (e.g. dean-only,
+  // ireb-only, or all). Always shows the maximum possible count regardless of
+  // which other filter chips are active.
+  const facultyCounts = useMemo(
+    () =>
+      buildCountsList(scopeFilteredLeads, (lead) => lead.faculty || "Unknown"),
+    [scopeFilteredLeads],
+  );
+  const departmentCounts = useMemo(
+    () =>
+      buildCountsList(
+        scopeFilteredLeads,
+        (lead) => lead.department || "Unknown",
+      ),
+    [scopeFilteredLeads],
+  );
+  const passedStatusCounts = useMemo(
+    () =>
+      buildCountsList(scopeFilteredLeads, (lead) => lead.passedStatus).sort(
+        (a, b) =>
+          STATUS_ORDER.indexOf(a.value as LeadStatus) -
+          STATUS_ORDER.indexOf(b.value as LeadStatus),
+      ),
+    [scopeFilteredLeads],
+  );
+  const currentStatusCounts = useMemo(
+    () =>
+      buildCountsList(scopeFilteredLeads, (lead) => lead.currentStatus).sort(
+        (a, b) =>
+          STATUS_ORDER.indexOf(a.value as LeadStatus) -
+          STATUS_ORDER.indexOf(b.value as LeadStatus),
+      ),
+    [scopeFilteredLeads],
+  );
+
+  const activeFilterCount =
+    (facultyFilter ? 1 : 0) +
+    (departmentFilter ? 1 : 0) +
+    (passedStatusFilter ? 1 : 0) +
+    (currentStatusFilter ? 1 : 0);
+
+  const clearAllFilters = useCallback(() => {
+    setFacultyFilter(null);
+    setDepartmentFilter(null);
+    setPassedStatusFilter(null);
+    setCurrentStatusFilter(null);
+  }, []);
+
+  // Reset filters when the source data scope changes.
+  useEffect(() => {
+    clearAllFilters();
+  }, [deanOnly, ethicalOnly, providedLeads, clearAllFilters]);
 
   const getDurationInDays = (duration: string) => {
     const days = Number.parseInt(duration, 10);
@@ -306,7 +558,17 @@ export function LeadsReport({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, deanOnly, ethicalOnly, providedLeads]);
+  }, [
+    activeTab,
+    searchQuery,
+    deanOnly,
+    ethicalOnly,
+    providedLeads,
+    facultyFilter,
+    departmentFilter,
+    passedStatusFilter,
+    currentStatusFilter,
+  ]);
 
   useEffect(() => {
     setPortalMounted(true);
@@ -664,18 +926,96 @@ export function LeadsReport({
         </div>
 
         <div className="px-4 pb-4 sm:px-6 xl:px-7.5">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <label className="flex w-full max-w-md flex-col gap-1.5 text-sm sm:shrink-0">
               <span className="font-medium text-dark dark:text-white">Search</span>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Application ID, name, email, faculty…"
+                placeholder="Application ID, name, email, faculty, department…"
                 className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark placeholder:text-dark-5 dark:border-dark-3 dark:text-white"
               />
             </label>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <FilterMenu
+                label="Faculty"
+                value={facultyFilter}
+                options={facultyCounts}
+                totalCount={scopeFilteredLeads.length}
+                onChange={setFacultyFilter}
+              />
+              <FilterMenu
+                label="Department"
+                value={departmentFilter}
+                options={departmentCounts}
+                totalCount={scopeFilteredLeads.length}
+                onChange={setDepartmentFilter}
+              />
+              <FilterMenu
+                label="Passed Status"
+                value={passedStatusFilter}
+                options={passedStatusCounts}
+                totalCount={scopeFilteredLeads.length}
+                onChange={(v) =>
+                  setPassedStatusFilter(v as LeadStatus | null)
+                }
+              />
+              <FilterMenu
+                label="Current Status"
+                value={currentStatusFilter}
+                options={currentStatusCounts}
+                totalCount={scopeFilteredLeads.length}
+                onChange={(v) =>
+                  setCurrentStatusFilter(v as LeadStatus | null)
+                }
+              />
+            </div>
           </div>
+
+          {activeFilterCount > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-medium text-dark-5 dark:text-dark-6">
+                Active filters:
+              </span>
+              {facultyFilter && (
+                <FilterChip
+                  label="Faculty"
+                  value={facultyFilter}
+                  onClear={() => setFacultyFilter(null)}
+                />
+              )}
+              {departmentFilter && (
+                <FilterChip
+                  label="Department"
+                  value={departmentFilter}
+                  onClear={() => setDepartmentFilter(null)}
+                />
+              )}
+              {passedStatusFilter && (
+                <FilterChip
+                  label="Passed Status"
+                  value={passedStatusFilter}
+                  onClear={() => setPassedStatusFilter(null)}
+                />
+              )}
+              {currentStatusFilter && (
+                <FilterChip
+                  label="Current Status"
+                  value={currentStatusFilter}
+                  onClear={() => setCurrentStatusFilter(null)}
+                />
+              )}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="ml-1 rounded-md border border-stroke px-2 py-1 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <button
               className={cn(
@@ -722,10 +1062,10 @@ export function LeadsReport({
                 <TableHead className="min-w-[7rem] whitespace-nowrap">Application ID</TableHead>
                 <TableHead className="min-w-40">Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="min-w-40">Response In</TableHead>
-                <TableHead>Duration</TableHead>
                 <TableHead>Passed Status</TableHead>
                 <TableHead>Current Status </TableHead>
+                <TableHead className="min-w-40">Response In</TableHead>
+                <TableHead>Duration</TableHead>
                 <TableHead className="sticky right-0 z-20 w-[9.5rem] min-w-[9.5rem] bg-white shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark">
                   Actions
                 </TableHead>
@@ -764,10 +1104,6 @@ export function LeadsReport({
                   </a>
                 </TableCell>
 
-                <TableCell>{lead.project}</TableCell>
-                <TableCell>{lead.duration}</TableCell>
-
-                
                 <TableCell>
                   <span
                     className={cn(
@@ -800,6 +1136,10 @@ export function LeadsReport({
                       {lead.currentStatus}
                     </span>
                 </TableCell>
+                <TableCell>{lead.project}</TableCell>
+                <TableCell>{lead.duration}</TableCell>
+
+                
 
                 <TableCell
                   className={cn(

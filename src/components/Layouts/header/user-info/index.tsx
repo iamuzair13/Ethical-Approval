@@ -458,18 +458,7 @@ export function UserInfo() {
                     className="space-y-0.5 p-1"
                     aria-label="User menu"
                   >
-                    <MagneticMenuItem
-                      href="/profile"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/60 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-                        <UserIcon className="size-4" />
-                      </div>
-                      <span className="mr-auto">View profile</span>
-                      <kbd className="hidden rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500 sm:inline-block">
-                        ⌘P
-                      </kbd>
-                    </MagneticMenuItem>
+                    
 
                     <MagneticMenuItem
                       href="/pages/settings"

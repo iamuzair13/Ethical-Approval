@@ -36,6 +36,20 @@ export type AdminReportSubmission = {
   title?: string | null;
   objectives?: string | null;
   ethics_json?: unknown;
+
+  /** Position of this submission among the applicant's non-draft submissions (1-based). */
+  applicant_attempt_number?: number;
+  /** Total non-draft submissions made by this applicant. */
+  applicant_total_submissions?: number;
+  /** Latest dean decision timestamp on this submission, if any. */
+  dean_decision_at?: string | Date | null;
+  /** Latest IREB decision timestamp on this submission, if any. */
+  ireb_decision_at?: string | Date | null;
+  /** Count of files uploaded by the applicant at submission stage. */
+  submission_attachment_count?: number;
+  /** Thesis timeline persisted in submission_timeline (publications won't have this). */
+  start_date?: string | Date | null;
+  end_date?: string | Date | null;
 };
 
 function escapeHtml(s: string): string {
@@ -140,6 +154,48 @@ function irebDecisionShort(cs: string | undefined): string {
 function parseDurationDays(duration: string): number | null {
   const n = Number.parseInt(duration, 10);
   return Number.isNaN(n) ? null : n;
+}
+
+function toValidDate(value: Date | string | null | undefined): Date | null {
+  if (value == null) return null;
+  const dt = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function formatDateOnly(value: Date | string | null | undefined): string {
+  const dt = toValidDate(value);
+  if (!dt) return "—";
+  return dt.toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+/**
+ * Pretty-print the gap between two timestamps as e.g. "2 days 3 hr", "45 minutes",
+ * or "—" if either endpoint is unknown or the interval is negative.
+ */
+function formatTimeBetween(
+  from: Date | string | null | undefined,
+  to: Date | string | null | undefined,
+): string {
+  const start = toValidDate(from);
+  const end = toValidDate(to);
+  if (!start || !end) return "—";
+  const ms = end.getTime() - start.getTime();
+  if (ms < 0) return "—";
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (days > 0) {
+    return hours > 0
+      ? `${days} day${days === 1 ? "" : "s"} ${hours} hr`
+      : `${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (hours > 0) {
+    return minutes > 0
+      ? `${hours} hour${hours === 1 ? "" : "s"} ${minutes} min`
+      : `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  if (minutes > 0) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return "Less than a minute";
 }
 
 /** Simple SVG pie by workflow phase for Overview “Status” row (PDF template suggests chart). */
@@ -340,22 +396,63 @@ export function buildStudentLevelAnalysisReportHtml(
           : "—";
 
   const intl = yesNoUnknown(formStr(form, "internationalCollaboration"));
-  const extCo = formStr(form, "coSupervisorType");
+  const coSupType = formStr(form, "coSupervisorType").trim().toLowerCase();
+  const hasExternalCoSupDetails = Boolean(
+    formStr(form, "externalCoSupervisorName").trim() ||
+      formStr(form, "externalCoSupervisorRegNo").trim() ||
+      formStr(form, "externalCoSupervisorEmail").trim(),
+  );
   const externalCosupervisor =
-    extCo.toLowerCase().includes("external") || formStr(form, "externalCoSupervisorName")
-      ? "Yes"
-      : extCo
-        ? "See form"
+    coSupType === "external" || hasExternalCoSupDetails ? "Yes" : "No";
+
+  const attemptNumber =
+    typeof submission?.applicant_attempt_number === "number" &&
+    submission.applicant_attempt_number > 0
+      ? String(submission.applicant_attempt_number)
+      : "—";
+  const totalRequests =
+    typeof submission?.applicant_total_submissions === "number" &&
+    submission.applicant_total_submissions > 0
+      ? String(submission.applicant_total_submissions)
+      : "—";
+  const isResubmission =
+    typeof submission?.applicant_attempt_number === "number"
+      ? submission.applicant_attempt_number > 1
+        ? "Yes"
+        : "No"
+      : "—";
+
+  const deanDecisionAt = toValidDate(submission?.dean_decision_at);
+  const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
+  const timeForDeanDecision = formatTimeBetween(validDate, deanDecisionAt);
+  // Time at IREB starts when the application leaves the dean's queue
+  // (fall back to submission time if the dean stage was skipped).
+  const timeForIrebDecision = formatTimeBetween(
+    deanDecisionAt ?? validDate,
+    irebDecisionAt,
+  );
+
+  const attachmentCount = submission?.submission_attachment_count ?? 0;
+  const documentsProvided =
+    attachmentCount > 0
+      ? `Yes (${attachmentCount} file${attachmentCount === 1 ? "" : "s"})`
+      : submission != null
+        ? "No"
         : "—";
 
-  const expectedStart = formStr(form, "expectedStartDate").trim() || "—";
-  const expectedEnd = formStr(form, "expectedEndDate").trim() || "—";
-  const documentsProvided = "—";
+  const timelineStart = toValidDate(submission?.start_date);
+  const timelineEnd = toValidDate(submission?.end_date);
+  const expectedStart = timelineStart
+    ? formatDateOnly(timelineStart)
+    : formStr(form, "expectedStartDate").trim() || "—";
+  const expectedEnd = timelineEnd
+    ? formatDateOnly(timelineEnd)
+    : formStr(form, "expectedEndDate").trim() || "—";
 
   const overviewRows: [string, string][] = [
     ["Submission ID/SAP ID", submissionIdSap],
-    ["Attempt Number", "—"],
-    ["Total No. of Request(s)", "—"],
+    ["Attempt Number", escapeHtml(attemptNumber)],
+    ["Total No. of Request(s)", escapeHtml(totalRequests)],
     ["Program Level", escapeHtml(programLevel)],
     ["Faculty", escapeHtml(faculty)],
     ["Department", escapeHtml(department)],
@@ -375,10 +472,10 @@ export function buildStudentLevelAnalysisReportHtml(
     ["Form Submission Date", escapeHtml(subDate)],
     ["Form Submission Time", escapeHtml(subTime)],
     ["Dean Decision", escapeHtml(deanDecisionShort(cs))],
-    ["Time for Dean's Decision", "—"],
+    ["Time for Dean's Decision", escapeHtml(timeForDeanDecision)],
     ["IREB Decision", escapeHtml(irebDecisionShort(cs))],
-    ["Time for IREB's Decision", "—"],
-    ["Resubmission (Yes/No)", "—"],
+    ["Time for IREB's Decision", escapeHtml(timeForIrebDecision)],
+    ["Resubmission (Yes/No)", escapeHtml(isResubmission)],
   ];
 
   const researchRows: [string, string][] = [
@@ -453,11 +550,6 @@ export function buildApplicationStatusReportHtml(
   const overdueDeanDays =
     lead.stage === "dean" && dur != null && dur > 2 ? String(dur - 2) : "—";
 
-  const overdueIreb =
-    lead.stage === "ireb" && dur != null && dur > 2 ? "Yes" : lead.stage === "ireb" && dur != null ? "No" : "—";
-  const overdueIrebDays =
-    lead.stage === "ireb" && dur != null && dur > 2 ? String(dur - 2) : "—";
-
   const pendingDeanDays =
     cs === "under_dean_review" || cs === "submitted"
       ? dur != null
@@ -465,6 +557,39 @@ export function buildApplicationStatusReportHtml(
         : "—"
       : "0";
   const pendingIrebDays = cs === "under_ireb_review" ? (dur != null ? String(dur) : "—") : "0";
+
+  // Decision timestamps from approval_decisions (joined by getSubmissionDetailById)
+  const deanDecisionAt = toValidDate(submission?.dean_decision_at);
+  const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
+  const deanDecisionDate = deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
+  const irebDecisionDate = irebDecisionAt ? formatDateOnly(irebDecisionAt) : "—";
+
+  // The form "reaches IREB" the moment the dean approves it. A dean rejection
+  // means it never reached IREB.
+  const reachedIrebOnDean =
+    cs === "dean_approved" ||
+    cs === "under_ireb_review" ||
+    cs === "approved" ||
+    cs === "rejected";
+  const formReachedIrebDate =
+    reachedIrebOnDean && deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
+
+  // IREB stage runs from dean approval (or submission, if dean was skipped)
+  // until the IREB decision is recorded, or until now while still pending.
+  const irebStageStart = deanDecisionAt ?? validDate;
+  const irebStageEnd =
+    irebDecisionAt ?? (cs === "under_ireb_review" ? generatedAt : null);
+  const irebElapsedDays =
+    irebStageStart && irebStageEnd
+      ? Math.max(
+          0,
+          Math.floor((irebStageEnd.getTime() - irebStageStart.getTime()) / 86400000),
+        )
+      : null;
+  const overdueIreb =
+    irebElapsedDays == null ? "—" : irebElapsedDays > 2 ? "Yes" : "No";
+  const overdueIrebDays =
+    irebElapsedDays != null && irebElapsedDays > 2 ? String(irebElapsedDays - 2) : "—";
 
   const rows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],
@@ -478,19 +603,14 @@ export function buildApplicationStatusReportHtml(
       escapeHtml(cs && cs !== "submitted" ? subDate : validDate ? subDate : "—"),
     ],
     ["Request Pending at Dean (Days)", escapeHtml(pendingDeanDays)],
-    ["Rejected/Approved by Dean (Date)", "—"],
+    ["Rejected/Approved by Dean (Date)", escapeHtml(deanDecisionDate)],
     ["Form Overdue by Dean (Yes/No)", escapeHtml(overdueDean)],
     ["Overdue Days", escapeHtml(overdueDeanDays)],
-    [
-      "Approved Form Reached at IREB's Dashboard",
-      escapeHtml(
-        cs === "under_ireb_review" || cs === "approved" || cs === "rejected" ? "—" : "—",
-      ),
-    ],
+    ["Approved Form Reached at IREB's Dashboard", escapeHtml(formReachedIrebDate)],
     ["Request Pending at IREB (Days)", escapeHtml(pendingIrebDays)],
     ["Form Overdue by IREB (Yes/No)", escapeHtml(overdueIreb)],
     ["Overdue Days", escapeHtml(overdueIrebDays)],
-    ["Approval/Rejection Date by IREB", "—"],
+    ["Approval/Rejection Date by IREB", escapeHtml(irebDecisionDate)],
   ];
 
   const body = rows

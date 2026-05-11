@@ -7,19 +7,37 @@ import { Sidebar } from "@/components/Layouts/sidebar";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import type { PropsWithChildren } from "react";
 
 export function ConditionalAppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+
   const isAuthRoute = pathname?.startsWith("/auth") ?? false;
   const isAdminLoginRoute = pathname?.startsWith("/admin/login") ?? false;
-  const isStudentProfileRoute = pathname?.startsWith("/profile") ?? false;
+
+  // User-facing shells (no sidebar): the profile dashboard, the full profile
+  // view, and the account-settings page. These are "manage your own account"
+  // surfaces that students, faculty, and admins all use the same way, so they
+  // intentionally stay free of the admin sidebar.
+  const isUserShellRoute =
+    (pathname?.startsWith("/profile") ?? false) ||
+    (pathname?.startsWith("/pages/settings") ?? false);
+
+  // Sidebar belongs to admin tooling. Any authenticated non-admin user gets
+  // the minimal shell regardless of route — so a faculty member who navigates
+  // to a route that would otherwise show the sidebar still sees a clean,
+  // sidebar-free layout.
+  const isAdmin = Boolean(session?.user?.adminRole);
+  const isAuthenticatedNonAdmin =
+    status === "authenticated" && !isAdmin;
 
   if (isAuthRoute || isAdminLoginRoute) {
     return <>{children}</>;
   }
 
-  if (isStudentProfileRoute) {
+  if (isUserShellRoute || isAuthenticatedNonAdmin) {
     return (
       <div className="min-h-screen bg-gray-2 dark:bg-[#020d1a]">
         <header className="sticky top-0 z-30 border-b border-stroke bg-white px-4 py-4 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-6">

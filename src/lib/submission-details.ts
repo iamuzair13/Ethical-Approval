@@ -26,6 +26,20 @@ export type SubmissionDetail = {
   applicant_program: string | null;
   applicant_sap_id: string;
   ethics_json: unknown;
+
+  /** Position of this submission among the applicant's non-draft submissions (1-based). */
+  applicant_attempt_number: number;
+  /** Total non-draft submissions made by this applicant (including this one). */
+  applicant_total_submissions: number;
+  /** Most recent dean decision timestamp on this submission, if any. */
+  dean_decision_at: Date | null;
+  /** Most recent IREB decision timestamp on this submission, if any. */
+  ireb_decision_at: Date | null;
+  /** Count of files uploaded by the applicant at submission stage. */
+  submission_attachment_count: number;
+  /** Thesis timeline (null for publications and for submissions without a stored timeline). */
+  start_date: Date | null;
+  end_date: Date | null;
 };
 
 export async function getSubmissionDetailById(submissionId: number) {
@@ -49,11 +63,49 @@ export async function getSubmissionDetailById(submissionId: number) {
         sas.department AS applicant_department,
         sas.program AS applicant_program,
         sas.sap_id AS applicant_sap_id,
-        sep.ethics_json
+        sep.ethics_json,
+        st.start_date,
+        st.end_date,
+        (
+          SELECT COUNT(*)::int
+          FROM submissions s2
+          INNER JOIN submission_applicant_snapshot sas2
+            ON sas2.submission_id = s2.id
+          WHERE sas2.sap_id = sas.sap_id
+            AND s2.current_status <> 'draft'
+        ) AS applicant_total_submissions,
+        (
+          SELECT COUNT(*)::int
+          FROM submissions s2
+          INNER JOIN submission_applicant_snapshot sas2
+            ON sas2.submission_id = s2.id
+          WHERE sas2.sap_id = sas.sap_id
+            AND s2.current_status <> 'draft'
+            AND s2.submitted_at <= s.submitted_at
+        ) AS applicant_attempt_number,
+        (
+          SELECT MAX(ad.decided_at)
+          FROM approval_decisions ad
+          WHERE ad.submission_id = s.id
+            AND ad.stage = 'dean'
+        ) AS dean_decision_at,
+        (
+          SELECT MAX(ad.decided_at)
+          FROM approval_decisions ad
+          WHERE ad.submission_id = s.id
+            AND ad.stage = 'ireb'
+        ) AS ireb_decision_at,
+        (
+          SELECT COUNT(*)::int
+          FROM submission_attachments sa
+          WHERE sa.submission_id = s.id
+            AND sa.upload_stage = 'submission'
+        ) AS submission_attachment_count
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       LEFT JOIN submission_research_core src ON src.submission_id = s.id
       LEFT JOIN submission_ethics_payload sep ON sep.submission_id = s.id
+      LEFT JOIN submission_timeline st ON st.submission_id = s.id
       WHERE s.id = $1
       LIMIT 1
     `,
