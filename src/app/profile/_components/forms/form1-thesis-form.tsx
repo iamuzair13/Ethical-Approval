@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
-import type { CommonFormProps, FormState } from "./form-stepper-types";
+import { type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import type { CommonFormProps } from "./form-stepper-types";
+import { CoPersonSection } from "./co-person-section";
+import { ResearchObjectiveSection } from "./research-objective-section";
+import { ResearchPopulationBox } from "./research-population-box";
+import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import {
   FORM_3_MANDATORY_ATTACHMENTS,
   FORM_3_REQUIRED_ATTACHMENTS,
@@ -19,7 +23,6 @@ import {
   FieldRow,
   FormSection,
   ReadOnlyInput,
-  RadioTileGroup,
   RequiredFieldsBanner,
   RequiredMark,
   StepHeader,
@@ -32,26 +35,6 @@ export const FORM_1_REQUIRED_ATTACHMENTS = FORM_3_REQUIRED_ATTACHMENTS;
 const FORM_1_MANDATORY_ATTACHMENT_SET = new Set<string>(
   FORM_3_MANDATORY_ATTACHMENTS as readonly string[],
 );
-
-const SDG_OPTIONS = [
-  "No Poverty",
-  "Zero Hunger",
-  "Good Health and Well-Being",
-  "Quality Education",
-  "Gender Equality",
-  "Clean Water and Sanitation",
-  "Affordable and Clean Energy",
-  "Decent Work and Economic Growth",
-  "Industry, Innovation, and Infrastructure",
-  "Reduced Inequalities",
-  "Sustainable Cities and Communities",
-  "Responsible Consumption and Production",
-  "Climate Action",
-  "Life Below Water",
-  "Life on Land",
-  "Peace, Justice and Strong Institutions",
-  "Partnership for the Goals",
-] as const;
 
 const RESEARCH_PURPOSE_OPTIONS = [
   "Research",
@@ -70,15 +53,6 @@ const DATA_COLLECTION_OPTIONS = [
   "Through observation",
   "Through autoethnographic research",
   "Through experiments/user-testing",
-  "Other (specify in methodology)",
-] as const;
-
-const RESEARCH_POPULATION_OPTIONS = [
-  "University students",
-  "Faculty members",
-  "Librarians, Patients/healthcare workers",
-  "Children/minors, General adults",
-  "Employees/staff members",
   "Other (specify in methodology)",
 ] as const;
 
@@ -148,27 +122,6 @@ const INFORMED_CONSENT_OPTIONS = [
   "N/A",
 ] as const;
 
-function hasTrimmedValue(value: string | undefined): boolean {
-  return Boolean(value && value.trim().length > 0);
-}
-
-/** True when step 1.3 has meaningful co-supervisor data (e.g. resumed draft). */
-export function hasForm1CoSupervisorEntry(form: FormState): boolean {
-  return [
-    form.uolCoSupervisorSapId,
-    form.uolCoSupervisorName,
-    form.uolCoSupervisorEmail,
-    form.uolCoSupervisorFaculty,
-    form.uolCoSupervisorDepartment,
-    form.externalCoSupervisorName,
-    form.externalCoSupervisorRegNo,
-    form.externalCoSupervisorEmail,
-    form.externalUniversity,
-    form.externalFaculty,
-    form.externalDepartment,
-  ].some(hasTrimmedValue);
-}
-
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
   return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
@@ -198,73 +151,6 @@ export function Form1ThesisForm({
 }: Form1ThesisFormProps) {
   const declarationName =
     form.scholarName.trim() || form.applicantName.trim() || "_____________________";
-
-  const [coSupervisorSectionOpen, setCoSupervisorSectionOpen] = useState(false);
-  const [extraObjectivesCount, setExtraObjectivesCount] = useState(0);
-
-  useEffect(() => {
-    let derived = 0;
-    if (hasTrimmedValue(form.researchObjective3)) derived = Math.max(derived, 1);
-    if (hasTrimmedValue(form.researchObjective4)) derived = Math.max(derived, 2);
-    if (derived > 0) {
-      setExtraObjectivesCount((prev) => Math.max(prev, derived));
-    }
-  }, [form.researchObjective3, form.researchObjective4]);
-
-  const addExtraObjective = () => {
-    setExtraObjectivesCount((c) => Math.min(2, c + 1));
-  };
-
-  const removeExtraObjective = (which: 3 | 4) => {
-    setForm((prev) => {
-      if (which === 3) {
-        return {
-          ...prev,
-          researchObjective3: prev.researchObjective4 ?? "",
-          researchObjective4: "",
-        };
-      }
-      return { ...prev, researchObjective4: "" };
-    });
-    setExtraObjectivesCount((c) => Math.max(0, c - 1));
-  };
-
-  useEffect(() => {
-    if (hasForm1CoSupervisorEntry(form)) {
-      setCoSupervisorSectionOpen(true);
-    }
-  }, [
-    form.uolCoSupervisorSapId,
-    form.uolCoSupervisorName,
-    form.uolCoSupervisorEmail,
-    form.uolCoSupervisorFaculty,
-    form.uolCoSupervisorDepartment,
-    form.externalCoSupervisorName,
-    form.externalCoSupervisorRegNo,
-    form.externalCoSupervisorEmail,
-    form.externalUniversity,
-    form.externalFaculty,
-    form.externalDepartment,
-  ]);
-
-  const clearCoSupervisorSection = () => {
-    setCoSupervisorSectionOpen(false);
-    setForm((prev) => ({
-      ...prev,
-      coSupervisorType: "",
-      uolCoSupervisorSapId: "",
-      uolCoSupervisorName: "",
-      uolCoSupervisorEmail: "",
-      uolCoSupervisorFaculty: "",
-      uolCoSupervisorDepartment: "",
-      externalCoSupervisorName: "",
-      externalCoSupervisorRegNo: "",
-      externalCoSupervisorEmail: "",
-      externalUniversity: "",
-      externalFaculty: "",
-      externalDepartment: "",
-    }));
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -342,161 +228,71 @@ export function Form1ThesisForm({
             </FieldRow>
           </FormSection>
 
-          {/* 1.3 Co-supervisor */}
-          <FormSection
+          <CoPersonSection
             title="1.3 Co-supervisor"
-            subtitle="Optional. Add a co-supervisor if applicable; choose UOL or External and provide their details."
-          >
-            {!coSupervisorSectionOpen ? (
-              <button
-                type="button"
-                onClick={() => setCoSupervisorSectionOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
-              >
-                Add Co-Supervisor
-              </button>
-            ) : (
-              <>
-                <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={clearCoSupervisorSection}
-                    className="text-sm font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
-                  >
-                    Remove co-supervisor
-                  </button>
-                </div>
-                <BaseSelect
-                  value={form.coSupervisorType}
-                  onChange={onFieldChange("coSupervisorType")}
-                  className="mb-4 max-w-xs"
-                >
-                  <option value="">Select</option>
-                  <option value="UOL">Option 1: UOL</option>
-                  <option value="External">Option 2: External</option>
-                </BaseSelect>
-                <FieldRow>
-                  {form.coSupervisorType === "UOL" ? (
-                    <>
-                      <FieldGroup label="UOL SAP ID (if any)">
-                        <BaseInput
-                          required
-                          value={form.uolCoSupervisorSapId}
-                          onChange={onFieldChange("uolCoSupervisorSapId")}
-                          placeholder="SAP ID"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Name">
-                        <BaseInput
-                          required
-                          value={form.uolCoSupervisorName}
-                          onChange={onFieldChange("uolCoSupervisorName")}
-                          placeholder="Supervisor's Name"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Email">
-                        <BaseInput
-                          required
-                          type="email"
-                          value={form.uolCoSupervisorEmail}
-                          onChange={onFieldChange("uolCoSupervisorEmail")}
-                          placeholder="Email"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Faculty">
-                        <BaseSelect
-                          required
-                          value={form.uolCoSupervisorFaculty}
-                          onChange={onFieldChange("uolCoSupervisorFaculty")}
-                        >
-                          <option value="">Select Faculty</option>
-                          {facultyOptions.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </BaseSelect>
-                      </FieldGroup>
-                      <FieldGroup label="Department" className="md:col-span-2">
-                        <BaseSelect
-                          required
-                          value={form.uolCoSupervisorDepartment}
-                          onChange={onFieldChange("uolCoSupervisorDepartment")}
-                          disabled={!form.uolCoSupervisorFaculty}
-                        >
-                          <option value="">Select Department</option>
-                          {getDepartmentsForFaculty(form.uolCoSupervisorFaculty).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </BaseSelect>
-                      </FieldGroup>
-                    </>
-                  ) : form.coSupervisorType === "External" ? (
-                    <>
-                      <FieldGroup label="Name">
-                        <BaseInput
-                          value={form.externalCoSupervisorName}
-                          onChange={onFieldChange("externalCoSupervisorName")}
-                          placeholder="Co-supervisor's Name"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Reg. No.">
-                        <BaseInput
-                          value={form.externalCoSupervisorRegNo}
-                          onChange={onFieldChange("externalCoSupervisorRegNo")}
-                          placeholder="Reg. No."
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Email">
-                        <BaseInput
-                          type="email"
-                          value={form.externalCoSupervisorEmail}
-                          onChange={onFieldChange("externalCoSupervisorEmail")}
-                          placeholder="Email"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="University">
-                        <BaseInput
-                          value={form.externalUniversity}
-                          onChange={onFieldChange("externalUniversity")}
-                          placeholder="University"
-                        />
-                      </FieldGroup>
-                      <FieldGroup label="Faculty">
-                        <BaseSelect
-                          value={form.externalFaculty}
-                          onChange={onFieldChange("externalFaculty")}
-                        >
-                          <option value="">Select Faculty</option>
-                          {facultyOptions.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </BaseSelect>
-                      </FieldGroup>
-                      <FieldGroup label="Department">
-                        <BaseSelect
-                          value={form.externalDepartment}
-                          onChange={onFieldChange("externalDepartment")}
-                          disabled={!form.externalFaculty}
-                        >
-                          <option value="">Select Department</option>
-                          {getDepartmentsForFaculty(form.externalFaculty).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </BaseSelect>
-                      </FieldGroup>
-                    </>
-                  ) : null}
-                </FieldRow>
-              </>
-            )}
-          </FormSection>
+            entityLabel="Co-Supervisor"
+            form={form}
+            setForm={setForm}
+            onFieldChange={onFieldChange}
+            facultyOptions={facultyOptions}
+            getDepartmentsForFaculty={getDepartmentsForFaculty}
+            defaultKeys={{
+              type: "coSupervisorType",
+              uol: {
+                sapId: "uolCoSupervisorSapId",
+                name: "uolCoSupervisorName",
+                email: "uolCoSupervisorEmail",
+                faculty: "uolCoSupervisorFaculty",
+                department: "uolCoSupervisorDepartment",
+              },
+              external: {
+                name: "externalCoSupervisorName",
+                regNo: "externalCoSupervisorRegNo",
+                email: "externalCoSupervisorEmail",
+                university: "externalUniversity",
+                faculty: "externalFaculty",
+                department: "externalDepartment",
+              },
+            }}
+            extraKeysList={[
+              {
+                type: "coSupervisor2Type",
+                uol: {
+                  sapId: "uolCoSupervisor2SapId",
+                  name: "uolCoSupervisor2Name",
+                  email: "uolCoSupervisor2Email",
+                  faculty: "uolCoSupervisor2Faculty",
+                  department: "uolCoSupervisor2Department",
+                },
+                external: {
+                  name: "externalCoSupervisor2Name",
+                  regNo: "externalCoSupervisor2RegNo",
+                  email: "externalCoSupervisor2Email",
+                  university: "externalCoSupervisor2University",
+                  faculty: "externalCoSupervisor2Faculty",
+                  department: "externalCoSupervisor2Department",
+                },
+              },
+              {
+                type: "coSupervisor3Type",
+                uol: {
+                  sapId: "uolCoSupervisor3SapId",
+                  name: "uolCoSupervisor3Name",
+                  email: "uolCoSupervisor3Email",
+                  faculty: "uolCoSupervisor3Faculty",
+                  department: "uolCoSupervisor3Department",
+                },
+                external: {
+                  name: "externalCoSupervisor3Name",
+                  regNo: "externalCoSupervisor3RegNo",
+                  email: "externalCoSupervisor3Email",
+                  university: "externalCoSupervisor3University",
+                  faculty: "externalCoSupervisor3Faculty",
+                  department: "externalCoSupervisor3Department",
+                },
+              },
+            ]}
+          />
 
           {/* 1.4 Thesis/Project Details */}
           <FormSection title="1.4 Thesis/Project Details">
@@ -530,74 +326,18 @@ export function Form1ThesisForm({
                   placeholder="Research Location(s)"
                 />
               </Required>
-              <Required label="Research Objective 1 *" className="md:col-span-2">
-                <BaseTextarea
-                  value={form.researchObjective1}
-                  onChange={onFieldChange("researchObjective1")}
-                  rows={2}
-                  placeholder="Describe"
-                />
-              </Required>
-              <Required label="Research Objective 2 *" className="md:col-span-2">
-                <BaseTextarea
-                  value={form.researchObjective2}
-                  onChange={onFieldChange("researchObjective2")}
-                  rows={2}
-                  placeholder="Describe"
-                />
-              </Required>
-
-              {extraObjectivesCount >= 1 && (
-                <FieldGroup label="Research Objective 3" className="md:col-span-2">
-                  <BaseTextarea
-                    value={form.researchObjective3}
-                    onChange={onFieldChange("researchObjective3")}
-                    rows={2}
-                    placeholder="Objective 3 (optional)"
-                  />
-                  <div className="mt-1.5 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeExtraObjective(3)}
-                      className="text-xs font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
-                    >
-                      Remove Objective 3
-                    </button>
-                  </div>
-                </FieldGroup>
-              )}
-
-              {extraObjectivesCount >= 2 && (
-                <FieldGroup label="Research Objective 4" className="md:col-span-2">
-                  <BaseTextarea
-                    value={form.researchObjective4}
-                    onChange={onFieldChange("researchObjective4")}
-                    rows={2}
-                    placeholder="Objective 4 (optional)"
-                  />
-                  <div className="mt-1.5 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeExtraObjective(4)}
-                      className="text-xs font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
-                    >
-                      Remove Objective 4
-                    </button>
-                  </div>
-                </FieldGroup>
-              )}
-
-              {extraObjectivesCount < 2 && (
-                <div className="md:col-span-2">
-                  <button
-                    type="button"
-                    onClick={addExtraObjective}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
-                  >
-                    + Add Research Objective
-                  </button>
-                </div>
-              )}
+              <ResearchObjectiveSection
+                defaultKeys={[
+                  "researchObjective1",
+                  "researchObjective2",
+                  "researchObjective3",
+                ]}
+                extrasKey="researchObjectivesExtras"
+                requiredCount={2}
+                form={form}
+                setForm={setForm}
+                onFieldChange={onFieldChange}
+              />
             </FieldRow>
           </FormSection>
 
@@ -607,10 +347,9 @@ export function Form1ThesisForm({
               label="Please select relevant Sustainable Development Goals (You may select multiple) *"
               kind="selection"
             >
-              <CheckboxGroup
-                options={SDG_OPTIONS}
-                checkedFn={(item) => hasCsvOption("sdgs", item)}
-                toggleFn={(item) => toggleCsvOption("sdgs", item)}
+              <SdgCheckboxDropdown
+                isChecked={(value) => hasCsvOption("sdgs", value)}
+                onToggle={(value) => toggleCsvOption("sdgs", value)}
               />
             </Required>
           </FormSection>
@@ -648,17 +387,16 @@ export function Form1ThesisForm({
           {/* 1.8 Research Population */}
           <FormSection title="1.8 Research Population">
             <Required
-              label="Select Research Population *"
-              kind="radio"
+              label="Select Research Population (You may select multiple) *"
+              kind="selection"
             >
-              <RadioTileGroup
-                name="researchPopulation"
-                value={form.researchPopulation}
-                onChange={(val) =>
-                  setForm((prev) => ({ ...prev, researchPopulation: val }))
+              <ResearchPopulationBox
+                isChecked={(value) =>
+                  hasCsvOption("researchPopulation", value)
                 }
-                options={RESEARCH_POPULATION_OPTIONS}
-                columns={1}
+                onToggle={(value) =>
+                  toggleCsvOption("researchPopulation", value)
+                }
               />
             </Required>
           </FormSection>
@@ -721,17 +459,14 @@ export function Form1ThesisForm({
             </FieldRow>
 
             {form.collectPii === "Yes" && (
-              <ConditionalCallout className="mt-4">
-                <p className="mb-2 text-sm font-medium text-dark dark:text-white">
-                  Select the type(s) of PII that will be collected:
-                </p>
+                <FieldGroup label="Select the type(s) of Personally Identifiable Information that will be collected:">
                 <CheckboxGroup
                   options={PII_TYPE_OPTIONS}
                   checkedFn={(item) => hasCsvOption("piiTypes", item)}
                   toggleFn={(item) => toggleCsvOption("piiTypes", item)}
                   columns={3}
                 />
-              </ConditionalCallout>
+                </FieldGroup>
             )}
           </FormSection>
 
@@ -841,14 +576,14 @@ export function Form1ThesisForm({
               </BaseSelect>
             </Required>
             {form.vulnerablePopulation === "Yes" && (
-              <ConditionalCallout className="mt-4">
+              <FieldGroup label="If yes, describe special protections and ethical safeguards.">
                 <BaseTextarea
                   value={form.vulnerableSafeguards}
                   onChange={onFieldChange("vulnerableSafeguards")}
                   rows={2}
                   placeholder="If yes, describe special protections and ethical safeguards."
                 />
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
 
@@ -864,27 +599,20 @@ export function Form1ThesisForm({
               </BaseSelect>
             </Required>
             {form.sensitiveTopics === "Yes" && (
-              <ConditionalCallout className="mt-4 flex flex-col gap-3">
-                <Required
-                  label="If yes, select all applicable sensitive topics *"
-                  kind="selection"
-                >
+              <FieldGroup label="If yes, select all applicable sensitive topics *">
                   <CheckboxGroup
                     options={SENSITIVE_TOPIC_TYPES}
                     checkedFn={(item) => hasCsvOption("sensitiveTopicTypes", item)}
                     toggleFn={(item) => toggleCsvOption("sensitiveTopicTypes", item)}
                   />
-                </Required>
                 {hasCsvOption("sensitiveTopicTypes", "Others") && (
-                  <Required label="Others, please specify *">
-                    <BaseInput
-                      value={form.sensitiveTopicOtherDetails}
-                      onChange={onFieldChange("sensitiveTopicOtherDetails")}
-                      placeholder="Others, please specify"
-                    />
-                  </Required>
+                  <BaseInput
+                    value={form.sensitiveTopicOtherDetails}
+                    onChange={onFieldChange("sensitiveTopicOtherDetails")}
+                    placeholder="Others, please specify"
+                  />
                 )}
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
 
@@ -900,16 +628,14 @@ export function Form1ThesisForm({
               </BaseSelect>
             </Required>
             {form.potentialRisks === "Yes" && (
-              <ConditionalCallout className="mt-4">
-                <Required label="If yes, further elaborate. *">
+              <FieldGroup label="If yes, further elaborate.">
                   <BaseTextarea
                     value={form.potentialRiskDetails}
                     onChange={onFieldChange("potentialRiskDetails")}
                     rows={2}
                     placeholder="Elaborate..."
                   />
-                </Required>
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
 
@@ -952,16 +678,14 @@ export function Form1ThesisForm({
               </BaseSelect>
             </Required>
             {form.conflictOfInterest === "Yes" && (
-              <ConditionalCallout className="mt-4">
-                <Required label="If yes, explain and describe how it will be managed. *">
+              <FieldGroup label="If yes, explain and describe how it will be managed.">
                   <BaseTextarea
                     value={form.conflictManagement}
                     onChange={onFieldChange("conflictManagement")}
                     rows={2}
                     placeholder="Explain..."
                   />
-                </Required>
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
 
@@ -977,16 +701,14 @@ export function Form1ThesisForm({
               </BaseSelect>
             </Required>
             {form.recordsWithoutConsent === "Yes" && (
-              <ConditionalCallout className="mt-4">
-                <Required label="If yes, justify and provide institutional approval documentation. *">
+              <FieldGroup label="If yes, justify and provide institutional approval documentation.">
                   <BaseTextarea
                     value={form.recordsWithoutConsentJustification}
                     onChange={onFieldChange("recordsWithoutConsentJustification")}
                     rows={2}
                     placeholder="Justify..."
                   />
-                </Required>
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
         </section>
@@ -1046,14 +768,14 @@ export function Form1ThesisForm({
             )}
 
             {form.internationalCollaboration === "Yes" && (
-              <ConditionalCallout className="mt-4">
+              <FieldGroup label="If yes, give international collaboration details (if not provided in Step 1).">
                 <BaseTextarea
                   value={form.internationalCollaborationDetails}
                   onChange={onFieldChange("internationalCollaborationDetails")}
                   rows={4}
                   placeholder="If yes, give international collaboration details (if not provided in Step 1)."
                 />
-              </ConditionalCallout>
+              </FieldGroup>
             )}
           </FormSection>
         </section>

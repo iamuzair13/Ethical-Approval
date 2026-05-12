@@ -1,6 +1,10 @@
 "use client";
 
 import type { CommonFormProps } from "./form-stepper-types";
+import { CoPersonSection } from "./co-person-section";
+import { ResearchObjectiveSection } from "./research-objective-section";
+import { ResearchPopulationBox } from "./research-population-box";
+import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -10,6 +14,7 @@ import {
   CheckboxGroup,
   ConditionalCallout,
   DeclarationCheckbox,
+  FieldGroup,
   FieldRow,
   FormSection,
   InfoNote,
@@ -17,26 +22,6 @@ import {
   ReadOnlyInput,
   StepHeader,
 } from "./form-ui";
-
-const SDGS = [
-  "No Poverty",
-  "Zero Hunger",
-  "Good Health and Well-Being",
-  "Quality Education",
-  "Gender Equality",
-  "Clean Water and Sanitation",
-  "Affordable and Clean Energy",
-  "Decent Work and Economic Growth",
-  "Industry, Innovation, and Infrastructure",
-  "Reduced Inequalities",
-  "Sustainable Cities and Communities",
-  "Responsible Consumption and Production",
-  "Climate Action",
-  "Life Below Water",
-  "Life on Land",
-  "Peace, Justice and Strong Institutions",
-  "Partnership for the Goals",
-] as const;
 
 const RECRUITMENT_CHANNELS = [
   "Emails",
@@ -68,19 +53,6 @@ const PARTICIPANT_BANDS = [
   "501+",
 ] as const;
 
-const RESEARCH_POPULATION_OPTIONS = [
-  "University students",
-  "Faculty members",
-  "Researchers/Laboratory staff",
-  "Patients/clinical participants",
-  "Specific disease groups/diagnosed patients",
-  "Patients/healthcare workers",
-  "Children/minors",
-  "General adults",
-  "Employees/staff members",
-  "Other (specify in methodology)",
-] as const;
-
 function buildMedicalFacultyPublicationDeclaration(name: string): string {
   return `I/We ${name} hereby certify that: this manuscript is original, not previously published in any form. All research involving human subjects was conducted with appropriate ethical approval from the relevant departments. All participant/patient identities are adequately protected and anonymized where required. All funding sources, conflicts of interest, and potential biases have been fully disclosed. The manuscript accurately and completely reports all methods, results, and adverse events. The manuscript adheres to established ethical guidelines for responsible reporting in medical research. All authors have reviewed and approved this manuscript and agree with its content. No portion of this work has been plagiarized or previously published without proper attribution.`;
 }
@@ -94,6 +66,8 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
   toggleCsvOption,
   attachmentFiles,
   handleRequiredAttachmentUpload,
+  facultyOptions,
+  getDepartmentsForFaculty,
 }: CommonFormProps) {
   /* ---------- STEP 0: Scholar Information ---------- */
   if (currentStep === 0) {
@@ -117,227 +91,68 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </FieldRow>
         </FormSection>
 
-        <FormSection
+        <CoPersonSection
           title="1.2 Co-Authors' Information"
-          subtitle="(Please select)"
-        >
-          <BaseSelect
-            value={form.publicationCoAuthor1Type}
-            onChange={onFieldChange("publicationCoAuthor1Type")}
-            className="max-w-xs"
-          >
-            <option value="UOL">Option 1: UOL</option>
-            <option value="External">Option 2: External</option>
-          </BaseSelect>
-
-          <FieldRow className="mt-4">
-            {form.publicationCoAuthor1Type === "UOL" ? (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor1UolSapId}
-                  onChange={onFieldChange("publicationAuthor1UolSapId")}
-                  placeholder="SAP ID"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1UolName}
-                  onChange={onFieldChange("publicationAuthor1UolName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1UolEmail}
-                  onChange={onFieldChange("publicationAuthor1UolEmail")}
-                  placeholder="Email"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1UolFaculty}
-                  onChange={onFieldChange("publicationAuthor1UolFaculty")}
-                  placeholder="Faculty (Dropdown window)"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1UolDepartment}
-                  onChange={onFieldChange("publicationAuthor1UolDepartment")}
-                  placeholder="Department (Dropdown window)"
-                />
-              </>
-            ) : (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor1ExternalName}
-                  onChange={onFieldChange("publicationAuthor1ExternalName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1ExternalEmail}
-                  onChange={onFieldChange("publicationAuthor1ExternalEmail")}
-                  placeholder="Email"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1ExternalUniversity}
-                  onChange={onFieldChange("publicationAuthor1ExternalUniversity")}
-                  placeholder="University"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1ExternalFaculty}
-                  onChange={onFieldChange("publicationAuthor1ExternalFaculty")}
-                  placeholder="Faculty"
-                />
-                <BaseInput
-                  value={form.publicationAuthor1ExternalDepartment}
-                  onChange={onFieldChange("publicationAuthor1ExternalDepartment")}
-                  placeholder="Department"
-                />
-              </>
-            )}
-          </FieldRow>
-        </FormSection>
-
-        <FormSection
-          title="Add Another Co-Author"
-          subtitle="Co-Author #2 (optional)"
-        >
-          <BaseSelect
-            value={form.publicationCoAuthor2Type}
-            onChange={onFieldChange("publicationCoAuthor2Type")}
-            className="max-w-xs"
-          >
-            <option value="UOL">Option 1: UOL</option>
-            <option value="External">Option 2: External</option>
-          </BaseSelect>
-
-          <FieldRow className="mt-4">
-            {form.publicationCoAuthor2Type === "UOL" ? (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor2UolSapId}
-                  onChange={onFieldChange("publicationAuthor2UolSapId")}
-                  placeholder="SAP ID (Auto fetch from SAP database)"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2UolName}
-                  onChange={onFieldChange("publicationAuthor2UolName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2UolEmail}
-                  onChange={onFieldChange("publicationAuthor2UolEmail")}
-                  placeholder="Email (Auto fetch from SAP database)"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2UolFaculty}
-                  onChange={onFieldChange("publicationAuthor2UolFaculty")}
-                  placeholder="Faculty (Auto fetch from SAP database)"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2UolDepartment}
-                  onChange={onFieldChange("publicationAuthor2UolDepartment")}
-                  placeholder="Department (Auto fetch from SAP database)"
-                />
-              </>
-            ) : (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor2ExternalName}
-                  onChange={onFieldChange("publicationAuthor2ExternalName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2ExternalEmail}
-                  onChange={onFieldChange("publicationAuthor2ExternalEmail")}
-                  placeholder="Email"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2ExternalUniversity}
-                  onChange={onFieldChange("publicationAuthor2ExternalUniversity")}
-                  placeholder="University"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2ExternalFaculty}
-                  onChange={onFieldChange("publicationAuthor2ExternalFaculty")}
-                  placeholder="Faculty"
-                />
-                <BaseInput
-                  value={form.publicationAuthor2ExternalDepartment}
-                  onChange={onFieldChange("publicationAuthor2ExternalDepartment")}
-                  placeholder="Department"
-                />
-              </>
-            )}
-          </FieldRow>
-        </FormSection>
-
-        <FormSection
-          title="Add Another Co-Author"
-          subtitle="Co-Author #3 (optional)"
-        >
-          <BaseSelect
-            value={form.publicationCoAuthor3Type}
-            onChange={onFieldChange("publicationCoAuthor3Type")}
-            className="max-w-xs"
-          >
-            <option value="UOL">Option 1: UOL</option>
-            <option value="External">Option 2: External</option>
-          </BaseSelect>
-
-          <FieldRow className="mt-4">
-            {form.publicationCoAuthor3Type === "UOL" ? (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor3UolSapId}
-                  onChange={onFieldChange("publicationAuthor3UolSapId")}
-                  placeholder="SAP ID"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3UolName}
-                  onChange={onFieldChange("publicationAuthor3UolName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3UolEmail}
-                  onChange={onFieldChange("publicationAuthor3UolEmail")}
-                  placeholder="Email"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3UolFaculty}
-                  onChange={onFieldChange("publicationAuthor3UolFaculty")}
-                  placeholder="Faculty (Dropdown window)"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3UolDepartment}
-                  onChange={onFieldChange("publicationAuthor3UolDepartment")}
-                  placeholder="Department (Dropdown window)"
-                />
-              </>
-            ) : (
-              <>
-                <BaseInput
-                  value={form.publicationAuthor3ExternalName}
-                  onChange={onFieldChange("publicationAuthor3ExternalName")}
-                  placeholder="Co-Author's Name"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3ExternalEmail}
-                  onChange={onFieldChange("publicationAuthor3ExternalEmail")}
-                  placeholder="Email"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3ExternalUniversity}
-                  onChange={onFieldChange("publicationAuthor3ExternalUniversity")}
-                  placeholder="University"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3ExternalFaculty}
-                  onChange={onFieldChange("publicationAuthor3ExternalFaculty")}
-                  placeholder="Faculty"
-                />
-                <BaseInput
-                  value={form.publicationAuthor3ExternalDepartment}
-                  onChange={onFieldChange("publicationAuthor3ExternalDepartment")}
-                  placeholder="Department"
-                />
-              </>
-            )}
-          </FieldRow>
-        </FormSection>
+          entityLabel="Co-Author"
+          form={form}
+          setForm={setForm}
+          onFieldChange={onFieldChange}
+          facultyOptions={facultyOptions}
+          getDepartmentsForFaculty={getDepartmentsForFaculty}
+          defaultKeys={{
+            type: "publicationCoAuthor1Type",
+            uol: {
+              sapId: "publicationAuthor1UolSapId",
+              name: "publicationAuthor1UolName",
+              email: "publicationAuthor1UolEmail",
+              faculty: "publicationAuthor1UolFaculty",
+              department: "publicationAuthor1UolDepartment",
+            },
+            external: {
+              name: "publicationAuthor1ExternalName",
+              email: "publicationAuthor1ExternalEmail",
+              university: "publicationAuthor1ExternalUniversity",
+              faculty: "publicationAuthor1ExternalFaculty",
+              department: "publicationAuthor1ExternalDepartment",
+            },
+          }}
+          extraKeysList={[
+            {
+              type: "publicationCoAuthor2Type",
+              uol: {
+                sapId: "publicationAuthor2UolSapId",
+                name: "publicationAuthor2UolName",
+                email: "publicationAuthor2UolEmail",
+                faculty: "publicationAuthor2UolFaculty",
+                department: "publicationAuthor2UolDepartment",
+              },
+              external: {
+                name: "publicationAuthor2ExternalName",
+                email: "publicationAuthor2ExternalEmail",
+                university: "publicationAuthor2ExternalUniversity",
+                faculty: "publicationAuthor2ExternalFaculty",
+                department: "publicationAuthor2ExternalDepartment",
+              },
+            },
+            {
+              type: "publicationCoAuthor3Type",
+              uol: {
+                sapId: "publicationAuthor3UolSapId",
+                name: "publicationAuthor3UolName",
+                email: "publicationAuthor3UolEmail",
+                faculty: "publicationAuthor3UolFaculty",
+                department: "publicationAuthor3UolDepartment",
+              },
+              external: {
+                name: "publicationAuthor3ExternalName",
+                email: "publicationAuthor3ExternalEmail",
+                university: "publicationAuthor3ExternalUniversity",
+                faculty: "publicationAuthor3ExternalFaculty",
+                department: "publicationAuthor3ExternalDepartment",
+              },
+            },
+          ]}
+        />
 
         <FormSection title="1.3 Research Details">
           <FieldRow>
@@ -348,27 +163,19 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               />
             </Required>
 
-            <Required label="b) Research Objectives 1 *" className="md:col-span-2">
-              <BaseTextarea
-                value={form.publicationObjective1}
-                onChange={onFieldChange("publicationObjective1")}
-                rows={2}
-              />
-            </Required>
-            <Required label="b) Research Objectives 2 *" className="md:col-span-2">
-              <BaseTextarea
-                value={form.publicationObjective2}
-                onChange={onFieldChange("publicationObjective2")}
-                rows={2}
-              />
-            </Required>
-            <Required label="b) Research Objectives 3 *" className="md:col-span-2">
-              <BaseTextarea
-                value={form.publicationObjective3}
-                onChange={onFieldChange("publicationObjective3")}
-                rows={2}
-              />
-            </Required>
+            <ResearchObjectiveSection
+              defaultKeys={[
+                "publicationObjective1",
+                "publicationObjective2",
+                "publicationObjective3",
+              ]}
+              extrasKey="publicationObjectivesExtras"
+              requiredCount={3}
+              labelPrefix="b) Research Objectives"
+              form={form}
+              setForm={setForm}
+              onFieldChange={onFieldChange}
+            />
 
             <Required
               label="c) Sustainable Development Goals (multiple options) *"
@@ -379,11 +186,9 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
                 c) Please select relevant Sustainable Development Goals (multiple
                 options can also be selected) as per your research:
               </p>
-              <CheckboxGroup
-                options={SDGS}
-                checkedFn={(item) => hasCsvOption("sdgs", item)}
-                toggleFn={(item) => toggleCsvOption("sdgs", item)}
-                columns={2}
+              <SdgCheckboxDropdown
+                isChecked={(value) => hasCsvOption("sdgs", value)}
+                onToggle={(value) => toggleCsvOption("sdgs", value)}
               />
             </Required>
 
@@ -399,16 +204,19 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               </BaseSelect>
             </Required>
 
-            <Required label="e) Select Research Population (type) *" className="md:col-span-2">
-              <BaseSelect
-                value={form.publicationPopulationType}
-                onChange={onFieldChange("publicationPopulationType")}
-              >
-                <option value="">Select</option>
-                {RESEARCH_POPULATION_OPTIONS.map((opt) => (
-                  <option key={opt}>{opt}</option>
-                ))}
-              </BaseSelect>
+            <Required
+              label="e) Select Research Population (You may select multiple) *"
+              kind="selection"
+              className="md:col-span-2"
+            >
+              <ResearchPopulationBox
+                isChecked={(value) =>
+                  hasCsvOption("publicationPopulationType", value)
+                }
+                onToggle={(value) =>
+                  toggleCsvOption("publicationPopulationType", value)
+                }
+              />
             </Required>
 
             <Required label="f) Study Design and Methodology *" className="md:col-span-2">
@@ -594,13 +402,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
           {form.publicationBiologicalSpecimens === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="If 'Yes', describe collection, storage, handling and biosafety measures. *">
+              <FieldGroup label="If 'Yes', describe collection, storage, handling and biosafety measures.">
                 <BaseTextarea
                   value={form.publicationBiologicalSpecimenDetails}
                   onChange={onFieldChange("publicationBiologicalSpecimenDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
         </FormSection>
@@ -648,13 +456,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
           {form.publicationAnimalSubjects === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="If 'Yes', justify use and describe animal care/welfare measures. *">
+              <FieldGroup label="If 'Yes', justify use and describe animal care/welfare measures.">
                 <BaseTextarea
                   value={form.publicationAnimalWelfareDetails}
                   onChange={onFieldChange("publicationAnimalWelfareDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -693,13 +501,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
           {form.publicationConflictsUndisclosed === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="If 'Yes', provide complete disclosure. *">
+              <FieldGroup label="If 'Yes', provide complete disclosure.">
                 <BaseTextarea
                   value={form.publicationConflictDisclosureDetails}
                   onChange={onFieldChange("publicationConflictDisclosureDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -810,13 +618,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
           {form.publicationThirdPartyPermissions === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="If 'Yes', confirm permissions have been obtained and documented. *">
+              <FieldGroup label="If 'Yes', confirm permissions have been obtained and documented.">
                 <BaseTextarea
                   value={form.publicationThirdPartyPermissionDetails}
                   onChange={onFieldChange("publicationThirdPartyPermissionDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
         </FormSection>
@@ -847,8 +655,30 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               </BaseSelect>
             </Required>
 
-            
+            <Required label="4.2 Has your research received external funding? *">
+              <BaseSelect
+                value={form.externalFunding}
+                onChange={onFieldChange("externalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
           </FieldRow>
+
+          {form.externalFunding === "Yes" && (
+            <FieldGroup
+              label="Specify external funding source *"
+              className="mt-4"
+            >
+              <BaseInput
+                value={form.externalFundingSource}
+                onChange={onFieldChange("externalFundingSource")}
+                placeholder="Name of funding agency, grant, sponsor, etc."
+              />
+            </FieldGroup>
+          )}
 
           <Required
             label="4.3 Does your research involve an international collaboration? *"

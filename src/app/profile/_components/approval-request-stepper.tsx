@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import {
   Form1ThesisForm,
   FORM_1_REQUIRED_ATTACHMENTS,
-  hasForm1CoSupervisorEntry,
 } from "./forms/form1-thesis-form";
 import { RequiredFieldsBanner } from "./forms/form-ui";
 import {
@@ -50,6 +49,7 @@ import {
   ignoreRequiredValidationProps,
 } from "./forms/form-validation-mark";
 import { Required } from "./forms/required";
+import { parseObjectivesExtras } from "./forms/research-objective-section";
 
 type RequestPayload = {
   title: string;
@@ -251,6 +251,30 @@ const INITIAL_FORM = {
   externalUniversity: "",
   externalFaculty: "",
   externalDepartment: "",
+  coSupervisor2Type: "",
+  uolCoSupervisor2SapId: "",
+  uolCoSupervisor2Name: "",
+  uolCoSupervisor2Email: "",
+  uolCoSupervisor2Faculty: "",
+  uolCoSupervisor2Department: "",
+  externalCoSupervisor2Name: "",
+  externalCoSupervisor2RegNo: "",
+  externalCoSupervisor2Email: "",
+  externalCoSupervisor2University: "",
+  externalCoSupervisor2Faculty: "",
+  externalCoSupervisor2Department: "",
+  coSupervisor3Type: "",
+  uolCoSupervisor3SapId: "",
+  uolCoSupervisor3Name: "",
+  uolCoSupervisor3Email: "",
+  uolCoSupervisor3Faculty: "",
+  uolCoSupervisor3Department: "",
+  externalCoSupervisor3Name: "",
+  externalCoSupervisor3RegNo: "",
+  externalCoSupervisor3Email: "",
+  externalCoSupervisor3University: "",
+  externalCoSupervisor3Faculty: "",
+  externalCoSupervisor3Department: "",
   thesisTitle: "",
   expectedStartDate: "",
   expectedEndDate: "",
@@ -259,6 +283,7 @@ const INITIAL_FORM = {
   researchObjective2: "",
   researchObjective3: "",
   researchObjective4: "",
+  researchObjectivesExtras: "",
   researchPurpose: "",
   dataCollectionMethod: "",
   researchPopulation: "",
@@ -290,6 +315,7 @@ const INITIAL_FORM = {
   recordsWithoutConsentJustification: "",
   institutionalFunding: "",
   externalFunding: "",
+  externalFundingSource: "",
   internationalCollaboration: "",
   internationalCollaborationDetails: "",
   conductedAbroad: "",
@@ -340,6 +366,7 @@ const INITIAL_FORM = {
   publicationObjective2: "",
   publicationObjective3: "",
   publicationObjective4: "",
+  publicationObjectivesExtras: "",
   publicationParticipantsEstimate: "",
   publicationPopulationType: "",
   publicationMethodology: "",
@@ -593,6 +620,9 @@ export default function ApprovalRequestStepper({
             form.researchObjective2.trim(),
             form.researchObjective3.trim(),
             form.researchObjective4.trim(),
+            ...parseObjectivesExtras(form.researchObjectivesExtras).map((x) =>
+              x.trim(),
+            ),
           ]
             .filter(Boolean)
             .join("\n")
@@ -606,6 +636,9 @@ export default function ApprovalRequestStepper({
               form.publicationObjective2.trim(),
               form.publicationObjective3.trim(),
               form.publicationObjective4.trim(),
+              ...parseObjectivesExtras(form.publicationObjectivesExtras).map(
+                (x) => x.trim(),
+              ),
             ]
               .filter(Boolean)
               .join("\n")
@@ -962,6 +995,10 @@ export default function ApprovalRequestStepper({
         if (key === "supervisorFaculty") next.supervisorDepartment = "";
         if (key === "uolCoSupervisorFaculty") next.uolCoSupervisorDepartment = "";
         if (key === "externalFaculty") next.externalDepartment = "";
+        if (key === "uolCoSupervisor2Faculty") next.uolCoSupervisor2Department = "";
+        if (key === "externalCoSupervisor2Faculty") next.externalCoSupervisor2Department = "";
+        if (key === "uolCoSupervisor3Faculty") next.uolCoSupervisor3Department = "";
+        if (key === "externalCoSupervisor3Faculty") next.externalCoSupervisor3Department = "";
         if (key === "coauthorFaculty") next.coauthorDepartment = "";
         if (key === "publicationAuthor1UolFaculty") next.publicationAuthor1UolDepartment = "";
         if (key === "publicationAuthor1ExternalFaculty") next.publicationAuthor1ExternalDepartment = "";
@@ -1105,9 +1142,20 @@ export default function ApprovalRequestStepper({
         return "Please complete all required Supervisor(s)'s Information fields.";
       }
 
-      // Co-supervisor is optional; validate completeness only when the user has
-      // opened the "Add Co-Supervisor" section (i.e. any co-supervisor field has a value).
-      if (hasForm1CoSupervisorEntry(form)) {
+      const coSupervisorTouched = [
+        form.uolCoSupervisorSapId,
+        form.uolCoSupervisorName,
+        form.uolCoSupervisorEmail,
+        form.uolCoSupervisorFaculty,
+        form.uolCoSupervisorDepartment,
+        form.externalCoSupervisorName,
+        form.externalCoSupervisorRegNo,
+        form.externalCoSupervisorEmail,
+        form.externalUniversity,
+        form.externalFaculty,
+        form.externalDepartment,
+      ].some(hasValue);
+      if (coSupervisorTouched) {
         const coSupervisorRequired =
           form.coSupervisorType === "UOL"
             ? [
@@ -1120,7 +1168,6 @@ export default function ApprovalRequestStepper({
             : form.coSupervisorType === "External"
               ? [
                   form.externalCoSupervisorName,
-                  form.externalCoSupervisorRegNo,
                   form.externalCoSupervisorEmail,
                   form.externalUniversity,
                   form.externalFaculty,
@@ -1906,7 +1953,7 @@ export default function ApprovalRequestStepper({
                   <textarea value={form.researchObjective3} onChange={onFieldChange("researchObjective3")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.researchObjective4} onChange={onFieldChange("researchObjective4")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.methodology} onChange={onFieldChange("methodology")} rows={4} placeholder="Research Methodology (Methods and Materials)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <div><p className="mb-2 text-sm font-semibold text-dark dark:text-white">Participants Estimate</p><select value={form.participantsEstimate} onChange={onFieldChange("participantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Participants Estimate</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select></div>
+                  <div><p className="mb-2 text-sm font-semibold text-dark dark:text-white">How many participant will you be recruiting? (Estimated Number)</p><select value={form.participantsEstimate} onChange={onFieldChange("participantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">How many participant will you be recruiting?(Estimated Number)</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select></div>
                 </div>
               </section>
             )}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { CommonFormProps, FormState } from "./form-stepper-types";
+import type { CommonFormProps } from "./form-stepper-types";
+import { CoPersonSection } from "./co-person-section";
+import { ResearchObjectiveSection } from "./research-objective-section";
+import { ResearchPopulationBox } from "./research-population-box";
+import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import {
   allInlineRequiredProps,
-  ignoreRequiredValidationProps,
 } from "./form-validation-mark";
 import { Required } from "./required";
 import {
@@ -14,6 +16,7 @@ import {
   BaseTextarea,
   CheckboxGroup,
   DeclarationCheckbox,
+  FieldGroup,
   FieldRow,
   FormSection,
   ReadOnlyInput,
@@ -34,26 +37,6 @@ export const FORM_4_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   FORM_4_REQUIRED_ATTACHMENTS[0],
   FORM_4_REQUIRED_ATTACHMENTS[2],
 ];
-
-const SDG_OPTIONS = [
-  "No Poverty",
-  "Zero Hunger",
-  "Good Health and Well-Being",
-  "Quality Education",
-  "Gender Equality",
-  "Clean Water and Sanitation",
-  "Affordable and Clean Energy",
-  "Decent Work and Economic Growth",
-  "Industry, Innovation, and Infrastructure",
-  "Reduced Inequalities",
-  "Sustainable Cities and Communities",
-  "Responsible Consumption and Production",
-  "Climate Action",
-  "Life Below Water",
-  "Life on Land",
-  "Peace, Justice and Strong Institutions",
-  "Partnership for the Goals",
-] as const;
 
 const RECRUITMENT_CHANNELS = [
   "Emails",
@@ -79,54 +62,6 @@ const PARTICIPANT_BANDS = [
   "501+",
 ] as const;
 
-const RESEARCH_POPULATION_OPTIONS = [
-  "University students",
-  "Faculty members",
-  "Researchers/Laboratory staff",
-  "Patients/clinical participants",
-  "Specific disease groups/diagnosed patients",
-  "Patients/healthcare workers",
-  "Children/minors",
-  "General adults",
-  "Employees/staff members",
-  "Other (specify in methodology)",
-] as const;
-
-function hasTrimmedValue(value: string | undefined): boolean {
-  return Boolean(value && value.trim().length > 0);
-}
-
-/** True when any Co-Author field has meaningful data (e.g. resumed draft). */
-function hasForm4CoAuthorEntry(form: FormState): boolean {
-  return [
-    form.coauthorSapId,
-    form.coauthorName,
-    form.coauthorEmail,
-    form.coauthorFaculty,
-    form.coauthorDepartment,
-    form.publicationAuthor1UolSapId,
-    form.publicationAuthor1UolName,
-    form.publicationAuthor1UolEmail,
-    form.publicationAuthor1UolFaculty,
-    form.publicationAuthor1UolDepartment,
-    form.publicationAuthor1ExternalName,
-    form.publicationAuthor1ExternalEmail,
-    form.publicationAuthor1ExternalUniversity,
-    form.publicationAuthor1ExternalFaculty,
-    form.publicationAuthor1ExternalDepartment,
-    form.publicationAuthor2UolSapId,
-    form.publicationAuthor2UolName,
-    form.publicationAuthor2UolEmail,
-    form.publicationAuthor2UolFaculty,
-    form.publicationAuthor2UolDepartment,
-    form.publicationAuthor2ExternalName,
-    form.publicationAuthor2ExternalEmail,
-    form.publicationAuthor2ExternalUniversity,
-    form.publicationAuthor2ExternalFaculty,
-    form.publicationAuthor2ExternalDepartment,
-  ].some(hasTrimmedValue);
-}
-
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
   return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
@@ -148,74 +83,6 @@ export function Form4ResearchPublicationMedicalForm({
   getDepartmentsForFaculty,
   onClearSubmitError,
 }: Form4ResearchPublicationMedicalFormProps) {
-  const [coAuthorSectionOpen, setCoAuthorSectionOpen] = useState(false);
-
-  useEffect(() => {
-    if (hasForm4CoAuthorEntry(form)) {
-      setCoAuthorSectionOpen(true);
-    }
-  }, [
-    form.coauthorSapId,
-    form.coauthorName,
-    form.coauthorEmail,
-    form.coauthorFaculty,
-    form.coauthorDepartment,
-    form.publicationAuthor1UolSapId,
-    form.publicationAuthor1UolName,
-    form.publicationAuthor1UolEmail,
-    form.publicationAuthor1UolFaculty,
-    form.publicationAuthor1UolDepartment,
-    form.publicationAuthor1ExternalName,
-    form.publicationAuthor1ExternalEmail,
-    form.publicationAuthor1ExternalUniversity,
-    form.publicationAuthor1ExternalFaculty,
-    form.publicationAuthor1ExternalDepartment,
-    form.publicationAuthor2UolSapId,
-    form.publicationAuthor2UolName,
-    form.publicationAuthor2UolEmail,
-    form.publicationAuthor2UolFaculty,
-    form.publicationAuthor2UolDepartment,
-    form.publicationAuthor2ExternalName,
-    form.publicationAuthor2ExternalEmail,
-    form.publicationAuthor2ExternalUniversity,
-    form.publicationAuthor2ExternalFaculty,
-    form.publicationAuthor2ExternalDepartment,
-  ]);
-
-  const clearCoAuthorSection = () => {
-    setCoAuthorSectionOpen(false);
-    setForm((prev) => ({
-      ...prev,
-      coauthorSapId: "",
-      coauthorName: "",
-      coauthorEmail: "",
-      coauthorFaculty: "",
-      coauthorDepartment: "",
-      publicationCoAuthor1Type: "",
-      publicationAuthor1UolSapId: "",
-      publicationAuthor1UolName: "",
-      publicationAuthor1UolEmail: "",
-      publicationAuthor1UolFaculty: "",
-      publicationAuthor1UolDepartment: "",
-      publicationAuthor1ExternalName: "",
-      publicationAuthor1ExternalEmail: "",
-      publicationAuthor1ExternalUniversity: "",
-      publicationAuthor1ExternalFaculty: "",
-      publicationAuthor1ExternalDepartment: "",
-      publicationCoAuthor2Type: "",
-      publicationAuthor2UolSapId: "",
-      publicationAuthor2UolName: "",
-      publicationAuthor2UolEmail: "",
-      publicationAuthor2UolFaculty: "",
-      publicationAuthor2UolDepartment: "",
-      publicationAuthor2ExternalName: "",
-      publicationAuthor2ExternalEmail: "",
-      publicationAuthor2ExternalUniversity: "",
-      publicationAuthor2ExternalFaculty: "",
-      publicationAuthor2ExternalDepartment: "",
-    }));
-  };
-
   return (
     <div className="flex flex-col gap-6">
       <RequiredFieldsBanner variant="all-required" />
@@ -235,310 +102,70 @@ export function Form4ResearchPublicationMedicalForm({
             </FieldRow>
           </FormSection>
 
-          {!coAuthorSectionOpen ? (
-            <FormSection
-              title="1.2 Co-Author"
-              subtitle="Optional. Add a co-author if applicable."
-              {...ignoreRequiredValidationProps()}
-            >
-              <button
-                type="button"
-                onClick={() => setCoAuthorSectionOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
-              >
-                Add Co-Author
-              </button>
-            </FormSection>
-          ) : (
-            <>
-              <div className="-mb-2 flex flex-wrap items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={clearCoAuthorSection}
-                  className="text-sm font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
-                >
-                  Remove co-author
-                </button>
-              </div>
-          <FormSection title="1.2 Coauthor's Information">
-            <FieldRow>
-              <Required label="Coauthor's SAP ID *" className="w-full">
-                <BaseInput
-                  value={form.coauthorSapId}
-                  onChange={onFieldChange("coauthorSapId")}
-                  placeholder="SAP ID"
-                />
-              </Required>
-              <Required label="Coauthor's Name *" className="w-full">
-                <BaseInput
-                  value={form.coauthorName}
-                  onChange={onFieldChange("coauthorName")}
-                  placeholder="Coauthor's Name"
-                />
-              </Required>
-              <Required label="Coauthor's Email *" className="w-full">
-                <BaseInput
-                  type="email"
-                  value={form.coauthorEmail}
-                  onChange={onFieldChange("coauthorEmail")}
-                  placeholder="Email"
-                />
-              </Required>
-              <Required label="Coauthor's Faculty *" className="w-full">
-                <BaseSelect
-                  value={form.coauthorFaculty}
-                  onChange={onFieldChange("coauthorFaculty")}
-                >
-                  <option value="">Faculty</option>
-                  {facultyOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </BaseSelect>
-              </Required>
-              <Required label="Coauthor's Department *" className="w-full">
-                <BaseSelect
-                  value={form.coauthorDepartment}
-                  onChange={onFieldChange("coauthorDepartment")}
-                  disabled={!form.coauthorFaculty}
-                >
-                  <option value="">Department</option>
-                  {getDepartmentsForFaculty(form.coauthorFaculty).map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </BaseSelect>
-              </Required>
-            </FieldRow>
-          </FormSection>
+          <CoPersonSection
+            title="1.2 Co-Author"
+            entityLabel="Co-Author"
+            form={form}
+            setForm={setForm}
+            onFieldChange={onFieldChange}
+            facultyOptions={facultyOptions}
+            getDepartmentsForFaculty={getDepartmentsForFaculty}
+            defaultKeys={{
+              type: "publicationCoAuthor1Type",
+              uol: {
+                sapId: "publicationAuthor1UolSapId",
+                name: "publicationAuthor1UolName",
+                email: "publicationAuthor1UolEmail",
+                faculty: "publicationAuthor1UolFaculty",
+                department: "publicationAuthor1UolDepartment",
+              },
+              external: {
+                name: "publicationAuthor1ExternalName",
+                email: "publicationAuthor1ExternalEmail",
+                university: "publicationAuthor1ExternalUniversity",
+                faculty: "publicationAuthor1ExternalFaculty",
+                department: "publicationAuthor1ExternalDepartment",
+              },
+            }}
+            extraKeysList={[
+              {
+                type: "publicationCoAuthor2Type",
+                uol: {
+                  sapId: "publicationAuthor2UolSapId",
+                  name: "publicationAuthor2UolName",
+                  email: "publicationAuthor2UolEmail",
+                  faculty: "publicationAuthor2UolFaculty",
+                  department: "publicationAuthor2UolDepartment",
+                },
+                external: {
+                  name: "publicationAuthor2ExternalName",
+                  email: "publicationAuthor2ExternalEmail",
+                  university: "publicationAuthor2ExternalUniversity",
+                  faculty: "publicationAuthor2ExternalFaculty",
+                  department: "publicationAuthor2ExternalDepartment",
+                },
+              },
+              {
+                type: "publicationCoAuthor3Type",
+                uol: {
+                  sapId: "publicationAuthor3UolSapId",
+                  name: "publicationAuthor3UolName",
+                  email: "publicationAuthor3UolEmail",
+                  faculty: "publicationAuthor3UolFaculty",
+                  department: "publicationAuthor3UolDepartment",
+                },
+                external: {
+                  name: "publicationAuthor3ExternalName",
+                  email: "publicationAuthor3ExternalEmail",
+                  university: "publicationAuthor3ExternalUniversity",
+                  faculty: "publicationAuthor3ExternalFaculty",
+                  department: "publicationAuthor3ExternalDepartment",
+                },
+              },
+            ]}
+          />
 
-          <FormSection title="1.3 Co-Author" {...ignoreRequiredValidationProps()}>
-            <BaseSelect
-              required={false}
-              value={form.publicationCoAuthor1Type}
-              onChange={onFieldChange("publicationCoAuthor1Type")}
-              className="mb-4 max-w-xs"
-            >
-              <option value="UOL">Option 1: UOL</option>
-              <option value="External">Option 2: External</option>
-            </BaseSelect>
-            <FieldRow>
-              {form.publicationCoAuthor1Type === "UOL" ? (
-                <>
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1UolSapId}
-                    onChange={onFieldChange("publicationAuthor1UolSapId")}
-                    placeholder="Co-Author SAP ID"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1UolName}
-                    onChange={onFieldChange("publicationAuthor1UolName")}
-                    placeholder="Coauthor's Name"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1UolEmail}
-                    onChange={onFieldChange("publicationAuthor1UolEmail")}
-                    placeholder="Email"
-                  />
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor1UolFaculty}
-                    onChange={onFieldChange("publicationAuthor1UolFaculty")}
-                  >
-                    <option value="">Faculty</option>
-                    {facultyOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </BaseSelect>
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor1UolDepartment}
-                    onChange={onFieldChange("publicationAuthor1UolDepartment")}
-                    disabled={!form.publicationAuthor1UolFaculty}
-                  >
-                    <option value="">Department</option>
-                    {getDepartmentsForFaculty(form.publicationAuthor1UolFaculty).map(
-                      (item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ),
-                    )}
-                  </BaseSelect>
-                </>
-              ) : (
-                <>
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1ExternalName}
-                    onChange={onFieldChange("publicationAuthor1ExternalName")}
-                    placeholder="Co-author Name"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1ExternalEmail}
-                    onChange={onFieldChange("publicationAuthor1ExternalEmail")}
-                    placeholder="Email"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor1ExternalUniversity}
-                    onChange={onFieldChange("publicationAuthor1ExternalUniversity")}
-                    placeholder="University Name"
-                  />
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor1ExternalFaculty}
-                    onChange={onFieldChange("publicationAuthor1ExternalFaculty")}
-                  >
-                    <option value="">Faculty</option>
-                    {facultyOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </BaseSelect>
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor1ExternalDepartment}
-                    onChange={onFieldChange("publicationAuthor1ExternalDepartment")}
-                    disabled={!form.publicationAuthor1ExternalFaculty}
-                  >
-                    <option value="">Department</option>
-                    {getDepartmentsForFaculty(form.publicationAuthor1ExternalFaculty).map(
-                      (item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ),
-                    )}
-                  </BaseSelect>
-                </>
-              )}
-            </FieldRow>
-          </FormSection>
-
-          <FormSection title="Add another Co-Author" {...ignoreRequiredValidationProps()}>
-            <BaseSelect
-              required={false}
-              value={form.publicationCoAuthor2Type}
-              onChange={onFieldChange("publicationCoAuthor2Type")}
-              className="mb-4 max-w-xs"
-            >
-              <option value="UOL">Option 1: UOL</option>
-              <option value="External">Option 2: External</option>
-            </BaseSelect>
-            <FieldRow>
-              {form.publicationCoAuthor2Type === "UOL" ? (
-                <>
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2UolSapId}
-                    onChange={onFieldChange("publicationAuthor2UolSapId")}
-                    placeholder="Co-Author SAP ID"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2UolName}
-                    onChange={onFieldChange("publicationAuthor2UolName")}
-                    placeholder="Coauthor's Name"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2UolEmail}
-                    onChange={onFieldChange("publicationAuthor2UolEmail")}
-                    placeholder="Email"
-                  />
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor2UolFaculty}
-                    onChange={onFieldChange("publicationAuthor2UolFaculty")}
-                  >
-                    <option value="">Faculty</option>
-                    {facultyOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </BaseSelect>
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor2UolDepartment}
-                    onChange={onFieldChange("publicationAuthor2UolDepartment")}
-                    disabled={!form.publicationAuthor2UolFaculty}
-                  >
-                    <option value="">Department</option>
-                    {getDepartmentsForFaculty(form.publicationAuthor2UolFaculty).map(
-                      (item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ),
-                    )}
-                  </BaseSelect>
-                </>
-              ) : (
-                <>
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2ExternalName}
-                    onChange={onFieldChange("publicationAuthor2ExternalName")}
-                    placeholder="Co-author Name"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2ExternalEmail}
-                    onChange={onFieldChange("publicationAuthor2ExternalEmail")}
-                    placeholder="Email"
-                  />
-                  <BaseInput
-                    required={false}
-                    value={form.publicationAuthor2ExternalUniversity}
-                    onChange={onFieldChange("publicationAuthor2ExternalUniversity")}
-                    placeholder="University Name"
-                  />
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor2ExternalFaculty}
-                    onChange={onFieldChange("publicationAuthor2ExternalFaculty")}
-                  >
-                    <option value="">Faculty</option>
-                    {facultyOptions.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </BaseSelect>
-                  <BaseSelect
-                    required={false}
-                    value={form.publicationAuthor2ExternalDepartment}
-                    onChange={onFieldChange("publicationAuthor2ExternalDepartment")}
-                    disabled={!form.publicationAuthor2ExternalFaculty}
-                  >
-                    <option value="">Department</option>
-                    {getDepartmentsForFaculty(form.publicationAuthor2ExternalFaculty).map(
-                      (item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ),
-                    )}
-                  </BaseSelect>
-                </>
-              )}
-            </FieldRow>
-          </FormSection>
-            </>
-          )}
-
-          <FormSection title="External researcher in team?" {...ignoreRequiredValidationProps()}>
+          <FormSection title="External researcher in team?">
             <BaseSelect
               required={false}
               value={form.hasExternalResearcher}
@@ -570,50 +197,39 @@ export function Form4ResearchPublicationMedicalForm({
                   placeholder="Research Title"
                 />
               </Required>
-              <Required label="Research Objective 1 *" className="md:col-span-2 w-full">
-                <BaseTextarea
-                  value={form.publicationObjective1}
-                  onChange={onFieldChange("publicationObjective1")}
-                  rows={2}
-                  placeholder="Describe"
-                />
-              </Required>
-              <Required label="Research Objective 2 *" className="md:col-span-2 w-full">
-                <BaseTextarea
-                  value={form.publicationObjective2}
-                  onChange={onFieldChange("publicationObjective2")}
-                  rows={2}
-                  placeholder="Describe"
-                />
-              </Required>
-              <BaseTextarea
-                value={form.publicationObjective3}
-                onChange={onFieldChange("publicationObjective3")}
-                rows={2}
-                placeholder="Describe"
-                className="md:col-span-2"
+              <ResearchObjectiveSection
+                defaultKeys={[
+                  "publicationObjective1",
+                  "publicationObjective2",
+                  "publicationObjective3",
+                ]}
+                extrasKey="publicationObjectivesExtras"
+                requiredCount={2}
+                form={form}
+                setForm={setForm}
+                onFieldChange={onFieldChange}
               />
-              <Required label="Sustainable Development Goals (multi-select)" className="md:col-span-2 w-full">
-                <div className="rounded-lg border border-stroke p-3 dark:border-dark-3">
-                  <p className="mb-2 text-sm font-semibold text-dark dark:text-white">
-                    Sustainable Development Goals (multi-select)
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {SDG_OPTIONS.map((item) => (
-                      <label key={item} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={hasCsvOption("sdgs", item)}
-                          onChange={() => toggleCsvOption("sdgs", item)}
-                          className="accent-primary"
-                        />
-                        <span className="text-dark dark:text-white">{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+              <Required label="Sustainable Development Goals (multi-select) *" className="md:col-span-2 w-full">
+                <SdgCheckboxDropdown
+                  isChecked={(value) => hasCsvOption("sdgs", value)}
+                  onToggle={(value) => toggleCsvOption("sdgs", value)}
+                />
               </Required>
-              <Required label="Participants Estimate *" className="md:col-span-2 w-full">
+              <Required
+                label="Select Research Population (You may select multiple) *"
+                kind="selection"
+                className="md:col-span-2 w-full"
+              >
+                <ResearchPopulationBox
+                  isChecked={(value) =>
+                    hasCsvOption("publicationPopulationType", value)
+                  }
+                  onToggle={(value) =>
+                    toggleCsvOption("publicationPopulationType", value)
+                  }
+                />
+              </Required>
+              <Required label="How many participant will you be recruiting? (Estimated Number) *" className="md:col-span-2 w-full">
                 <BaseSelect
                   value={form.publicationParticipantsEstimate}
                   onChange={onFieldChange("publicationParticipantsEstimate")}
@@ -624,17 +240,7 @@ export function Form4ResearchPublicationMedicalForm({
                   ))}
                 </BaseSelect>
               </Required>
-              <Required label="Research Population Type *" className="md:col-span-2 w-full">
-                <BaseSelect
-                  value={form.publicationPopulationType}
-                  onChange={onFieldChange("publicationPopulationType")}
-                >
-                  <option value="">Select</option>
-                  {RESEARCH_POPULATION_OPTIONS.map((opt) => (
-                    <option key={opt}>{opt}</option>
-                  ))}
-                </BaseSelect>
-              </Required>
+             
               <Required label="Study Design and Methodology *" className="md:col-span-2 w-full">
                 <BaseTextarea
                   value={form.publicationMethodology}
@@ -649,7 +255,7 @@ export function Form4ResearchPublicationMedicalForm({
       )}
 
       {currentStep === 1 && (
-        <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
+        <section className="flex flex-col gap-6">
           <StepHeader index={2} title="Ethical Considerations" />
 
           <FormSection>
@@ -668,7 +274,7 @@ export function Form4ResearchPublicationMedicalForm({
               </BaseSelect>
             </Required>
 
-            <Required label="How will participants be recruited? (Select multiple)" className="mt-4 w-full">
+            <Required label="How will participants be recruited? (You may select multiple)" className="mt-4 w-full">
               <CheckboxGroup
                 options={RECRUITMENT_CHANNELS}
                 checkedFn={(item) => hasCsvOption("publicationRecruitmentChannels", item)}
@@ -797,7 +403,7 @@ export function Form4ResearchPublicationMedicalForm({
                     htmlFor="f4-s2-q09-detail"
                     className="text-sm font-medium text-dark dark:text-white"
                   >
-                    If &apos;Yes&apos;, confirm appropriate ethical protections were in place.
+                    If &apos;Yes&apos;, confirm and describe how appropriate ethical protections were in place.
                   </label>
                   <BaseTextarea
                     id="f4-s2-q09-detail"
@@ -903,7 +509,7 @@ export function Form4ResearchPublicationMedicalForm({
             </Required>
 
             <Required
-              label="If yes to 2.12, has approval from the concerned ethics committee been obtained? *"
+              label="If yes to the above question, has approval from the concerned ethics committee been obtained? *"
               className="mt-4 w-full"
             >
               <BaseSelect
@@ -1001,14 +607,11 @@ export function Form4ResearchPublicationMedicalForm({
       )}
 
       {currentStep === 2 && (
-        <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
+        <section className="flex flex-col gap-6">
           <StepHeader index={3} title="Data Integrity and Permissions" />
 
           <FormSection>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <label htmlFor="f4-s3-q01" className="text-sm font-medium text-dark dark:text-white">
-                3.1 Will the data be presented accurately and completely in the manuscript?
-              </label>
+            <Required label="3.1 Will the data be presented accurately and completely in the manuscript? *" className="mt-4 w-full">
               <BaseSelect
                 id="f4-s3-q01"
                 value={form.publicationDataAccurate}
@@ -1019,44 +622,15 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>No</option>
                 <option>Partial disclosure</option>
               </BaseSelect>
-            </div>
+            </Required>
 
-            <div className="mt-4 flex flex-col gap-2 md:col-span-2">
-              <label htmlFor="f4-s3-q02" className="text-sm font-medium text-dark dark:text-white">
-                3.2 Does the article follow relevant reporting guidelines (CONSORT, STROBE,
-                PRISMA, etc.)?
-              </label>
-              <BaseSelect
-                id="f4-s3-q02"
-                value={form.publicationReportingGuidelines}
-                onChange={onFieldChange("publicationReportingGuidelines")}
-              >
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-                <option>Not applicable</option>
-              </BaseSelect>
-            </div>
+            
 
-            <div className="mt-4 flex flex-col gap-2 md:col-span-2">
-              <label htmlFor="f4-s3-q03" className="text-sm font-medium text-dark dark:text-white">
-                3.3 Have all adverse events and safety data been accurately reported?
-              </label>
-              <BaseSelect
-                id="f4-s3-q03"
-                value={form.publicationAdverseEventsReported}
-                onChange={onFieldChange("publicationAdverseEventsReported")}
-              >
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-                <option>Not applicable</option>
-              </BaseSelect>
-            </div>
+            
 
             <div className="mt-4 flex flex-col gap-2 md:col-span-2">
               <label htmlFor="f4-s3-q04" className="text-sm font-medium text-dark dark:text-white">
-                3.4 Are there any third-party copyrights or permissions required (figures, tables,
+                3.2 Are there any third-party copyrights or permissions required (figures, tables,
                 images, datasets)?
               </label>
               <BaseSelect
@@ -1091,7 +665,7 @@ export function Form4ResearchPublicationMedicalForm({
       )}
 
       {currentStep === 3 && (
-        <section className="flex flex-col gap-6" {...allInlineRequiredProps()}>
+        <section className="flex flex-col gap-6">
           <StepHeader index={4} title="Institutional Approvals & Collaboration" />
 
           <FormSection>
@@ -1106,6 +680,28 @@ export function Form4ResearchPublicationMedicalForm({
                   <option>No</option>
                 </BaseSelect>
               </Required>
+              <Required label="Has your research received external funding? *">
+                <BaseSelect
+                  value={form.externalFunding}
+                  onChange={onFieldChange("externalFunding")}
+                >
+                  <option value="">Select</option>
+                  <option>Yes</option>
+                  <option>No</option>
+                </BaseSelect>
+              </Required>
+              {form.externalFunding === "Yes" && (
+                <FieldGroup
+                  label="Specify external funding source *"
+                  className="md:col-span-2"
+                >
+                  <BaseInput
+                    value={form.externalFundingSource}
+                    onChange={onFieldChange("externalFundingSource")}
+                    placeholder="Name of funding agency, grant, sponsor, etc."
+                  />
+                </FieldGroup>
+              )}
               <Required label="Does your research involve an international collaboration? *">
                 <BaseSelect
                   value={form.internationalCollaboration}

@@ -119,6 +119,7 @@ const LABELS: Record<string, string> = {
   recordsWithoutConsentJustification: "Justification (records without consent)",
   institutionalFunding: "Has your research received institutional funding? ",
   externalFunding: "Has your research received external funding? ",
+  externalFundingSource: "External funding source",
   internationalCollaboration: "International collaboration",
   internationalCollaborationDetails: "International collaboration details",
   conductedAbroad: "Will your research, or a part of it, be conducted overseas/abroad?",
@@ -370,6 +371,7 @@ const THESIS_INSTITUTIONAL: SectionDef = {
   keys: [
     "institutionalFunding",
     "externalFunding",
+    "externalFundingSource",
     "internationalCollaboration",
     "internationalCollaborationDetails",
     "conductedAbroad",
@@ -382,6 +384,7 @@ const FORM3_INSTITUTIONAL: SectionDef = {
     "healthcareExternalInstitutions",
     "institutionalFunding",
     "externalFunding",
+    "externalFundingSource",
     "internationalCollaboration",
     "internationalCollaborationDetails",
     "conductedAbroad",
@@ -556,6 +559,18 @@ const PUBLICATION_COAUTHORS: SectionDef = {
   ],
 };
 
+const PUBLICATION_INSTITUTIONAL: SectionDef = {
+  title: "Institutional approvals & collaboration",
+  keys: [
+    "institutionalFunding",
+    "externalFunding",
+    "externalFundingSource",
+    "internationalCollaboration",
+    "internationalCollaborationDetails",
+    "conductedAbroad",
+  ],
+};
+
 const PUBLICATION_DECLARATION: SectionDef = {
   title: "Declaration & submission",
   keys: ["declaration", "publicationDeclarationAccepted", "applicantName", "submissionDate"],
@@ -591,7 +606,13 @@ function sectionsForFormId(formId: ApprovalFormId | null): SectionDef[] {
     case "form2-publication-non-medical":
     case "form4-publication-medical":
     case "form5-publication-faculty-staff":
-      return [PUBLICATION_SCHOLAR, PUBLICATION_ETHICAL, PUBLICATION_COAUTHORS, PUBLICATION_DECLARATION];
+      return [
+        PUBLICATION_SCHOLAR,
+        PUBLICATION_ETHICAL,
+        PUBLICATION_COAUTHORS,
+        PUBLICATION_INSTITUTIONAL,
+        PUBLICATION_DECLARATION,
+      ];
     default:
       return [GENERIC_STEPPER];
   }

@@ -8,6 +8,7 @@ import {
   BaseSelect,
   BaseTextarea,
   DeclarationCheckbox,
+  FieldGroup,
   FieldRow,
   FormSection,
   ReadOnlyInput,
@@ -138,16 +139,41 @@ export function Form5ResearchPublicationFacultyStaffForm({
         />
 
         <FormSection>
-          <Required label="Has your research received institutional funding? *">
-            <BaseSelect
-              value={form.institutionalFunding}
-              onChange={onFieldChange("institutionalFunding")}
+          <FieldRow>
+            <Required label="Has your research received institutional funding? *">
+              <BaseSelect
+                value={form.institutionalFunding}
+                onChange={onFieldChange("institutionalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+            <Required label="Has your research received external funding? *">
+              <BaseSelect
+                value={form.externalFunding}
+                onChange={onFieldChange("externalFunding")}
+              >
+                <option value="">Select</option>
+                <option>Yes</option>
+                <option>No</option>
+              </BaseSelect>
+            </Required>
+          </FieldRow>
+
+          {form.externalFunding === "Yes" && (
+            <FieldGroup
+              label="Specify external funding source *"
+              className="mt-4"
             >
-              <option value="">Select</option>
-              <option>Yes</option>
-              <option>No</option>
-            </BaseSelect>
-          </Required>
+              <BaseInput
+                value={form.externalFundingSource}
+                onChange={onFieldChange("externalFundingSource")}
+                placeholder="Name of funding agency, grant, sponsor, etc."
+              />
+            </FieldGroup>
+          )}
         </FormSection>
       </section>
     );
