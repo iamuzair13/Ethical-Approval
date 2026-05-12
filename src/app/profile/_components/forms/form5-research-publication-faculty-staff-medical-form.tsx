@@ -18,7 +18,6 @@ import {
 const REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
-  "Participant Information Letter Only",
   "Other Institutional Approval Letter(s) (If applicable)",
 ];
 

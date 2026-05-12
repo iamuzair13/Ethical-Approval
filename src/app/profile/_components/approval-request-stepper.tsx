@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import {
   Form1ThesisForm,
   FORM_1_REQUIRED_ATTACHMENTS,
+  hasForm1CoSupervisorEntry,
 } from "./forms/form1-thesis-form";
 import { RequiredFieldsBanner } from "./forms/form-ui";
 import {
@@ -185,18 +186,15 @@ const FORM_6_RESEARCH_PUBLICATION_FACULTY_NON_MEDICAL_STEPS = [
 
 const FORM_2_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
-  "Participant Information Letter Only (Quantitative research)",
 ];
 
 const FORM_6_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
-  "Participant Information Letter Only",
 ];
 
 const FORM_5_REQUIRED_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
-  "Participant Information Letter Only",
   "Other Institutional Approval Letter(s) (If applicable)",
 ];
 
@@ -341,6 +339,7 @@ const INITIAL_FORM = {
   publicationObjective1: "",
   publicationObjective2: "",
   publicationObjective3: "",
+  publicationObjective4: "",
   publicationParticipantsEstimate: "",
   publicationPopulationType: "",
   publicationMethodology: "",
@@ -606,6 +605,7 @@ export default function ApprovalRequestStepper({
               form.publicationObjective1.trim(),
               form.publicationObjective2.trim(),
               form.publicationObjective3.trim(),
+              form.publicationObjective4.trim(),
             ]
               .filter(Boolean)
               .join("\n")
@@ -1105,25 +1105,31 @@ export default function ApprovalRequestStepper({
         return "Please complete all required Supervisor(s)'s Information fields.";
       }
 
-      const coSupervisorRequired =
-        form.coSupervisorType === "UOL"
-          ? [
-              form.uolCoSupervisorSapId,
-              form.uolCoSupervisorName,
-              form.uolCoSupervisorEmail,
-              form.uolCoSupervisorFaculty,
-              form.uolCoSupervisorDepartment,
-            ].every(hasValue)
-          : [
-              form.externalCoSupervisorName,
-              form.externalCoSupervisorRegNo,
-              form.externalCoSupervisorEmail,
-              form.externalUniversity,
-              form.externalFaculty,
-              form.externalDepartment,
-            ].every(hasValue);
-      if (!coSupervisorRequired) {
-        return "Please complete all required Co-supervisor fields.";
+      // Co-supervisor is optional; validate completeness only when the user has
+      // opened the "Add Co-Supervisor" section (i.e. any co-supervisor field has a value).
+      if (hasForm1CoSupervisorEntry(form)) {
+        const coSupervisorRequired =
+          form.coSupervisorType === "UOL"
+            ? [
+                form.uolCoSupervisorSapId,
+                form.uolCoSupervisorName,
+                form.uolCoSupervisorEmail,
+                form.uolCoSupervisorFaculty,
+                form.uolCoSupervisorDepartment,
+              ].every(hasValue)
+            : form.coSupervisorType === "External"
+              ? [
+                  form.externalCoSupervisorName,
+                  form.externalCoSupervisorRegNo,
+                  form.externalCoSupervisorEmail,
+                  form.externalUniversity,
+                  form.externalFaculty,
+                  form.externalDepartment,
+                ].every(hasValue)
+              : false;
+        if (!coSupervisorRequired) {
+          return "Please complete all required Co-supervisor fields.";
+        }
       }
 
       const thesisDetailsRequired = [
@@ -1895,10 +1901,10 @@ export default function ApprovalRequestStepper({
                   <input type="date" value={form.expectedStartDate} onChange={onFieldChange("expectedStartDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                   <input type="date" value={form.expectedEndDate} onChange={onFieldChange("expectedEndDate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
                   <input value={form.researchLocations} onChange={onFieldChange("researchLocations")} placeholder="Research Location(s)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} rows={2} placeholder="Research Objective 1" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.researchObjective2} onChange={onFieldChange("researchObjective2")} rows={2} placeholder="Research Objective 2" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.researchObjective3} onChange={onFieldChange("researchObjective3")} rows={2} placeholder="Research Objective 3" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
-                  <textarea value={form.researchObjective4} onChange={onFieldChange("researchObjective4")} rows={2} placeholder="Research Objective 4" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea value={form.researchObjective1} onChange={onFieldChange("researchObjective1")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea value={form.researchObjective2} onChange={onFieldChange("researchObjective2")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea value={form.researchObjective3} onChange={onFieldChange("researchObjective3")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                  <textarea value={form.researchObjective4} onChange={onFieldChange("researchObjective4")} rows={2} placeholder="Describe" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <textarea value={form.methodology} onChange={onFieldChange("methodology")} rows={4} placeholder="Research Methodology (Methods and Materials)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                   <div><p className="mb-2 text-sm font-semibold text-dark dark:text-white">Participants Estimate</p><select value={form.participantsEstimate} onChange={onFieldChange("participantsEstimate")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Participants Estimate</option><option>1-20</option><option>21-50</option><option>51-100</option><option>101-150</option><option>151-200</option><option>201-300</option><option>301-400</option><option>401-500</option><option>501+</option></select></div>
                 </div>
@@ -1922,7 +1928,7 @@ export default function ApprovalRequestStepper({
                 {(form.researchRiskLevel === "Moderate risk" || form.researchRiskLevel === "High risk") && <textarea value={form.researchRiskJustification} onChange={onFieldChange("researchRiskJustification")} rows={2} placeholder="Justify selected risk level." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
                 <textarea value={form.potentialRiskDetails} onChange={onFieldChange("potentialRiskDetails")} rows={2} placeholder="2.12 Potential risks and adverse effects" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                 <select value={form.conflictOfInterest} onChange={onFieldChange("conflictOfInterest")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option><option>Undecided</option></select>
-                {form.conflictOfInterest === "Yes" && <textarea value={form.conflictManagement} onChange={onFieldChange("conflictManagement")} rows={2} placeholder="Provide full disclosure." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
+                {form.conflictOfInterest === "Yes" && <textarea value={form.conflictManagement} onChange={onFieldChange("conflictManagement")} rows={2} placeholder="Describe." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
               </section>
             )}
 
@@ -1930,9 +1936,9 @@ export default function ApprovalRequestStepper({
               <section className="grid gap-4 md:grid-cols-2">
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 3: Biomedical & Pharmaceutical Aspects</h3>
                 <select value={form.publicationPharmaInterventions} onChange={onFieldChange("publicationPharmaInterventions")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
-                <input value={form.drugName} onChange={onFieldChange("drugName")} placeholder="3.2 Drug/Pharmaceutical Details" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.drugDosageFrequency} onChange={onFieldChange("drugDosageFrequency")} placeholder="Dosage and frequency" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
-                <input value={form.drugKnownSideEffects} onChange={onFieldChange("drugKnownSideEffects")} placeholder="Known side effects" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
+                <input value={form.drugName} onChange={onFieldChange("drugName")} placeholder="Enter Details" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.drugDosageFrequency} onChange={onFieldChange("drugDosageFrequency")} placeholder="Enter..." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />
+                <input value={form.drugKnownSideEffects} onChange={onFieldChange("drugKnownSideEffects")} placeholder="Enter..." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />
                 <select value={form.drugRegulatoryApproval} onChange={onFieldChange("drugRegulatoryApproval")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option><option>Pending</option><option>Not Applicable</option></select>
                 <select value={form.monitoredAfterAdministration} onChange={onFieldChange("monitoredAfterAdministration")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option><option>Not Applicable</option></select>
                 {form.monitoredAfterAdministration === "Yes" && <input value={form.followUpDuration} onChange={onFieldChange("followUpDuration")} placeholder="Follow-up duration" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />}
@@ -1949,7 +1955,7 @@ export default function ApprovalRequestStepper({
                 <select value={form.sharedWithThirdParties} onChange={onFieldChange("sharedWithThirdParties")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                 {form.sharedWithThirdParties === "Yes" && <textarea value={form.thirdPartySharingDetails} onChange={onFieldChange("thirdPartySharingDetails")} rows={2} placeholder="Institution, purpose, safeguards." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
                 <select value={form.cloudPlatformsUsed} onChange={onFieldChange("cloudPlatformsUsed")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
-                {form.cloudPlatformsUsed === "Yes" && <input value={form.cloudPlatformDetails} onChange={onFieldChange("cloudPlatformDetails")} placeholder="Specify platform(s)" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />}
+                {form.cloudPlatformsUsed === "Yes" && <input value={form.cloudPlatformDetails} onChange={onFieldChange("cloudPlatformDetails")} placeholder="Enter..." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3" />}
                 <select value={form.futureResearchDataUse} onChange={onFieldChange("futureResearchDataUse")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                 {form.futureResearchDataUse === "Yes" && <textarea value={form.futureResearchDataUseConditions} onChange={onFieldChange("futureResearchDataUseConditions")} rows={2} placeholder="Specify conditions." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3 md:col-span-2" />}
                 <select value={form.dataRetentionYears} onChange={onFieldChange("dataRetentionYears")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>1-5 years</option><option>6-10 years</option><option>11-15 years</option><option>More than 16 years</option></select>

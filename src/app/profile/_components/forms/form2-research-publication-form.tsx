@@ -1,6 +1,7 @@
 "use client";
 
-import type { CommonFormProps } from "./form-stepper-types";
+import { useEffect, useState } from "react";
+import type { CommonFormProps, FormState } from "./form-stepper-types";
 import {
   ignoreRequiredValidationProps,
 } from "./form-validation-mark";
@@ -28,7 +29,6 @@ import {
 const FORM_2_REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
-  "Participant Information Letter Only (Quantitative research)",
   "Other Instituittional Approval Letter(s) (if applicable)",
 ];
 
@@ -103,6 +103,31 @@ const PARTICIPANT_BANDS = [
 /* ============================================
    UTILITY
    ============================================ */
+function hasTrimmedValue(value: string | undefined): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+/** True when any Co-Author field has meaningful data (e.g. resumed draft). */
+function hasForm2CoAuthorEntry(form: FormState): boolean {
+  return [
+    form.coauthorSapId,
+    form.coauthorName,
+    form.coauthorEmail,
+    form.coauthorFaculty,
+    form.coauthorDepartment,
+    form.publicationAuthor1UolSapId,
+    form.publicationAuthor1UolName,
+    form.publicationAuthor1UolEmail,
+    form.publicationAuthor1UolFaculty,
+    form.publicationAuthor1UolDepartment,
+    form.publicationAuthor1ExternalName,
+    form.publicationAuthor1ExternalEmail,
+    form.publicationAuthor1ExternalUniversity,
+    form.publicationAuthor1ExternalFaculty,
+    form.publicationAuthor1ExternalDepartment,
+  ].some(hasTrimmedValue);
+}
+
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
   return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
@@ -127,6 +152,82 @@ export function Form2ResearchPublicationForm({
     (val: string) =>
       setForm((prev) => ({ ...prev, [key]: val }));
 
+  const [coAuthorSectionOpen, setCoAuthorSectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (hasForm2CoAuthorEntry(form)) {
+      setCoAuthorSectionOpen(true);
+    }
+  }, [
+    form.coauthorSapId,
+    form.coauthorName,
+    form.coauthorEmail,
+    form.coauthorFaculty,
+    form.coauthorDepartment,
+    form.publicationAuthor1UolSapId,
+    form.publicationAuthor1UolName,
+    form.publicationAuthor1UolEmail,
+    form.publicationAuthor1UolFaculty,
+    form.publicationAuthor1UolDepartment,
+    form.publicationAuthor1ExternalName,
+    form.publicationAuthor1ExternalEmail,
+    form.publicationAuthor1ExternalUniversity,
+    form.publicationAuthor1ExternalFaculty,
+    form.publicationAuthor1ExternalDepartment,
+  ]);
+
+  const clearCoAuthorSection = () => {
+    setCoAuthorSectionOpen(false);
+    setForm((prev) => ({
+      ...prev,
+      coauthorSapId: "",
+      coauthorName: "",
+      coauthorEmail: "",
+      coauthorFaculty: "",
+      coauthorDepartment: "",
+      publicationCoAuthor1Type: "",
+      publicationAuthor1UolSapId: "",
+      publicationAuthor1UolName: "",
+      publicationAuthor1UolEmail: "",
+      publicationAuthor1UolFaculty: "",
+      publicationAuthor1UolDepartment: "",
+      publicationAuthor1ExternalName: "",
+      publicationAuthor1ExternalEmail: "",
+      publicationAuthor1ExternalUniversity: "",
+      publicationAuthor1ExternalFaculty: "",
+      publicationAuthor1ExternalDepartment: "",
+    }));
+  };
+
+  const [extraObjectivesCount, setExtraObjectivesCount] = useState(0);
+
+  useEffect(() => {
+    let derived = 0;
+    if (hasTrimmedValue(form.publicationObjective3)) derived = Math.max(derived, 1);
+    if (hasTrimmedValue(form.publicationObjective4)) derived = Math.max(derived, 2);
+    if (derived > 0) {
+      setExtraObjectivesCount((prev) => Math.max(prev, derived));
+    }
+  }, [form.publicationObjective3, form.publicationObjective4]);
+
+  const addExtraObjective = () => {
+    setExtraObjectivesCount((c) => Math.min(2, c + 1));
+  };
+
+  const removeExtraObjective = (which: 3 | 4) => {
+    setForm((prev) => {
+      if (which === 3) {
+        return {
+          ...prev,
+          publicationObjective3: prev.publicationObjective4 ?? "",
+          publicationObjective4: "",
+        };
+      }
+      return { ...prev, publicationObjective4: "" };
+    });
+    setExtraObjectivesCount((c) => Math.max(0, c - 1));
+  };
+
   /* ---------- STEP 0: Scholar Information ---------- */
   if (currentStep === 0) {
     return (
@@ -150,66 +251,34 @@ export function Form2ResearchPublicationForm({
           </FieldRow>
         </FormSection>
 
-        {/* 1.2 Coauthor's Info */}
-        <FormSection title="1.2 Coauthor's Information">
-          <FieldRow>
-            <FieldGroup label="Co-author SAP ID">
-              <BaseInput
-                value={form.coauthorSapId}
-                onChange={onFieldChange("coauthorSapId")}
-                placeholder="Co-author SAP ID"
-              />
-            </FieldGroup>
-
-            <FieldGroup label="Coauthor's Name">
-              <BaseInput
-                value={form.coauthorName}
-                onChange={onFieldChange("coauthorName")}
-                placeholder="Co-author's Name"
-              />
-            </FieldGroup>
-
-            <FieldGroup label="Co-author Email">
-              <BaseInput
-                value={form.coauthorEmail}
-                onChange={onFieldChange("coauthorEmail")}
-                placeholder="Co-author Email"
-              />
-            </FieldGroup>
-
-            <FieldGroup label="Co-author Faculty">
-              <BaseSelect
-                value={form.coauthorFaculty}
-                onChange={onFieldChange("coauthorFaculty")}
+        {!coAuthorSectionOpen ? (
+          <FormSection
+            title="1.2 Co-Author"
+            subtitle="Optional. Add a co-author if applicable."
+            {...ignoreRequiredValidationProps()}
+          >
+            <button
+              type="button"
+              onClick={() => setCoAuthorSectionOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
+            >
+              Add Co-Author
+            </button>
+          </FormSection>
+        ) : (
+          <>
+            <div className="-mb-2 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={clearCoAuthorSection}
+                className="text-sm font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
               >
-                <option value="">Select Faculty</option>
-                {facultyOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </BaseSelect>
-            </FieldGroup>
-
-            <FieldGroup label="Co-author Department">
-              <BaseSelect
-                value={form.coauthorDepartment}
-                onChange={onFieldChange("coauthorDepartment")}
-                disabled={!form.coauthorFaculty}
-              >
-                <option value="">Select Department</option>
-                {getDepartmentsForFaculty(form.coauthorFaculty).map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </BaseSelect>
-            </FieldGroup>
-          </FieldRow>
-        </FormSection>
-
+                Remove co-author
+              </button>
+            </div>
+      
         {/* 1.3 Add Co-Author */}
-        <FormSection title="1.3 Add Co-Author" {...ignoreRequiredValidationProps()}>
+        <FormSection title="1.2 Add Co-Author" {...ignoreRequiredValidationProps()}>
           <BaseSelect
             value={form.publicationCoAuthor1Type}
             onChange={onFieldChange("publicationCoAuthor1Type")}
@@ -225,12 +294,12 @@ export function Form2ResearchPublicationForm({
                 <BaseInput
                   value={form.publicationAuthor1UolSapId}
                   onChange={onFieldChange("publicationAuthor1UolSapId")}
-                  placeholder="Co-Author SAP ID"
+                  placeholder="SAP ID"
                 />
                 <BaseInput
                   value={form.publicationAuthor1UolName}
                   onChange={onFieldChange("publicationAuthor1UolName")}
-                  placeholder="Coauthor's Name"
+                  placeholder=" Name"
                 />
                 <BaseInput
                   value={form.publicationAuthor1UolEmail}
@@ -268,7 +337,7 @@ export function Form2ResearchPublicationForm({
                 <BaseInput
                   value={form.publicationAuthor1ExternalName}
                   onChange={onFieldChange("publicationAuthor1ExternalName")}
-                  placeholder="Co-author Name"
+                  placeholder="Name"
                 />
                 <BaseInput
                   value={form.publicationAuthor1ExternalEmail}
@@ -280,40 +349,18 @@ export function Form2ResearchPublicationForm({
                   onChange={onFieldChange("publicationAuthor1ExternalUniversity")}
                   placeholder="University Name"
                 />
-                <BaseSelect
-                  value={form.publicationAuthor1ExternalFaculty}
-                  onChange={onFieldChange("publicationAuthor1ExternalFaculty")}
-                >
-                  <option value="">Faculty</option>
-                  {facultyOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </BaseSelect>
-                <BaseSelect
-                  value={form.publicationAuthor1ExternalDepartment}
-                  onChange={onFieldChange("publicationAuthor1ExternalDepartment")}
-                  disabled={!form.publicationAuthor1ExternalFaculty}
-                >
-                  <option value="">Department</option>
-                  {getDepartmentsForFaculty(
-                    form.publicationAuthor1ExternalFaculty,
-                  ).map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </BaseSelect>
+                
               </>
             )}
           </FieldRow>
         </FormSection>
+          </>
+        )}
 
         {/* 1.4 Research Details */}
         <FormSection>
           <SectionTitle className="mb-4 md:col-span-2">
-            1.4 Research Details <RequiredMark />
+            1.3 Research Details <RequiredMark />
           </SectionTitle>
 
           <FieldRow>
@@ -327,45 +374,78 @@ export function Form2ResearchPublicationForm({
               </Required>
             </FieldGroup>
 
-            <FieldGroup label="Research Objective 1" required fullWidth>
+            
               <Required label="Research Objective 1 *">
                 <BaseTextarea
                   value={form.publicationObjective1}
                   onChange={onFieldChange("publicationObjective1")}
                   rows={2}
-                  placeholder="Research Objective 1"
+                  placeholder="Describe"
                 />
               </Required>
-            </FieldGroup>
+            
 
-            <FieldGroup label="Research Objective 2" required fullWidth>
+            
               <Required label="Research Objective 2 *">
                 <BaseTextarea
                   value={form.publicationObjective2}
                   onChange={onFieldChange("publicationObjective2")}
                   rows={2}
-                  placeholder="Research Objective 2"
+                  placeholder="Describe"
                 />
               </Required>
-            </FieldGroup>
 
-            <FieldGroup label="Research Objective 3" fullWidth>
-              <BaseTextarea
-                value={form.publicationObjective3}
-                onChange={onFieldChange("publicationObjective3")}
-                rows={2}
-                placeholder="Research Objective 3"
-              />
-            </FieldGroup>
+            {extraObjectivesCount >= 1 && (
+              <FieldGroup label="Research Objective 3" fullWidth>
+                <BaseTextarea
+                  value={form.publicationObjective3}
+                  onChange={onFieldChange("publicationObjective3")}
+                  rows={2}
+                  placeholder="Describe (optional)"
+                />
+                <div className="mt-1.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeExtraObjective(3)}
+                    className="text-xs font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
+                  >
+                    Remove Objective 3
+                  </button>
+                </div>
+              </FieldGroup>
+            )}
 
-            <FieldGroup label="Research Objective 4" fullWidth>
-              <BaseTextarea
-                value={form.publicationObjective4}
-                onChange={onFieldChange("publicationObjective4")}
-                rows={2}
-                placeholder="Research Objective 4"
-              />
-            </FieldGroup>
+            {extraObjectivesCount >= 2 && (
+              <FieldGroup label="Research Objective 4" fullWidth>
+                <BaseTextarea
+                  value={form.publicationObjective4}
+                  onChange={onFieldChange("publicationObjective4")}
+                  rows={2}
+                  placeholder="Describe (optional)"
+                />
+                <div className="mt-1.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeExtraObjective(4)}
+                    className="text-xs font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
+                  >
+                    Remove Objective 4
+                  </button>
+                </div>
+              </FieldGroup>
+            )}
+
+            {extraObjectivesCount < 2 && (
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={addExtraObjective}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
+                >
+                  + Add Research Objective
+                </button>
+              </div>
+            )}
 
             <FieldGroup
               label="Please select relevant Sustainable Development Goals (multiple select)"
@@ -395,12 +475,11 @@ export function Form2ResearchPublicationForm({
                   value={form.publicationMethodology}
                   onChange={onFieldChange("publicationMethodology")}
                   rows={4}
-                  placeholder="Research Methodology (Methods and Materials)"
                 />
               </Required>
             </FieldGroup>
 
-            <FieldGroup label="Estimated number of participants" required>
+            
               <Required label="How many participants will you be recruiting? (estimated number) *">
                 <BaseSelect
                   value={form.publicationParticipantsEstimate}
@@ -412,20 +491,14 @@ export function Form2ResearchPublicationForm({
                   ))}
                 </BaseSelect>
               </Required>
-            </FieldGroup>
+           
 
-            <FieldGroup
-              label="Select Research Population (type) (multiple select)"
-              required
-              fullWidth
-            >
+            
               <Required
-                label="Select Research Population (type) (multiple select) *"
+                label="Select Research Population (You may select multiple)*"
                 kind="selection"
               >
-                <p className="mb-2 text-sm font-medium text-dark dark:text-white">
-                  Select Research Population (type):
-                </p>
+                <div className="flex w-full">
                 <CheckboxGroup
                   options={RESEARCH_POPULATION_OPTIONS}
                   checkedFn={(item) => hasCsvOption("publicationPopulationType", item)}
@@ -434,8 +507,9 @@ export function Form2ResearchPublicationForm({
                   }
                   columns={2}
                 />
+                </div>
               </Required>
-            </FieldGroup>
+
           </FieldRow>
         </FormSection>
       </section>
@@ -456,7 +530,7 @@ export function Form2ResearchPublicationForm({
         <FormSection title="2.1 Human Participants">
           <FieldRow>
             <FieldGroup label="2.1 Does your research involve human participants or human subjects?">
-              <Required label="2.1 Does your research involve human participants or human subjects?">
+              <Required label="Does your research involve human participants or human subjects? *">
                 <SimpleSelect
                   value={form.publicationHumanSubjects}
                   onChange={onValueChange("publicationHumanSubjects")}
@@ -474,7 +548,7 @@ export function Form2ResearchPublicationForm({
             required
             fullWidth
           >
-            <Required label="2.2 Recruitment channels (multi-select) *">
+            <Required label="You may select multiple *">
               <CheckboxGroup
                 options={RECRUITMENT_CHANNELS}
                 checkedFn={(item) => hasCsvOption("publicationRecruitmentChannels", item)}
@@ -487,7 +561,7 @@ export function Form2ResearchPublicationForm({
           </FieldGroup>
         </FormSection>
 
-        <FormSection title="2.3 – 2.8 Consent, Compensation & Confidentiality">
+        <FormSection title="Consent, Compensation & Confidentiality">
           <FieldRow>
             <FieldGroup label="2.3 Informed consent">
               <Required label="2.3 Informed consent">
@@ -583,19 +657,10 @@ export function Form2ResearchPublicationForm({
               </Required>
             </FieldGroup>
 
-            <FieldGroup label="3.2 Has your research received external funding?">
-              <Required label="3.2 Has your research received external funding?">
-                <SimpleSelect
-                  value={form.externalFunding}
-                  onChange={onValueChange("externalFunding")}
-                  options={["Yes", "No"]}
-                  placeholder="Select option"
-                />
-              </Required>
-            </FieldGroup>
+           
 
-            <FieldGroup label="3.3 International collaboration?">
-              <Required label="3.3 Does your research involve an international collaboration?">
+            <FieldGroup label="3.2 International collaboration?">
+              <Required label="3.2 Does your research involve an international collaboration?">
                 <SimpleSelect
                   value={form.internationalCollaboration}
                   onChange={onValueChange("internationalCollaboration")}
@@ -605,8 +670,8 @@ export function Form2ResearchPublicationForm({
               </Required>
             </FieldGroup>
 
-            <FieldGroup label="3.4 Conducted overseas?">
-              <Required label="3.4 Conducted overseas?">
+            <FieldGroup label="3.3 Will any part of data be collected from overseas/abroad?">
+              <Required label="3.3 Will any part of data be collected from overseas/abroad?">
                 <SimpleSelect
                   value={form.conductedAbroad}
                   onChange={onValueChange("conductedAbroad")}

@@ -53,7 +53,6 @@ const RECRUITMENT_CHANNELS = [
 const REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
-  "Participant Information Letter Only",
   "Other Institutional Approval Letter(s) (If applicable)",
 ] as const;
 
@@ -393,7 +392,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
                 value={form.publicationParticipantsEstimate}
                 onChange={onFieldChange("publicationParticipantsEstimate")}
               >
-                <option value="">Select an Estimated Number</option>
+                <option value="">Select</option>
                 {PARTICIPANT_BANDS.map((b) => (
                   <option key={b}>{b}</option>
                 ))}
@@ -405,7 +404,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
                 value={form.publicationPopulationType}
                 onChange={onFieldChange("publicationPopulationType")}
               >
-                <option value="">Select Research Population (type)</option>
+                <option value="">Select</option>
                 {RESEARCH_POPULATION_OPTIONS.map((opt) => (
                   <option key={opt}>{opt}</option>
                 ))}
@@ -848,16 +847,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               </BaseSelect>
             </Required>
 
-            <Required label="4.2 Has your research received external funding? *">
-              <BaseSelect
-                value={form.externalFunding}
-                onChange={onFieldChange("externalFunding")}
-              >
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-              </BaseSelect>
-            </Required>
+            
           </FieldRow>
 
           <Required

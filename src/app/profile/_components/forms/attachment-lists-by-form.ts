@@ -8,7 +8,6 @@ export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[
     "Research Questionnaire/Interview Guide (i.e., focus group guide)",
     "Participant Information Letter (Cover Letter)",
     "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
-    "Participant Information Letter Only (Quantitative research)",
     "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
@@ -16,31 +15,26 @@ export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[
   "form2-publication-non-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
-    "Participant Information Letter Only (Quantitative research)",
     "Other Instituittional Approval Letter(s) (if applicable)",
   ],
   "form4-publication-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form",
-    "Participant Information Letter Only",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
   "form5-publication-faculty-staff": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form",
-    "Participant Information Letter Only",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
   "form6-publication-faculty-non-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form",
-    "Participant Information Letter Only",
     "Other Instituittional Approval Letter(s) (if applicable)",
   ],
   "form7-publication-faculty-staff-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form",
-    "Participant Information Letter Only",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
 };

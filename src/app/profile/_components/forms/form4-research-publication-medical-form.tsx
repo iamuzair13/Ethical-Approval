@@ -1,6 +1,7 @@
 "use client";
 
-import type { CommonFormProps } from "./form-stepper-types";
+import { useEffect, useState } from "react";
+import type { CommonFormProps, FormState } from "./form-stepper-types";
 import {
   allInlineRequiredProps,
   ignoreRequiredValidationProps,
@@ -26,7 +27,6 @@ import {
 export const FORM_4_REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
-  "Participant Information Letter Only",
   "Other Institutional Approval Letter(s) (If applicable)",
 ] as const;
 
@@ -92,6 +92,41 @@ const RESEARCH_POPULATION_OPTIONS = [
   "Other (specify in methodology)",
 ] as const;
 
+function hasTrimmedValue(value: string | undefined): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+/** True when any Co-Author field has meaningful data (e.g. resumed draft). */
+function hasForm4CoAuthorEntry(form: FormState): boolean {
+  return [
+    form.coauthorSapId,
+    form.coauthorName,
+    form.coauthorEmail,
+    form.coauthorFaculty,
+    form.coauthorDepartment,
+    form.publicationAuthor1UolSapId,
+    form.publicationAuthor1UolName,
+    form.publicationAuthor1UolEmail,
+    form.publicationAuthor1UolFaculty,
+    form.publicationAuthor1UolDepartment,
+    form.publicationAuthor1ExternalName,
+    form.publicationAuthor1ExternalEmail,
+    form.publicationAuthor1ExternalUniversity,
+    form.publicationAuthor1ExternalFaculty,
+    form.publicationAuthor1ExternalDepartment,
+    form.publicationAuthor2UolSapId,
+    form.publicationAuthor2UolName,
+    form.publicationAuthor2UolEmail,
+    form.publicationAuthor2UolFaculty,
+    form.publicationAuthor2UolDepartment,
+    form.publicationAuthor2ExternalName,
+    form.publicationAuthor2ExternalEmail,
+    form.publicationAuthor2ExternalUniversity,
+    form.publicationAuthor2ExternalFaculty,
+    form.publicationAuthor2ExternalDepartment,
+  ].some(hasTrimmedValue);
+}
+
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
   return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
@@ -113,6 +148,74 @@ export function Form4ResearchPublicationMedicalForm({
   getDepartmentsForFaculty,
   onClearSubmitError,
 }: Form4ResearchPublicationMedicalFormProps) {
+  const [coAuthorSectionOpen, setCoAuthorSectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (hasForm4CoAuthorEntry(form)) {
+      setCoAuthorSectionOpen(true);
+    }
+  }, [
+    form.coauthorSapId,
+    form.coauthorName,
+    form.coauthorEmail,
+    form.coauthorFaculty,
+    form.coauthorDepartment,
+    form.publicationAuthor1UolSapId,
+    form.publicationAuthor1UolName,
+    form.publicationAuthor1UolEmail,
+    form.publicationAuthor1UolFaculty,
+    form.publicationAuthor1UolDepartment,
+    form.publicationAuthor1ExternalName,
+    form.publicationAuthor1ExternalEmail,
+    form.publicationAuthor1ExternalUniversity,
+    form.publicationAuthor1ExternalFaculty,
+    form.publicationAuthor1ExternalDepartment,
+    form.publicationAuthor2UolSapId,
+    form.publicationAuthor2UolName,
+    form.publicationAuthor2UolEmail,
+    form.publicationAuthor2UolFaculty,
+    form.publicationAuthor2UolDepartment,
+    form.publicationAuthor2ExternalName,
+    form.publicationAuthor2ExternalEmail,
+    form.publicationAuthor2ExternalUniversity,
+    form.publicationAuthor2ExternalFaculty,
+    form.publicationAuthor2ExternalDepartment,
+  ]);
+
+  const clearCoAuthorSection = () => {
+    setCoAuthorSectionOpen(false);
+    setForm((prev) => ({
+      ...prev,
+      coauthorSapId: "",
+      coauthorName: "",
+      coauthorEmail: "",
+      coauthorFaculty: "",
+      coauthorDepartment: "",
+      publicationCoAuthor1Type: "",
+      publicationAuthor1UolSapId: "",
+      publicationAuthor1UolName: "",
+      publicationAuthor1UolEmail: "",
+      publicationAuthor1UolFaculty: "",
+      publicationAuthor1UolDepartment: "",
+      publicationAuthor1ExternalName: "",
+      publicationAuthor1ExternalEmail: "",
+      publicationAuthor1ExternalUniversity: "",
+      publicationAuthor1ExternalFaculty: "",
+      publicationAuthor1ExternalDepartment: "",
+      publicationCoAuthor2Type: "",
+      publicationAuthor2UolSapId: "",
+      publicationAuthor2UolName: "",
+      publicationAuthor2UolEmail: "",
+      publicationAuthor2UolFaculty: "",
+      publicationAuthor2UolDepartment: "",
+      publicationAuthor2ExternalName: "",
+      publicationAuthor2ExternalEmail: "",
+      publicationAuthor2ExternalUniversity: "",
+      publicationAuthor2ExternalFaculty: "",
+      publicationAuthor2ExternalDepartment: "",
+    }));
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <RequiredFieldsBanner variant="all-required" />
@@ -132,6 +235,31 @@ export function Form4ResearchPublicationMedicalForm({
             </FieldRow>
           </FormSection>
 
+          {!coAuthorSectionOpen ? (
+            <FormSection
+              title="1.2 Co-Author"
+              subtitle="Optional. Add a co-author if applicable."
+              {...ignoreRequiredValidationProps()}
+            >
+              <button
+                type="button"
+                onClick={() => setCoAuthorSectionOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
+              >
+                Add Co-Author
+              </button>
+            </FormSection>
+          ) : (
+            <>
+              <div className="-mb-2 flex flex-wrap items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={clearCoAuthorSection}
+                  className="text-sm font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
+                >
+                  Remove co-author
+                </button>
+              </div>
           <FormSection title="1.2 Coauthor's Information">
             <FieldRow>
               <Required label="Coauthor's SAP ID *" className="w-full">
@@ -407,6 +535,8 @@ export function Form4ResearchPublicationMedicalForm({
               )}
             </FieldRow>
           </FormSection>
+            </>
+          )}
 
           <FormSection title="External researcher in team?" {...ignoreRequiredValidationProps()}>
             <BaseSelect
@@ -445,7 +575,7 @@ export function Form4ResearchPublicationMedicalForm({
                   value={form.publicationObjective1}
                   onChange={onFieldChange("publicationObjective1")}
                   rows={2}
-                  placeholder="Research Objective 1"
+                  placeholder="Describe"
                 />
               </Required>
               <Required label="Research Objective 2 *" className="md:col-span-2 w-full">
@@ -453,14 +583,14 @@ export function Form4ResearchPublicationMedicalForm({
                   value={form.publicationObjective2}
                   onChange={onFieldChange("publicationObjective2")}
                   rows={2}
-                  placeholder="Research Objective 2"
+                  placeholder="Describe"
                 />
               </Required>
               <BaseTextarea
                 value={form.publicationObjective3}
                 onChange={onFieldChange("publicationObjective3")}
                 rows={2}
-                placeholder="Research Objective 3"
+                placeholder="Describe"
                 className="md:col-span-2"
               />
               <Required label="Sustainable Development Goals (multi-select)" className="md:col-span-2 w-full">
@@ -488,7 +618,7 @@ export function Form4ResearchPublicationMedicalForm({
                   value={form.publicationParticipantsEstimate}
                   onChange={onFieldChange("publicationParticipantsEstimate")}
                 >
-                  <option value="">Participants Estimate</option>
+                  <option value="">Select</option>
                   {PARTICIPANT_BANDS.map((b) => (
                     <option key={b}>{b}</option>
                   ))}
@@ -499,7 +629,7 @@ export function Form4ResearchPublicationMedicalForm({
                   value={form.publicationPopulationType}
                   onChange={onFieldChange("publicationPopulationType")}
                 >
-                  <option value="">Select Research Population (type)</option>
+                  <option value="">Select</option>
                   {RESEARCH_POPULATION_OPTIONS.map((opt) => (
                     <option key={opt}>{opt}</option>
                   ))}
@@ -510,7 +640,7 @@ export function Form4ResearchPublicationMedicalForm({
                   value={form.publicationMethodology}
                   onChange={onFieldChange("publicationMethodology")}
                   rows={4}
-                  placeholder="Study Design and Methodology"
+                  placeholder="Describe"
                 />
               </Required>
             </FieldRow>
@@ -966,42 +1096,51 @@ export function Form4ResearchPublicationMedicalForm({
 
           <FormSection>
             <FieldRow>
-              <BaseSelect
-                value={form.institutionalFunding}
-                onChange={onFieldChange("institutionalFunding")}
-              >
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-              </BaseSelect>
-              <BaseSelect value={form.externalFunding} onChange={onFieldChange("externalFunding")}>
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-              </BaseSelect>
-              <BaseSelect
-                value={form.internationalCollaboration}
-                onChange={onFieldChange("internationalCollaboration")}
-              >
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-              </BaseSelect>
-              <BaseSelect value={form.conductedAbroad} onChange={onFieldChange("conductedAbroad")}>
-                <option value="">Select</option>
-                <option>Yes</option>
-                <option>No</option>
-              </BaseSelect>
+              <Required label="Has your research received institutional funding? *">
+                <BaseSelect
+                  value={form.institutionalFunding}
+                  onChange={onFieldChange("institutionalFunding")}
+                >
+                  <option value="">Select</option>
+                  <option>Yes</option>
+                  <option>No</option>
+                </BaseSelect>
+              </Required>
+              <Required label="Does your research involve an international collaboration? *">
+                <BaseSelect
+                  value={form.internationalCollaboration}
+                  onChange={onFieldChange("internationalCollaboration")}
+                >
+                  <option value="">Select</option>
+                  <option>Yes</option>
+                  <option>No</option>
+                </BaseSelect>
+              </Required>
+              {form.internationalCollaboration === "Yes" && (
+                <Required
+                  label="Provide collaboration details *"
+                  className="md:col-span-2"
+                >
+                  <BaseTextarea
+                    value={form.internationalCollaborationDetails}
+                    onChange={onFieldChange("internationalCollaborationDetails")}
+                    rows={3}
+                    placeholder="Enter Details"
+                  />
+                </Required>
+              )}
+              <Required label="Will your research, or a part of it, be conducted overseas/abroad? *">
+                <BaseSelect
+                  value={form.conductedAbroad}
+                  onChange={onFieldChange("conductedAbroad")}
+                >
+                  <option value="">Select</option>
+                  <option>Yes</option>
+                  <option>No</option>
+                </BaseSelect>
+              </Required>
             </FieldRow>
-            {form.internationalCollaboration === "Yes" && (
-              <BaseTextarea
-                value={form.internationalCollaborationDetails}
-                onChange={onFieldChange("internationalCollaborationDetails")}
-                rows={3}
-                placeholder="Provide international collaboration details."
-                className="mt-4"
-              />
-            )}
+           
             {form.conductedAbroad === "Yes" && (
               <WarnNote className="mt-4">
                 Note: Attach the concerned institute&apos;s ethical approval form in required
