@@ -950,9 +950,7 @@ export default function ApprovalRequestStepper({
   useEffect(() => {
     if (typeof serverDraftSubmissionId === "number" && serverDraftSubmissionId > 0) {
       setResolvedDraftSubmissionId(serverDraftSubmissionId);
-      return;
     }
-    setResolvedDraftSubmissionId(null);
   }, [serverDraftSubmissionId]);
 
   useEffect(() => {
@@ -1232,9 +1230,6 @@ export default function ApprovalRequestStepper({
       if (!hasSelectedCsvValue(form.confidentialityOptions)) {
         return "Please select at least one confidentiality option in Step 2.";
       }
-      if (form.collectPii === "Yes" && !hasValue(form.piiTypes)) {
-        return "Please provide PII types in Step 2.";
-      }
       if (
         hasSelectedCsvValue(form.confidentialityOptions) &&
         hasCsvOption("confidentialityOptions", "Others") &&
@@ -1242,13 +1237,7 @@ export default function ApprovalRequestStepper({
       ) {
         return "Please provide details for confidentiality 'Others' option.";
       }
-      if (form.vulnerablePopulation === "Yes" && !hasValue(form.vulnerableSafeguards)) {
-        return "Please describe safeguards for vulnerable populations.";
-      }
       if (form.sensitiveTopics === "Yes") {
-        if (!hasSelectedCsvValue(form.sensitiveTopicTypes)) {
-          return "Please select at least one sensitive topic type.";
-        }
         if (
           hasSelectedCsvValue(form.sensitiveTopicTypes) &&
           hasCsvOption("sensitiveTopicTypes", "Others") &&
@@ -1257,42 +1246,14 @@ export default function ApprovalRequestStepper({
           return "Please provide details for sensitive topic 'Others' option.";
         }
       }
-      if (form.potentialRisks === "Yes" && !hasValue(form.potentialRiskDetails)) {
-        return "Please provide potential adverse effects details.";
-      }
       if (form.dataRetentionYears === "More than 16 years" && !hasValue(form.longRetentionReason)) {
         return "Please explain the long data retention reason.";
       }
-      if (form.conflictOfInterest === "Yes" && !hasValue(form.conflictManagement)) {
-        return "Please provide conflict of interest management details.";
-      }
-      if (
-        form.recordsWithoutConsent === "Yes" &&
-        !hasValue(form.recordsWithoutConsentJustification)
-      ) {
-        return "Please justify access to records without consent.";
-      }
+
       return null;
     }
 
-    if (currentStep === 2) {
-      const baseRequired = [
-        form.institutionalFunding,
-        form.externalFunding,
-        form.internationalCollaboration,
-        form.conductedAbroad,
-      ].every(hasValue);
-      if (!baseRequired) {
-        return "Please complete all required fields in Step 3: Institutional Approvals & Collaboration.";
-      }
-      if (
-        form.internationalCollaboration === "Yes" &&
-        !hasValue(form.internationalCollaborationDetails)
-      ) {
-        return "Please provide international collaboration details.";
-      }
-      return null;
-    }
+    
 
     if (currentStep === 3) {
       const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
@@ -1464,6 +1425,12 @@ export default function ApprovalRequestStepper({
       });
 
       const { title, objectives, methodology, type, domain } = getCoreTextFields(true);
+      const existingDraftId =
+        typeof resolvedDraftSubmissionId === "number" && resolvedDraftSubmissionId > 0
+          ? resolvedDraftSubmissionId
+          : typeof serverDraftSubmissionId === "number" && serverDraftSubmissionId > 0
+            ? serverDraftSubmissionId
+            : null;
       const ethics: Record<string, unknown> = {
         form,
         attachmentFiles: mergedAttachmentFiles,
@@ -1471,6 +1438,7 @@ export default function ApprovalRequestStepper({
         requiredForm,
         currentStep,
         completedSteps: Array.from(completedSteps),
+        ...(existingDraftId != null ? { draftSubmissionId: existingDraftId } : {}),
         ...(submissionMeta ?? {}),
       };
 
@@ -1500,9 +1468,16 @@ export default function ApprovalRequestStepper({
         return;
       }
 
-      if (typeof result.submissionId === "number") {
-        setResolvedDraftSubmissionId(result.submissionId);
-        onServerDraftSaved?.(result.submissionId);
+      const savedSubmissionId =
+        typeof result.submissionId === "number" && result.submissionId > 0
+          ? result.submissionId
+          : typeof result.submissionId === "string" && /^\d+$/.test(result.submissionId)
+            ? Number.parseInt(result.submissionId, 10)
+            : undefined;
+
+      if (savedSubmissionId != null && Number.isSafeInteger(savedSubmissionId) && savedSubmissionId > 0) {
+        setResolvedDraftSubmissionId(savedSubmissionId);
+        onServerDraftSaved?.(savedSubmissionId);
       }
       const message = "Progress saved";
       setSaveMessage(message);

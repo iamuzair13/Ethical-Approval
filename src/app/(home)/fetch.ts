@@ -52,7 +52,8 @@ export type DashboardLead = {
   passedStatus: LeadStatus;
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
-  avatar: string;
+  /** Applicant profile image URL when set; otherwise use name initials in the UI. */
+  avatar: string | null;
   latestFeedbackComment: string | null;
   latestAuditNote: string | null;
   latestActionTrace: string | null;
@@ -81,7 +82,19 @@ type SubmissionScopeRow = {
   latest_decision: "approved" | "rejected" | null;
   latest_decision_stage: "dean" | "ireb" | null;
   latest_decided_by_name: string | null;
+  applicant_avatar_url: string | null;
 };
+
+/** Same rules as profile API: strip `?...` from local avatar paths for next/image. */
+function normalizeDashboardAvatarUrl(value: string | null | undefined): string | null {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (!v) return null;
+  if (v.startsWith("/")) {
+    const queryIndex = v.indexOf("?");
+    return queryIndex === -1 ? v : v.slice(0, queryIndex);
+  }
+  return v;
+}
 
 function splitFeedbackAndAudit(
   comment: string | null,
@@ -258,6 +271,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.submitted_at,
           sas.name AS applicant_name,
           sas.email AS applicant_email,
+          up.avatar_url AS applicant_avatar_url,
           sas.faculty,
           sas.department,
           s.current_status,
@@ -269,6 +283,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+        LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
         LEFT JOIN LATERAL (
           SELECT
             ad.comment AS latest_feedback_comment,
@@ -326,6 +341,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       latest_decision: decisionMap.get(row.id)?.latestDecision ?? null,
       latest_decision_stage: decisionMap.get(row.id)?.latestDecisionStage ?? null,
       latest_decided_by_name: decisionMap.get(row.id)?.latestDecidedByName ?? null,
+      applicant_avatar_url: row.applicant_avatar_url ?? null,
     }));
   }
 
@@ -338,6 +354,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.submitted_at,
           sas.name AS applicant_name,
           sas.email AS applicant_email,
+          up.avatar_url AS applicant_avatar_url,
           sas.faculty,
           sas.department,
           s.current_status,
@@ -349,6 +366,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+        LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
         LEFT JOIN LATERAL (
           SELECT
             ad.comment AS latest_feedback_comment,
@@ -738,7 +756,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       passedStatus,
       currentStatus,
       stage,
-      avatar: "/images/user/user-17.png",
+      avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),
       latestActionTrace: buildActionTrace({
         latestDecision: row.latest_decision,
         latestDecisionStage: row.latest_decision_stage,

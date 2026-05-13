@@ -229,7 +229,8 @@ type Lead = {
   passedStatus: LeadStatus;
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
-  avatar: string;
+  /** Profile image URL when available; otherwise the table shows initials from `name`. */
+  avatar: string | null;
   latestFeedbackComment?: string | null;
   latestAuditNote?: string | null;
   latestActionTrace?: string | null;
@@ -395,6 +396,66 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
     }
   }
   return null;
+}
+
+function initialsFromLeadName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) {
+    const w = parts[0];
+    return w.length <= 2 ? w.toUpperCase() : w.slice(0, 2).toUpperCase();
+  }
+  const a = parts[0][0] ?? "";
+  const b = parts[parts.length - 1][0] ?? "";
+  return `${a}${b}`.toUpperCase();
+}
+
+function normalizeLeadAvatarSrc(raw: string | null | undefined): string | null {
+  const v = typeof raw === "string" ? raw.trim() : "";
+  if (!v) return null;
+  if (v.startsWith("/")) {
+    const q = v.indexOf("?");
+    return q === -1 ? v : v.slice(0, q);
+  }
+  return v;
+}
+
+function LeadTableAvatar({ name, avatar }: { name: string; avatar: string | null }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const src = normalizeLeadAvatarSrc(avatar);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
+  const showImage = Boolean(src && !imageFailed);
+
+  return (
+    <figure className="flex items-center gap-4.5">
+      {showImage ? (
+        <Image
+          src={src!}
+          alt=""
+          width={44}
+          height={44}
+          className="size-11 shrink-0 rounded-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full",
+            "bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600",
+            "text-sm font-bold uppercase tracking-tight text-white",
+          )}
+          aria-hidden
+        >
+          {initialsFromLeadName(name)}
+        </span>
+      )}
+      <figcaption className="truncate font-medium">{name}</figcaption>
+    </figure>
+  );
 }
 
 export function LeadsReport({
@@ -1084,18 +1145,7 @@ export function LeadsReport({
                   {lead.applicationId}
                 </TableCell>
                 <TableCell>
-                  <figure className="flex items-center gap-4.5">
-                    <Image
-                      src={lead.avatar}
-                      alt={lead.name}
-                      width={44}
-                      height={44}
-                      className="rounded-full"
-                    />
-                    <figcaption className="truncate font-medium">
-                      {lead.name}
-                    </figcaption>
-                  </figure>
+                  <LeadTableAvatar name={lead.name} avatar={lead.avatar} />
                 </TableCell>
 
                 <TableCell>

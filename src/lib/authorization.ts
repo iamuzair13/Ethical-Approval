@@ -35,6 +35,7 @@ export type SubmissionRow = {
   department: string;
   applicant_name: string;
   applicant_email: string;
+  applicant_avatar_url: string | null;
 };
 
 export function canAccessSubmissionStage(
@@ -75,9 +76,11 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
         sas.faculty,
         sas.department,
         sas.name AS applicant_name,
-        sas.email AS applicant_email
+        sas.email AS applicant_email,
+        up.avatar_url AS applicant_avatar_url
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+      LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
       WHERE s.current_status <> 'draft'
       ORDER BY s.submitted_at DESC
     `,
