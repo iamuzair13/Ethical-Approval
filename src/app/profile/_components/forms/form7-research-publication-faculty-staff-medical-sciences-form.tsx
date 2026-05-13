@@ -178,7 +178,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             />
 
             <Required
-              label="c) Sustainable Development Goals (multiple options) *"
+              label="c) Sustainable Development Goals (You may select multiple) *"
               kind="selection"
               className="md:col-span-2"
             >
@@ -254,7 +254,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
 
           <Required
-            label="2.2 How will participants be recruited? (Multiple Select) *"
+            label="2.2 How will participants be recruited? (You may select multiple) *"
             kind="selection"
             className="mt-4"
           >

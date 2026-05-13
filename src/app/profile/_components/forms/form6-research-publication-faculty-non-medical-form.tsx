@@ -261,7 +261,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
           </Required>
 
           <Required
-            label="2.2 How participants will be recruited? (Select) (Multiple Select)?"
+            label="2.2 How participants will be recruited? (Select) (You may select multiple)?"
             kind="selection"
             className="mt-4"
           >

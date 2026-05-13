@@ -213,12 +213,12 @@ export function Form2ResearchPublicationForm({
             />
 
             <FieldGroup
-              label="Please select relevant Sustainable Development Goals (multiple select)"
+              label="Please select relevant Sustainable Development Goals (You may select multiple)"
               required
               fullWidth
             >
               <Required
-                label="Please select relevant Sustainable Development Goals (multiple select) *"
+                label="Please select relevant Sustainable Development Goals (You may select multiple) *"
                 kind="selection"
               >
                 <SdgCheckboxDropdown
