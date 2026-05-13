@@ -511,8 +511,8 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             </ConditionalCallout>
           )}
 
-          <Required
-            label="2.15 If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *"
+          <FieldGroup
+            label="2.15 If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal):"
             className="mt-4"
           >
             <BaseTextarea
@@ -520,7 +520,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               onChange={onFieldChange("publicationPotentialRisks")}
               rows={3}
             />
-          </Required>
+          </FieldGroup>
 
           <Required
             label="2.16 Is this manuscript being submitted simultaneously to multiple journals? *"
@@ -669,7 +669,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
 
           {form.externalFunding === "Yes" && (
             <FieldGroup
-              label="Specify external funding source *"
+              label="Specify external funding source"
               className="mt-4"
             >
               <BaseInput

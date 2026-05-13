@@ -164,7 +164,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
 
           {form.externalFunding === "Yes" && (
             <FieldGroup
-              label="Specify external funding source *"
+              label="Specify external funding source"
               className="mt-4"
             >
               <BaseInput

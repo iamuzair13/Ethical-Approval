@@ -543,8 +543,8 @@ export function Form4ResearchPublicationMedicalForm({
               </div>
             )}
 
-            <Required
-              label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *"
+            <FieldGroup
+              label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal):"
               className="mt-4 w-full"
             >
               <BaseTextarea
@@ -553,7 +553,7 @@ export function Form4ResearchPublicationMedicalForm({
                 onChange={onFieldChange("publicationPotentialRisks")}
                 rows={4}
               />
-            </Required>
+            </FieldGroup>
 
             <Required
               label="Is this manuscript being submitted simultaneously to multiple journals? *"
@@ -675,7 +675,7 @@ export function Form4ResearchPublicationMedicalForm({
               </Required>
               {form.externalFunding === "Yes" && (
                 <FieldGroup
-                  label="Specify external funding source *"
+                  label="Specify external funding source"
                   className="md:col-span-2"
                 >
                   <BaseInput
@@ -697,7 +697,7 @@ export function Form4ResearchPublicationMedicalForm({
               </Required>
               {form.internationalCollaboration === "Yes" && (
                 <FieldGroup
-                  label="Provide collaboration details *"
+                  label="Provide collaboration details"
                   className="md:col-span-2"
                 >
                   <BaseTextarea

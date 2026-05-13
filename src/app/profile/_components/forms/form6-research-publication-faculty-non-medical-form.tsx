@@ -529,7 +529,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
             {form.externalFunding === "Yes" && (
               <FieldGroup
-                label="Specify external funding source *"
+                label="Specify external funding source"
                 className="md:col-span-2"
               >
                 <BaseInput
