@@ -28,14 +28,13 @@ import {
    ============================================ */
 const FORM_2_REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
+  /** Optional — tick and upload only when applicable to your study. */
   "Participant Consent Form (Qualitative and mix-methods research with selective participations)",
   "Other Instituittional Approval Letter(s) (if applicable)",
 ];
 
-const FORM_2_MANDATORY_ATTACHMENTS = [
-  FORM_2_REQUIRED_ATTACHMENTS[0],
-  FORM_2_REQUIRED_ATTACHMENTS[2],
-] as const;
+/** Only questionnaire is mandatory; consent and other-institutional rows are optional. */
+const FORM_2_MANDATORY_ATTACHMENTS = [FORM_2_REQUIRED_ATTACHMENTS[0]] as const;
 
 const RECRUITMENT_CHANNELS = [
   "Emails",
@@ -306,7 +305,7 @@ export function Form2ResearchPublicationForm({
 
         <FormSection title="2.2 Recruitment Channels">
           <FieldGroup
-            label="2.2 Recruitment channels (multi-select)"
+            label="2.2 Recruitment channels (You may select multiple)"
             required
             fullWidth
           >
@@ -369,8 +368,8 @@ export function Form2ResearchPublicationForm({
               </Required>
             </FieldGroup>
 
-            <FieldGroup label="2.7 Confidentiality options (multi-select)" fullWidth>
-              <Required label="2.7 Confidentiality options (multi-select)">
+            <FieldGroup label="2.7 Confidentiality options (You may select multiple)" fullWidth>
+              <Required label="2.7 Confidentiality options (You may select multiple)">
                 <CheckboxGroup
                   options={CONFIDENTIALITY_OPTIONS}
                   checkedFn={(item) => hasCsvOption("confidentialityOptions", item)}

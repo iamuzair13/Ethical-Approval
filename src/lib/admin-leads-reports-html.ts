@@ -2,6 +2,7 @@
  * Admin printable HTML reports — field labels and section layout aligned to:
  * - Student Level Analysis Report (Individual)
  * - Report of Application Status
+ * - Faculty Report (Individual) — faculty applicants (non–student.uol.edu.pk emails)
  *
  * Download / print toolbar is embedded for iframe preview (postMessage to parent).
  */
@@ -351,10 +352,13 @@ ${inner}
 </html>`;
 }
 
-export function buildStudentLevelAnalysisReportHtml(
+type IndividualReportMode = "student" | "faculty";
+
+function buildIndividualAnalysisReportHtml(
   lead: LeadReportRow,
   submission: AdminReportSubmission | null,
-  generatedAt: Date = new Date(),
+  generatedAt: Date,
+  mode: IndividualReportMode,
 ): string {
   const form = getForm(submission?.ethics_json);
   const submitted = submission?.submitted_at
@@ -449,11 +453,14 @@ export function buildStudentLevelAnalysisReportHtml(
     ? formatDateOnly(timelineEnd)
     : formStr(form, "expectedEndDate").trim() || "—";
 
+  const programRowLabel =
+    mode === "faculty" ? "Program / designation (if applicable)" : "Program Level";
+
   const overviewRows: [string, string][] = [
     ["Submission ID/SAP ID", submissionIdSap],
     ["Attempt Number", escapeHtml(attemptNumber)],
     ["Total No. of Request(s)", escapeHtml(totalRequests)],
-    ["Program Level", escapeHtml(programLevel)],
+    [programRowLabel, escapeHtml(programLevel)],
     ["Faculty", escapeHtml(faculty)],
     ["Department", escapeHtml(department)],
     ["Type of Form Selected (Thesis/Publication)", escapeHtml(formType)],
@@ -503,10 +510,25 @@ export function buildStudentLevelAnalysisReportHtml(
     return `<table class="pdf-grid"><tbody>${body}</tbody></table>`;
   }
 
-  const inner = `
-  <h1 class="doc-title">Student Level Analysis Report (Individual)</h1>
+  const docTitle =
+    mode === "student"
+      ? "Student Level Analysis Report (Individual)"
+      : "Faculty Report (Individual)";
+  const overviewHeading =
+    mode === "student" ? "Overview" : "Faculty member & application overview";
+  const wrapTitle =
+    mode === "student"
+      ? `Student Level Analysis Report — ${lead.applicationId}`
+      : `Faculty Report (Individual) — ${lead.applicationId}`;
+  const footerExtra =
+    mode === "faculty"
+      ? " Faculty ethics application."
+      : "";
 
-  <div class="sec-title">Overview</div>
+  const inner = `
+  <h1 class="doc-title">${escapeHtml(docTitle)}</h1>
+
+  <div class="sec-title">${escapeHtml(overviewHeading)}</div>
   ${tableSection(overviewRows)}
 
   <div class="sec-title">Decision Tracking Timeline</div>
@@ -520,9 +542,26 @@ export function buildStudentLevelAnalysisReportHtml(
     ${tableSection(footerRows)}
   </div>
 
-  <p class="footer-note">Generated ${escapeHtml(generatedAt.toLocaleString())}. Empty cells show &ldquo;—&rdquo; when data is not available on the record.</p>`;
+  <p class="footer-note">Generated ${escapeHtml(generatedAt.toLocaleString())}. Empty cells show &ldquo;—&rdquo; when data is not available on the record.${escapeHtml(footerExtra)}</p>`;
 
-  return wrapDocument(`Student Level Analysis Report — ${lead.applicationId}`, inner);
+  return wrapDocument(wrapTitle, inner);
+}
+
+export function buildStudentLevelAnalysisReportHtml(
+  lead: LeadReportRow,
+  submission: AdminReportSubmission | null,
+  generatedAt: Date = new Date(),
+): string {
+  return buildIndividualAnalysisReportHtml(lead, submission, generatedAt, "student");
+}
+
+/** Printable faculty individual report — layout aligned to the student analysis template; PDF via html2canvas + jsPDF. */
+export function buildFacultyIndividualReportHtml(
+  lead: LeadReportRow,
+  submission: AdminReportSubmission | null,
+  generatedAt: Date = new Date(),
+): string {
+  return buildIndividualAnalysisReportHtml(lead, submission, generatedAt, "faculty");
 }
 
 export function buildApplicationStatusReportHtml(

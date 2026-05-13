@@ -190,12 +190,13 @@ const FORM_2_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 
 const FORM_6_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
+  "Participant Consent Form",
 ];
 
-const FORM_5_REQUIRED_ATTACHMENT_LABELS: readonly string[] = [
+/** Form 5 & 7 — tick + upload required only for these; other institutional letter is optional. */
+const FORM_5_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
-  "Other Institutional Approval Letter(s) (If applicable)",
 ];
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */
@@ -1073,7 +1074,7 @@ export default function ApprovalRequestStepper({
     }
 
     if (formMode === "form7-research-publication-faculty-staff-medical" && currentStep === 4) {
-      for (const label of FORM_5_REQUIRED_ATTACHMENT_LABELS) {
+      for (const label of FORM_5_MANDATORY_ATTACHMENT_LABELS) {
         if (!hasCsvOption("requiredAttachments", label)) {
           return `Required field: tick "${shortenToastLabel(label)}".`;
         }
@@ -1085,7 +1086,7 @@ export default function ApprovalRequestStepper({
     }
 
     if (formMode === "form5-research-publication-faculty-staff" && currentStep === 4) {
-      for (const label of FORM_5_REQUIRED_ATTACHMENT_LABELS) {
+      for (const label of FORM_5_MANDATORY_ATTACHMENT_LABELS) {
         if (!hasCsvOption("requiredAttachments", label)) {
           return `Required field: tick "${shortenToastLabel(label)}".`;
         }
@@ -1150,7 +1151,6 @@ export default function ApprovalRequestStepper({
         form.externalCoSupervisorRegNo,
         form.externalCoSupervisorEmail,
         form.externalUniversity,
-        form.externalFaculty,
         form.externalDepartment,
       ].some(hasValue);
       if (coSupervisorTouched) {
@@ -1168,7 +1168,6 @@ export default function ApprovalRequestStepper({
                   form.externalCoSupervisorName,
                   form.externalCoSupervisorEmail,
                   form.externalUniversity,
-                  form.externalFaculty,
                   form.externalDepartment,
                 ].every(hasValue)
               : false;
@@ -1938,7 +1937,7 @@ export default function ApprovalRequestStepper({
                 <h3 className="text-xl font-bold text-dark dark:text-white md:col-span-2">Step 2: Ethical Considerations</h3>
                 <select value={form.involveHumanParticipants} onChange={onFieldChange("involveHumanParticipants")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                 <select value={form.collectPii} onChange={onFieldChange("collectPii")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
-                <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2"><p className="mb-2 text-sm font-semibold text-dark dark:text-white">2.3 Recruitment channels (multi-select)</p><div className="grid gap-2 sm:grid-cols-2">{["Emails","Google Forms/ Online Surveys","Social Media (Facebook, Instagram, etc.)","LinkedIn (professional networking platforms)","Institutional Mailing Lists","Online forms","Academic Networks","In-person","Other"].map((item) => (<label key={item} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={hasCsvOption("recruitmentChannels", item)} onChange={() => toggleCsvOption("recruitmentChannels", item)} /><span>{item}</span></label>))}</div></div>
+                <div className="rounded-lg border border-stroke p-3 dark:border-dark-3 md:col-span-2"><p className="mb-2 text-sm font-semibold text-dark dark:text-white">2.3 Recruitment channels (You may select multiple)</p><div className="grid gap-2 sm:grid-cols-2">{["Emails","Google Forms/ Online Surveys","Social Media (Facebook, Instagram, etc.)","LinkedIn (professional networking platforms)","Institutional Mailing Lists","Online forms","Academic Networks","In-person","Other"].map((item) => (<label key={item} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={hasCsvOption("recruitmentChannels", item)} onChange={() => toggleCsvOption("recruitmentChannels", item)} /><span>{item}</span></label>))}</div></div>
                 <select value={form.informedConsentType} onChange={onFieldChange("informedConsentType")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Oral informed consent (with witness)</option><option>Waiver of consent</option><option>Not applicable</option></select>
                 <select value={form.preApprovalDataCollected} onChange={onFieldChange("preApprovalDataCollected")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>
                 <select value={form.canWithdraw} onChange={onFieldChange("canWithdraw")} className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"><option value="">Select</option><option>Yes</option><option>No</option></select>

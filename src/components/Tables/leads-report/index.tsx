@@ -9,6 +9,7 @@ import { describeEthicsAttachmentValue } from "@/lib/ethics-attachment-meta";
 import { type SubmissionReportInput } from "@/lib/application-report-html";
 import {
   buildApplicationStatusReportHtml,
+  buildFacultyIndividualReportHtml,
   buildStudentLevelAnalysisReportHtml,
   type AdminReportSubmission,
   type LeadReportRow,
@@ -27,6 +28,11 @@ import {
   DropdownContent,
   DropdownTrigger,
 } from "@/components/ui/dropdown";
+import {
+  defaultLeadsExcelColumnSelection,
+  downloadLeadsReportExcel,
+  LEADS_EXCEL_COLUMNS,
+} from "@/lib/leads-report-excel-export";
 import { cn } from "@/lib/utils";
 import { ApplicationReportPdfGeneratorButton } from "./application-report-pdf-generator";
 import Image from "next/image";
@@ -216,7 +222,7 @@ function FilterChip({
   );
 }
 
-type Lead = {
+export type Lead = {
   id: number;
   /** 6-digit application reference */
   applicationId: string;
@@ -343,6 +349,10 @@ function listExtraUploadSlots(raw: unknown): { index: number; displayName: strin
     }
   });
   return out;
+}
+
+function isStudentApplicantEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
 }
 
 function leadToReportRow(lead: Lead): LeadReportRow {
@@ -503,12 +513,16 @@ export function LeadsReport({
   const [adminReports, setAdminReports] = useState<
     | null
     | { phase: "pick"; lead: Lead }
-    | { phase: "preview"; kind: "student" | "status"; lead: Lead }
+    | { phase: "preview"; kind: "student" | "status" | "faculty"; lead: Lead }
   >(null);
   const [adminReportSubmission, setAdminReportSubmission] = useState<AdminReportSubmission | null>(null);
   const [adminReportSubmissionLoading, setAdminReportSubmissionLoading] = useState(false);
   const [adminReportPdfExporting, setAdminReportPdfExporting] = useState(false);
   const [portalMounted, setPortalMounted] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportColState, setExportColState] = useState<Record<string, boolean>>(() =>
+    defaultLeadsExcelColumnSelection(),
+  );
 
   const sourceLeads = providedLeads ?? LEADS;
   const scopeFilteredLeads = useMemo(() => {
@@ -617,6 +631,56 @@ export function LeadsReport({
     return visibleLeads.slice(start, start + pageSize);
   }, [visibleLeads, currentPage]);
 
+  const openExportModal = useCallback(() => {
+    setExportColState(defaultLeadsExcelColumnSelection());
+    setExportModalOpen(true);
+  }, []);
+
+  const runLeadsExcelExport = useCallback(() => {
+    const selected = LEADS_EXCEL_COLUMNS.filter((c) => exportColState[c.id]).map((c) => c.id);
+    if (selected.length === 0) {
+      toast.error("Select at least one column to export.");
+      return;
+    }
+    if (visibleLeads.length === 0) {
+      toast.error("Nothing to export for the current view.");
+      return;
+    }
+    try {
+      downloadLeadsReportExcel(visibleLeads, selected, {
+        reportTitle: title,
+        generatedAt: new Date(),
+        activeTab,
+        searchQuery,
+        facultyFilter,
+        departmentFilter,
+        passedStatusFilter,
+        currentStatusFilter,
+        deanOnly,
+        ethicalOnly,
+        scopeDatasetSize: scopeFilteredLeads.length,
+      });
+      toast.success("Excel file downloaded.");
+      setExportModalOpen(false);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Export failed.";
+      toast.error(message);
+    }
+  }, [
+    activeTab,
+    currentStatusFilter,
+    deanOnly,
+    departmentFilter,
+    ethicalOnly,
+    exportColState,
+    facultyFilter,
+    passedStatusFilter,
+    scopeFilteredLeads.length,
+    searchQuery,
+    title,
+    visibleLeads,
+  ]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -714,7 +778,11 @@ export function LeadsReport({
 
   const openAdminReportPicker = (lead: Lead) => {
     setActionMenuLeadId(null);
-    setAdminReports({ phase: "pick", lead });
+    if (isStudentApplicantEmail(lead.email)) {
+      setAdminReports({ phase: "pick", lead });
+    } else {
+      setAdminReports({ phase: "preview", kind: "faculty", lead });
+    }
   };
 
   const selectAdminReportKind = (kind: "student" | "status") => {
@@ -728,12 +796,15 @@ export function LeadsReport({
     if (adminReports.kind === "student") {
       return buildStudentLevelAnalysisReportHtml(row, adminReportSubmission, now);
     }
+    if (adminReports.kind === "faculty") {
+      return buildFacultyIndividualReportHtml(row, adminReportSubmission, now);
+    }
     return buildApplicationStatusReportHtml(row, adminReportSubmission, now);
   }, [adminReports, adminReportSubmission, adminReportSubmissionLoading]);
 
   const reportDownloadRef = useRef<{
     html: string;
-    kind: "student" | "status";
+    kind: "student" | "status" | "faculty";
     applicationId: string;
   } | null>(null);
   const adminReportPdfBusyRef = useRef(false);
@@ -762,7 +833,9 @@ export function LeadsReport({
       const base =
         d.kind === "student"
           ? `student-level-analysis-${d.applicationId}-${stamp}`
-          : `application-status-${d.applicationId}-${stamp}`;
+          : d.kind === "faculty"
+            ? `faculty-report-${d.applicationId}-${stamp}`
+            : `application-status-${d.applicationId}-${stamp}`;
       const { downloadReportPdf } = await import("@/lib/download-admin-report-pdf");
       await downloadReportPdf(base, {
         previewIframe: reportPreviewIframeRef.current,
@@ -1032,6 +1105,25 @@ export function LeadsReport({
                   setCurrentStatusFilter(v as LeadStatus | null)
                 }
               />
+              <button
+                type="button"
+                onClick={openExportModal}
+                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-semibold text-dark shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:text-white dark:hover:bg-dark-2"
+              >
+                <svg
+                  className="size-4 shrink-0 text-primary"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <path d="M12 3v12" strokeLinecap="round" />
+                  <path d="m8 11 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 21h16" strokeLinecap="round" />
+                </svg>
+                Export Excel
+              </button>
             </div>
           </div>
 
@@ -1189,8 +1281,6 @@ export function LeadsReport({
                 <TableCell>{lead.project}</TableCell>
                 <TableCell>{lead.duration}</TableCell>
 
-                
-
                 <TableCell
                   className={cn(
                     "sticky right-0 w-[9.5rem] min-w-[9.5rem] bg-white align-top shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark",
@@ -1339,6 +1429,87 @@ export function LeadsReport({
           </div>
         )}
       </div>
+
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+          <div
+            className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leads-export-title"
+          >
+            <div className="border-b border-stroke px-5 py-4 dark:border-dark-3">
+              <h3 id="leads-export-title" className="text-lg font-bold text-dark dark:text-white">
+                Export to Excel
+              </h3>
+              <p className="mt-1 text-sm text-body">
+                Exports <span className="font-semibold text-dark dark:text-white">{visibleLeads.length}</span>{" "}
+                row{visibleLeads.length === 1 ? "" : "s"} from the current tab and filters. Active search and
+                filter values are written to a summary block at the top of the sheet.
+              </p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, true])))
+                  }
+                  className="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, false])))
+                  }
+                  className="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                >
+                  Clear all
+                </button>
+              </div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+                Columns
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {LEADS_EXCEL_COLUMNS.map((col) => (
+                  <label
+                    key={col.id}
+                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-stroke px-3 py-2 text-sm dark:border-dark-3"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0 rounded border-stroke text-primary focus:ring-primary"
+                      checked={Boolean(exportColState[col.id])}
+                      onChange={() =>
+                        setExportColState((prev) => ({ ...prev, [col.id]: !prev[col.id] }))
+                      }
+                    />
+                    <span className="text-dark dark:text-white">{col.header}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-stroke px-5 py-4 dark:border-dark-3">
+              <button
+                type="button"
+                onClick={() => setExportModalOpen(false)}
+                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void runLeadsExcelExport()}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-opacity-90"
+              >
+                Download .xlsx
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {attachmentModalLead && (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
@@ -1841,34 +2012,29 @@ export function LeadsReport({
                   <h3 className="truncate text-lg font-bold text-dark dark:text-white">
                     {adminReports.kind === "student"
                       ? "Student Level Analysis Report (Individual)"
-                      : "Report of Application Status"}
+                      : adminReports.kind === "faculty"
+                        ? "Faculty Report (Individual)"
+                        : "Report of Application Status"}
                   </h3>
                   <p className="mt-0.5 text-sm text-body">
-                    {adminReports.kind === "student" ? (
-                      <>
-                        Application ID{" "}
-                        <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
-                        {" · "}
-                        {adminReports.lead.name}
-                      </>
-                    ) : (
-                      <>
-                        Application ID{" "}
-                        <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
-                        {" · "}
-                        {adminReports.lead.name}
-                      </>
-                    )}
+                    <>
+                      Application ID{" "}
+                      <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
+                      {" · "}
+                      {adminReports.lead.name}
+                    </>
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdminReports({ phase: "pick", lead: adminReports.lead })}
-                    className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                  >
-                    Back
-                  </button>
+                  {adminReports.kind !== "faculty" && (
+                    <button
+                      type="button"
+                      onClick={() => setAdminReports({ phase: "pick", lead: adminReports.lead })}
+                      className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                    >
+                      Back
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={closeAdminReports}

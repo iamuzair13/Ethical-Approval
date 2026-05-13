@@ -752,3 +752,24 @@ export async function updateAdminUser(input: {
   );
   return result.rows[0] ? mapAdminRow(result.rows[0]) : null;
 }
+
+export type DeanPickerRow = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+/** Active dean accounts for administrator-only report picker. */
+export async function listActiveDeansForReportPicker(): Promise<DeanPickerRow[]> {
+  const result = await db.query<DeanPickerRow>(
+    `
+      SELECT id, name, email
+      FROM admin_users
+      WHERE deleted_at IS NULL
+        AND status = 'active'
+        AND role = 'dean'
+      ORDER BY LOWER(name) ASC, LOWER(email) ASC
+    `,
+  );
+  return result.rows;
+}

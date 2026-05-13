@@ -214,33 +214,6 @@ export async function POST(request: NextRequest) {
 
     const revisionSubmissionId = parseRevisionSubmissionId(body.ethics);
 
-    if (revisionSubmissionId == null && type === "thesis") {
-      const duplicateThesis = await client.query<{ exists: boolean }>(
-        `
-          SELECT EXISTS (
-            SELECT 1
-            FROM submissions s
-            INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
-            WHERE sas.sap_id = $1
-              AND s.type = 'thesis'::submission_type
-              AND s.current_status <> 'draft'
-          ) AS exists
-        `,
-        [sapId],
-      );
-      if (duplicateThesis.rows[0]?.exists) {
-        await client.query("ROLLBACK");
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "A thesis ethics application has already been submitted. If your application was rejected, use Revision from your submissions list.",
-          },
-          { status: 409 },
-        );
-      }
-    }
-
     if (revisionSubmissionId != null) {
       const own = await client.query<{
         id: number;

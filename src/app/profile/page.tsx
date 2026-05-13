@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   motion,
   AnimatePresence,
@@ -491,12 +491,8 @@ export default function ProfileDashboard() {
   const normalizedEmail = resolvedProfile.email.toLowerCase();
   const isStudentEmail =
     normalizedEmail.endsWith("@student.uol.edu.pk") || normalizedEmail.includes("student");
-  /** Official student domain — used for thesis policy notice before starting a new thesis application. */
-  const isUolStudentDomain = normalizedEmail.endsWith("@student.uol.edu.pk");
   const [localIsStepperOpen, setLocalIsStepperOpen] = useState(false);
   const [localIsApplicationPickerOpen, setLocalIsApplicationPickerOpen] = useState(false);
-  const [thesisPolicyNoticeOpen, setThesisPolicyNoticeOpen] = useState(false);
-  const [thesisPolicyAcknowledged, setThesisPolicyAcknowledged] = useState(false);
   const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
   const [localRequiredForm, setLocalRequiredForm] = useState<RequiredForm | null>(requiredForm ?? null);
   const [localStepperViewData, setLocalStepperViewData] = useState<any>(stepperViewData);
@@ -542,10 +538,6 @@ export default function ProfileDashboard() {
     { inDean: 0, inEthical: 0, completed: 0 } as RequestStats,
   );
   const effectiveRequestStats = computedRequestStats;
-  const hasPriorSubmittedThesis = useMemo(
-    () => localRequests.some((r) => r.submissionType === "thesis" && !r.isDraft),
-    [localRequests],
-  );
   const facultyPublicationForm: RequiredForm = isMedicalPublicationFaculty(
     resolvedProfile.faculty || resolvedProfile.department || "",
   )
@@ -573,8 +565,6 @@ export default function ProfileDashboard() {
       return;
     }
     if (!localIsApplicationPickerOpen && !localIsStepperOpen) {
-      setThesisPolicyNoticeOpen(false);
-      setThesisPolicyAcknowledged(false);
       setApprovalDraftSessionId(newDraftSessionId());
       setLocalIsApplicationPickerOpen(true);
     }
@@ -593,25 +583,6 @@ export default function ProfileDashboard() {
       setLocalIsStepperOpen(true);
     }
   };
-
-  const beginThesisApplicationAfterNotice = () => {
-    if (hasPriorSubmittedThesis) return;
-    setThesisPolicyNoticeOpen(false);
-    setThesisPolicyAcknowledged(false);
-    selectApplicationType("thesis");
-  };
-
-  const cancelThesisPolicyNotice = () => {
-    setThesisPolicyNoticeOpen(false);
-    setThesisPolicyAcknowledged(false);
-    setLocalIsApplicationPickerOpen(true);
-  };
-
-  useEffect(() => {
-    if (thesisPolicyNoticeOpen) {
-      setThesisPolicyAcknowledged(false);
-    }
-  }, [thesisPolicyNoticeOpen]);
 
   const openSubmissionView = async (submissionId: number | null) => {
     await handleViewSubmission(submissionId);
@@ -1574,16 +1545,7 @@ export default function ProfileDashboard() {
                   <div className="flex flex-col gap-2">
                     <MagneticButton
                       variant="secondary"
-                      disabled={hasPriorSubmittedThesis}
-                      onClick={() => {
-                        if (hasPriorSubmittedThesis) return;
-                        if (isUolStudentDomain) {
-                          setLocalIsApplicationPickerOpen(false);
-                          setThesisPolicyNoticeOpen(true);
-                        } else {
-                          selectApplicationType("thesis");
-                        }
-                      }}
+                      onClick={() => selectApplicationType("thesis")}
                       className="py-4 justify-center border-dashed hover:border-indigo-500/50 hover:bg-indigo-500/5"
                     >
                       <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -1591,12 +1553,6 @@ export default function ProfileDashboard() {
                       </svg>
                       Thesis
                     </MagneticButton>
-                    {hasPriorSubmittedThesis && (
-                      <p className="text-center text-xs leading-relaxed text-dark-5 dark:text-slate-500 sm:text-left">
-                        A thesis ethics application has already been submitted. If your application was rejected, use{" "}
-                        <span className="font-medium text-dark dark:text-slate-300">Revision</span> from your submissions list.
-                      </p>
-                    )}
                   </div>
                   <MagneticButton 
                     variant="secondary" 
@@ -1614,91 +1570,6 @@ export default function ProfileDashboard() {
                   <MagneticButton variant="ghost" onClick={() => setLocalIsApplicationPickerOpen(false)}>
                     Cancel
                   </MagneticButton>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Thesis policy notice (@student.uol.edu.pk — one initial application; revisions after rejection) */}
-        <AnimatePresence>
-          {thesisPolicyNoticeOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 px-4 py-8 backdrop-blur-[10px]"
-              role="presentation"
-            >
-              <motion.div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="thesis-policy-notice-title"
-                initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ type: "spring", damping: 28, stiffness: 320 }}
-                className="w-full max-w-[28rem] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_24px_80px_-12px_rgba(15,23,42,0.25)] dark:border-white/[0.08] dark:bg-slate-900 dark:shadow-black/60"
-              >
-                <div className="border-b border-slate-100 px-8 pb-5 pt-7 dark:border-white/[0.06]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Notice
-                  </p>
-                  <h3
-                    id="thesis-policy-notice-title"
-                    className="mt-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white"
-                  >
-                    Thesis ethics application
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Please read before you continue.
-                  </p>
-                </div>
-                <div className="space-y-4 px-8 py-6 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                  <p>
-                    For sign-in with an official{" "}
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      @student.uol.edu.pk
-                    </span>{" "}
-                    address, you may submit{" "}
-                    <span className="font-semibold text-slate-900 dark:text-white">one</span> initial
-                    thesis ethics application in this portal. You cannot start a second, separate thesis
-                    application while an earlier thesis request is still under review or has been approved.
-                  </p>
-                  <p>
-                    If your thesis application is{" "}
-                    <span className="font-semibold text-slate-900 dark:text-white">rejected</span> by the
-                    Dean or IREB, you may submit a{" "}
-                    <span className="font-semibold text-slate-900 dark:text-white">revision</span> through
-                    the existing revision workflow for that same application — you do not open a new thesis
-                    record for that purpose.
-                  </p>
-                </div>
-                <div className="border-t border-slate-100 bg-slate-50/80 px-8 py-5 dark:border-white/[0.06] dark:bg-slate-950/40">
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent px-0.5 py-1 transition hover:border-slate-200/80 dark:hover:border-white/[0.08]">
-                    <input
-                      id="thesis-policy-ack"
-                      type="checkbox"
-                      checked={thesisPolicyAcknowledged}
-                      onChange={(e) => setThesisPolicyAcknowledged(e.target.checked)}
-                      className="mt-0.5 size-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 dark:border-slate-600 dark:bg-slate-900"
-                    />
-                    <span className="text-sm font-medium leading-snug text-slate-800 dark:text-slate-200">
-                      I have read and understood this notice and wish to continue with a thesis application.
-                    </span>
-                  </label>
-                  <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                    <MagneticButton variant="ghost" onClick={cancelThesisPolicyNotice}>
-                      Go back
-                    </MagneticButton>
-                    <MagneticButton
-                      variant="primary"
-                      disabled={!thesisPolicyAcknowledged}
-                      onClick={beginThesisApplicationAfterNotice}
-                    >
-                      Continue to thesis form
-                    </MagneticButton>
-                  </div>
                 </div>
               </motion.div>
             </motion.div>

@@ -28,6 +28,12 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
+        title: "Reports",
+        icon: Icons.PieChart,
+        url: "/reports",
+        items: []
+      },
+      {
         title: "Administration",
         icon: Icons.User,
         items: [

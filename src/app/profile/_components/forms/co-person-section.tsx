@@ -271,34 +271,12 @@ function CoPersonEntry({
                 placeholder="University"
               />
             </FieldGroup>
-            <FieldGroup label="Faculty">
-              <BaseSelect
-                value={form[keys.external.faculty] ?? ""}
-                onChange={onFieldChange(keys.external.faculty)}
-              >
-                <option value="">Select Faculty</option>
-                {facultyOptions.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </BaseSelect>
-            </FieldGroup>
             <FieldGroup label="Department" className="md:col-span-2">
-              <BaseSelect
+              <BaseInput
                 value={form[keys.external.department] ?? ""}
                 onChange={onFieldChange(keys.external.department)}
-                disabled={!form[keys.external.faculty]}
-              >
-                <option value="">Select Department</option>
-                {getDepartmentsForFaculty(form[keys.external.faculty] ?? "").map(
-                  (d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ),
-                )}
-              </BaseSelect>
+                placeholder="Department"
+              />
             </FieldGroup>
           </>
         ) : null}

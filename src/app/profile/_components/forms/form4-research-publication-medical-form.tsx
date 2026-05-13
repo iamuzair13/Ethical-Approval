@@ -26,7 +26,7 @@ import {
   WarnNote,
 } from "./form-ui";
 
-/** Step 5 — rows 1 and 3 require checkbox + upload; rows 2 and 4 optional */
+/** Step 5 — questionnaire + consent require checkbox + upload; other institutional letter optional */
 export const FORM_4_REQUIRED_ATTACHMENTS = [
   "Questionnaire/Interview Guide",
   "Participant Consent Form",
@@ -34,8 +34,7 @@ export const FORM_4_REQUIRED_ATTACHMENTS = [
 ] as const;
 
 export const FORM_4_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
-  FORM_4_REQUIRED_ATTACHMENTS[0],
-  FORM_4_REQUIRED_ATTACHMENTS[2],
+  FORM_4_REQUIRED_ATTACHMENTS[0]
 ];
 
 const RECRUITMENT_CHANNELS = [
@@ -165,28 +164,6 @@ export function Form4ResearchPublicationMedicalForm({
             ]}
           />
 
-          <FormSection title="External researcher in team?">
-            <BaseSelect
-              required={false}
-              value={form.hasExternalResearcher}
-              onChange={onFieldChange("hasExternalResearcher")}
-              className="max-w-xs"
-            >
-              <option value="">Select</option>
-              <option>Yes</option>
-              <option>No</option>
-            </BaseSelect>
-            {form.hasExternalResearcher === "Yes" && (
-              <BaseTextarea
-                required={false}
-                value={form.externalResearcherDetails}
-                onChange={onFieldChange("externalResearcherDetails")}
-                rows={3}
-                placeholder="Provide names, qualifications and affiliations."
-                className="mt-3"
-              />
-            )}
-          </FormSection>
 
           <FormSection title="1.4 Research Details">
             <FieldRow>
@@ -209,7 +186,7 @@ export function Form4ResearchPublicationMedicalForm({
                 setForm={setForm}
                 onFieldChange={onFieldChange}
               />
-              <Required label="Sustainable Development Goals (multi-select) *" className="md:col-span-2 w-full">
+              <Required label="Sustainable Development Goals (You may select multiple) *" className="md:col-span-2 w-full">
                 <SdgCheckboxDropdown
                   isChecked={(value) => hasCsvOption("sdgs", value)}
                   onToggle={(value) => toggleCsvOption("sdgs", value)}
@@ -397,24 +374,24 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>No</option>
                 <option>N/A</option>
               </BaseSelect>
-              {form.publicationVulnerablePopulation === "Yes" && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <label
-                    htmlFor="f4-s2-q09-detail"
-                    className="text-sm font-medium text-dark dark:text-white"
-                  >
-                    If &apos;Yes&apos;, confirm and describe how appropriate ethical protections were in place.
-                  </label>
-                  <BaseTextarea
-                    required={false}
-                    id="f4-s2-q09-detail"
-                    value={form.publicationVulnerableProtections}
-                    onChange={onFieldChange("publicationVulnerableProtections")}
-                    rows={3}
-                  />
-                </div>
-              )}
             </Required>
+            {form.publicationVulnerablePopulation === "Yes" && (
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <label
+                  htmlFor="f4-s2-q09-detail"
+                  className="text-sm font-medium text-dark dark:text-white"
+                >
+                  If &apos;Yes&apos;, confirm and describe how appropriate ethical protections were in place.
+                </label>
+                <BaseTextarea
+                  required={false}
+                  id="f4-s2-q09-detail"
+                  value={form.publicationVulnerableProtections}
+                  onChange={onFieldChange("publicationVulnerableProtections")}
+                  rows={3}
+                />
+              </div>
+            )}
 
             <Required
               label="Will this research involve biological specimens (blood, tissue, genetic material, etc.)? *"
@@ -429,25 +406,25 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>Yes</option>
                 <option>No</option>
               </BaseSelect>
-              {form.publicationBiologicalSpecimens === "Yes" && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <label
-                    htmlFor="f4-s2-q10-detail"
-                    className="text-sm font-medium text-dark dark:text-white"
-                  >
-                    If &apos;Yes&apos;, describe collection, storage, and handling procedures
-                    with biosafety measures.
-                  </label>
-                  <BaseTextarea
-                    required={false}
-                    id="f4-s2-q10-detail"
-                    value={form.publicationBiologicalSpecimenDetails}
-                    onChange={onFieldChange("publicationBiologicalSpecimenDetails")}
-                    rows={3}
-                  />
-                </div>
-              )}
             </Required>
+            {form.publicationBiologicalSpecimens === "Yes" && (
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <label
+                  htmlFor="f4-s2-q10-detail"
+                  className="text-sm font-medium text-dark dark:text-white"
+                >
+                  If &apos;Yes&apos;, describe collection, storage, and handling procedures
+                  with biosafety measures.
+                </label>
+                <BaseTextarea
+                  required={false}
+                  id="f4-s2-q10-detail"
+                  value={form.publicationBiologicalSpecimenDetails}
+                  onChange={onFieldChange("publicationBiologicalSpecimenDetails")}
+                  rows={3}
+                />
+              </div>
+            )}
 
             <Required
               label="Does the manuscript involve pharmacological or therapeutic interventions? *"
@@ -462,26 +439,26 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>Yes</option>
                 <option>No</option>
               </BaseSelect>
-              {form.publicationPharmaInterventions === "Yes" && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <label
-                    htmlFor="f4-s2-q11-detail"
-                    className="text-sm font-medium text-dark dark:text-white"
-                  >
-                    If &apos;Yes&apos;, verify drug names, dosages, and adverse effects are
-                    accurately reported. Also attach the approval for pharmaceutical substance
-                    use.
-                  </label>
-                  <BaseTextarea
-                    required={false}
-                    id="f4-s2-q11-detail"
-                    value={form.publicationPharmaInterventionDetails}
-                    onChange={onFieldChange("publicationPharmaInterventionDetails")}
-                    rows={3}
-                  />
-                </div>
-              )}
             </Required>
+            {form.publicationPharmaInterventions === "Yes" && (
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <label
+                  htmlFor="f4-s2-q11-detail"
+                  className="text-sm font-medium text-dark dark:text-white"
+                >
+                  If &apos;Yes&apos;, verify drug names, dosages, and adverse effects are
+                  accurately reported. Also attach the approval for pharmaceutical substance
+                  use.
+                </label>
+                <BaseTextarea
+                  required={false}
+                  id="f4-s2-q11-detail"
+                  value={form.publicationPharmaInterventionDetails}
+                  onChange={onFieldChange("publicationPharmaInterventionDetails")}
+                  rows={3}
+                />
+              </div>
+            )}
 
             <Required label="Will animal subjects be used in this research? *" className="mt-4 w-full">
               <BaseSelect
@@ -493,24 +470,24 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>Yes</option>
                 <option>No</option>
               </BaseSelect>
-              {form.publicationAnimalSubjects === "Yes" && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <label
-                    htmlFor="f4-s2-q12-detail"
-                    className="text-sm font-medium text-dark dark:text-white"
-                  >
-                    If &apos;Yes&apos;, justify use and describe animal care/welfare measures.
-                  </label>
-                  <BaseTextarea
-                    required={false}
-                    id="f4-s2-q12-detail"
-                    value={form.publicationAnimalWelfareDetails}
-                    onChange={onFieldChange("publicationAnimalWelfareDetails")}
-                    rows={3}
-                  />
-                </div>
-              )}
             </Required>
+            {form.publicationAnimalSubjects === "Yes" && (
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <label
+                  htmlFor="f4-s2-q12-detail"
+                  className="text-sm font-medium text-dark dark:text-white"
+                >
+                  If &apos;Yes&apos;, justify use and describe animal care/welfare measures.
+                </label>
+                <BaseTextarea
+                  required={false}
+                  id="f4-s2-q12-detail"
+                  value={form.publicationAnimalWelfareDetails}
+                  onChange={onFieldChange("publicationAnimalWelfareDetails")}
+                  rows={3}
+                />
+              </div>
+            )}
 
             <Required
               label="If yes to the above question, has approval from the concerned ethics committee been obtained? *"
@@ -546,25 +523,25 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>No</option>
                 <option>Undecided</option>
               </BaseSelect>
-              {form.publicationConflictsUndisclosed === "Yes" && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <label
-                    htmlFor="f4-s2-q14-detail"
-                    className="text-sm font-medium text-dark dark:text-white"
-                  >
-                    If &apos;Yes&apos;, provide complete disclosure including pharmaceutical
-                    sponsorship, financial stakes, or employment conflicts.
-                  </label>
-                  <BaseTextarea
-                    required={false}
-                    id="f4-s2-q14-detail"
-                    value={form.publicationConflictDisclosureDetails}
-                    onChange={onFieldChange("publicationConflictDisclosureDetails")}
-                    rows={3}
-                  />
-                </div>
-              )}
             </Required>
+            {form.publicationConflictsUndisclosed === "Yes" && (
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <label
+                  htmlFor="f4-s2-q14-detail"
+                  className="text-sm font-medium text-dark dark:text-white"
+                >
+                  If &apos;Yes&apos;, provide complete disclosure including pharmaceutical
+                  sponsorship, financial stakes, or employment conflicts.
+                </label>
+                <BaseTextarea
+                  required={false}
+                  id="f4-s2-q14-detail"
+                  value={form.publicationConflictDisclosureDetails}
+                  onChange={onFieldChange("publicationConflictDisclosureDetails")}
+                  rows={3}
+                />
+              </div>
+            )}
 
             <Required
               label="If applicable, identify all potential risks and adverse effects (physical, psychological, social, legal): *"
