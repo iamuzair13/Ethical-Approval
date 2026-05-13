@@ -406,6 +406,7 @@ export function Form4ResearchPublicationMedicalForm({
                     If &apos;Yes&apos;, confirm and describe how appropriate ethical protections were in place.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s2-q09-detail"
                     value={form.publicationVulnerableProtections}
                     onChange={onFieldChange("publicationVulnerableProtections")}
@@ -438,6 +439,7 @@ export function Form4ResearchPublicationMedicalForm({
                     with biosafety measures.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s2-q10-detail"
                     value={form.publicationBiologicalSpecimenDetails}
                     onChange={onFieldChange("publicationBiologicalSpecimenDetails")}
@@ -471,6 +473,7 @@ export function Form4ResearchPublicationMedicalForm({
                     use.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s2-q11-detail"
                     value={form.publicationPharmaInterventionDetails}
                     onChange={onFieldChange("publicationPharmaInterventionDetails")}
@@ -499,6 +502,7 @@ export function Form4ResearchPublicationMedicalForm({
                     If &apos;Yes&apos;, justify use and describe animal care/welfare measures.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s2-q12-detail"
                     value={form.publicationAnimalWelfareDetails}
                     onChange={onFieldChange("publicationAnimalWelfareDetails")}
@@ -552,6 +556,7 @@ export function Form4ResearchPublicationMedicalForm({
                     sponsorship, financial stakes, or employment conflicts.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s2-q14-detail"
                     value={form.publicationConflictDisclosureDetails}
                     onChange={onFieldChange("publicationConflictDisclosureDetails")}
@@ -652,6 +657,7 @@ export function Form4ResearchPublicationMedicalForm({
                     documented.
                   </label>
                   <BaseTextarea
+                    required={false}
                     id="f4-s3-q04-detail"
                     value={form.publicationThirdPartyPermissionDetails}
                     onChange={onFieldChange("publicationThirdPartyPermissionDetails")}
@@ -713,7 +719,7 @@ export function Form4ResearchPublicationMedicalForm({
                 </BaseSelect>
               </Required>
               {form.internationalCollaboration === "Yes" && (
-                <Required
+                <FieldGroup
                   label="Provide collaboration details *"
                   className="md:col-span-2"
                 >
@@ -723,7 +729,7 @@ export function Form4ResearchPublicationMedicalForm({
                     rows={3}
                     placeholder="Enter Details"
                   />
-                </Required>
+                </FieldGroup>
               )}
               <Required label="Will your research, or a part of it, be conducted overseas/abroad? *">
                 <BaseSelect

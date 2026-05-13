@@ -456,14 +456,14 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
           </Required>
           {form.publicationHasRisks === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Risk details *">
+              <FieldGroup label="Risk details *">
                 <BaseTextarea
                   value={form.publicationPotentialRisks}
                   onChange={onFieldChange("publicationPotentialRisks")}
                   rows={3}
                   placeholder="Elaborate..."
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -564,14 +564,14 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
 
           {form.internationalCollaboration === "Yes" && (
             <ConditionalCallout className="mt-4">
-              <Required label="International collaboration details *">
+              <FieldGroup label="International collaboration details *">
                 <BaseTextarea
                   value={form.internationalCollaborationDetails}
                   onChange={onFieldChange("internationalCollaborationDetails")}
                   rows={3}
                   placeholder="If yes, give details (if not provided during step 1)"
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 

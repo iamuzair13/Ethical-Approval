@@ -662,14 +662,14 @@ export function Form3ThesisMedicalForm({
 
           {form.thesisBiologicalSpecimensInvolved === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Describe collection, storage, handling and biosafety *">
+              <FieldGroup label="Describe collection, storage, handling and biosafety *">
                 <BaseTextarea
                   value={form.thesisBiologicalSpecimensDetails}
                   onChange={onFieldChange("thesisBiologicalSpecimensDetails")}
                   rows={3}
                   placeholder="Describe"
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -766,13 +766,13 @@ export function Form3ThesisMedicalForm({
           {form.publicationPharmaInterventions === "Yes" && (
             <ConditionalCallout className="mt-4">
               <FieldRow>
-                <Required label="Drug/Pharmaceutical Details *" className="md:col-span-2">
+                <FieldGroup label="Drug/Pharmaceutical Details *" className="md:col-span-2">
                   <BaseInput
                     value={form.drugName}
                     onChange={onFieldChange("drugName")}
                     placeholder="Enter Details"
                   />
-                </Required>
+                </FieldGroup>
                 <Required label="Dosage and frequency *" className="md:col-span-2">
                   <BaseInput
                     value={form.drugDosageFrequency}
@@ -830,13 +830,13 @@ export function Form3ThesisMedicalForm({
                   </BaseSelect>
                 </Required>
                 {form.monitoredAfterAdministration === "Yes" && (
-                  <Required label="Follow-up duration *" className="md:col-span-2">
+                  <FieldGroup label="Follow-up duration *" className="md:col-span-2">
                     <BaseInput
                       value={form.followUpDuration}
                       onChange={onFieldChange("followUpDuration")}
                       placeholder="Follow-up duration"
                     />
-                  </Required>
+                  </FieldGroup>
                 )}
                 <Required
                   label="Emergency procedures and adverse-event handling *"
@@ -868,14 +868,14 @@ export function Form3ThesisMedicalForm({
 
           {form.thesisAnimalSubjectsUsed === "Yes" && (
             <ConditionalCallout className="mt-4">
-              <Required label="Justify animal use and describe welfare measures *">
+              <FieldGroup label="Justify animal use and describe welfare measures *">
                 <BaseTextarea
                   value={form.thesisAnimalCareWelfareDetails}
                   onChange={onFieldChange("thesisAnimalCareWelfareDetails")}
                   rows={3}
                   placeholder="Enter Justification"
                 />
-              </Required>
+              </FieldGroup>
               <Required
                 label="Ethics committee approval for animal research? *"
                 className="mt-3"
@@ -942,14 +942,14 @@ export function Form3ThesisMedicalForm({
           </Required>
           {form.sharedWithThirdParties === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Institution(s), purpose, data protection measures *">
+              <FieldGroup label="Institution(s), purpose, data protection measures *">
                 <BaseTextarea
                   value={form.thirdPartySharingDetails}
                   onChange={onFieldChange("thirdPartySharingDetails")}
                   rows={3}
                   placeholder="Enter..."
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -968,13 +968,13 @@ export function Form3ThesisMedicalForm({
           </Required>
           {form.cloudPlatformsUsed === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Specify platform(s) *">
+              <FieldGroup label="Specify platform(s) *">
                 <BaseInput
                   value={form.cloudPlatformDetails}
                   onChange={onFieldChange("cloudPlatformDetails")}
                   placeholder="Enter..."
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
         </FormSection>
@@ -992,14 +992,14 @@ export function Form3ThesisMedicalForm({
           </Required>
           {form.futureResearchDataUse === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Specify conditions *">
+              <FieldGroup label="Specify conditions *">
                 <BaseTextarea
                   value={form.futureResearchDataUseConditions}
                   onChange={onFieldChange("futureResearchDataUseConditions")}
                   rows={2}
                   placeholder="Enter conditions"
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -1058,13 +1058,13 @@ export function Form3ThesisMedicalForm({
           </Required>
           {form.healthcareExternalInstitutions === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="Attach institutional approval letters in Attachments *">
+              <FieldGroup label="Attach institutional approval letters in Attachments *">
                 <BaseInput
                   value={form.healthcareExternalInstitutionsDetails}
                   onChange={onFieldChange("healthcareExternalInstitutionsDetails")}
                   placeholder="Institutional approval letters details"
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 

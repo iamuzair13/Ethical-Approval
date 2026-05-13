@@ -431,13 +431,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
           {form.publicationPharmaInterventions === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="2.11 Intervention details *">
+              <FieldGroup label="2.11 Intervention details *">
                 <BaseTextarea
                   value={form.publicationPharmaInterventionDetails}
                   onChange={onFieldChange("publicationPharmaInterventionDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
@@ -695,13 +695,13 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
           {form.internationalCollaboration === "Yes" && (
             <ConditionalCallout className="mt-3">
-              <Required label="If yes, give details (if not provided during step 1) *">
+              <FieldGroup label="If yes, give details (if not provided during step 1) *">
                 <BaseTextarea
                   value={form.internationalCollaborationDetails}
                   onChange={onFieldChange("internationalCollaborationDetails")}
                   rows={3}
                 />
-              </Required>
+              </FieldGroup>
             </ConditionalCallout>
           )}
 
