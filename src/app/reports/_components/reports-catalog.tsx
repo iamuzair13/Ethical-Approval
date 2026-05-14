@@ -160,7 +160,7 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
         {adminRole !== "ireb" ? (
           <ReportCatalogCard
             title="Dean's Report"
-            description="Summary of applications under the dean's faculty scope. Administrators must pick a dean; deans always see their own scope."
+            description="Single-dean performance snapshot: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions (lifetime, faculty-scoped)."
             badge="Scope"
             controls={
               isAdministrator ? (
@@ -214,7 +214,7 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
 
         <ReportCatalogCard
           title="Overall Student Report"
-          description="Efficiency and research mix for student applicants only, for the selected period."
+          description="UOL student applicants (@student.uol.edu.pk), thesis and publications: program mix, faculty concentration, thesis vs publication volume, outcomes, response times, and top SDGs."
           badge="Monthly / Yearly"
           controls={
             <ReportPeriodControl
@@ -231,7 +231,7 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
 
         <ReportCatalogCard
           title="Overall Faculty Report"
-          description="Efficiency and research mix for faculty applicants only, for the selected period."
+          description="Faculty/staff research publications only (excludes @student.uol.edu.pk). One summary table: volume, faculty/department concentration, PhD share, medical vs other domain counts, approval/rejection rates, attempts, student dean-throughput by faculty snapshot, response times, processing days, and top SDGs."
           badge="Monthly / Yearly"
           controls={
             <ReportPeriodControl

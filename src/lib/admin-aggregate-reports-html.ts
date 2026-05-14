@@ -12,6 +12,7 @@ export type AggregateReportContext = {
 };
 
 export type AggregateSubmissionInput = {
+  submission_id: number;
   application_id: string;
   type: "thesis" | "publication";
   domain: "medical" | "non_medical";
@@ -26,11 +27,19 @@ export type AggregateSubmissionInput = {
     | "rejected";
   submitted_at: Date;
   faculty: string;
+  applicant_email: string;
+  applicant_department: string;
+  applicant_program: string | null;
   dean_decision_at: Date | null;
   ireb_decision_at: Date | null;
+  /** 1-based applicant submission sequence among non-draft rows (same logic as submission detail). */
+  applicant_attempt_number: number;
+  objectives: string | null;
+  methodology: string | null;
+  ethics_json: unknown;
 };
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -46,6 +55,11 @@ function daysBetween(start: Date, end: Date): number {
 function fmtDays(n: number | null): string {
   if (n == null || Number.isNaN(n)) return "—";
   return (Math.round(n * 10) / 10).toFixed(1);
+}
+
+function fmtPct(n: number | null): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return `${(Math.round(n * 10) / 10).toFixed(1)}%`;
 }
 
 function median(values: number[]): number | null {
@@ -212,7 +226,7 @@ function embeddedToolbar(): string {
   </script>`;
 }
 
-function wrapDocument(title: string, inner: string): string {
+export function wrapDocument(title: string, inner: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -228,7 +242,7 @@ ${inner}
 </html>`;
 }
 
-function coverBlock(ctx: AggregateReportContext): string {
+export function coverBlock(ctx: AggregateReportContext): string {
   const subject = ctx.subjectLine?.trim()
     ? `<div><strong>Subject:</strong> ${escapeHtml(ctx.subjectLine!)}</div>`
     : "";
@@ -274,24 +288,42 @@ function collectDeanDecisionDays(rows: AggregateSubmissionInput[]): number[] {
   return out;
 }
 
-function collectIrebDecisionDays(rows: AggregateSubmissionInput[]): number[] {
+/** Submission → final recorded decision (IREB preferred; else dean), including dean-only rejections. */
+function collectTerminalCycleDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.ireb_decision_at) continue;
-    out.push(daysBetween(r.submitted_at, r.ireb_decision_at));
-  }
-  return out;
-}
-
-function collectTotalCycleDays(rows: AggregateSubmissionInput[]): number[] {
-  const out: number[] = [];
-  for (const r of rows) {
-    if (r.current_status !== "approved" && r.current_status !== "rejected") continue;
+    const terminal =
+      r.current_status === "approved" ||
+      r.current_status === "rejected" ||
+      r.current_status === "dean_rejected";
+    if (!terminal) continue;
     const end = r.ireb_decision_at ?? r.dean_decision_at;
     if (!end) continue;
     out.push(daysBetween(r.submitted_at, end));
   }
   return out;
+}
+
+function collectIrebPhaseDays(rows: AggregateSubmissionInput[]): number[] {
+  const out: number[] = [];
+  for (const r of rows) {
+    if (!r.dean_decision_at || !r.ireb_decision_at) continue;
+    out.push(daysBetween(r.dean_decision_at, r.ireb_decision_at));
+  }
+  return out;
+}
+
+function deanIrebDelaySharePct(rows: AggregateSubmissionInput[]): { dean: number; ireb: number } | null {
+  let sumDean = 0;
+  let sumIreb = 0;
+  for (const r of rows) {
+    if (!r.dean_decision_at || !r.ireb_decision_at) continue;
+    sumDean += daysBetween(r.submitted_at, r.dean_decision_at);
+    sumIreb += daysBetween(r.dean_decision_at, r.ireb_decision_at);
+  }
+  const total = sumDean + sumIreb;
+  if (total <= 0) return null;
+  return { dean: (sumDean / total) * 100, ireb: (sumIreb / total) * 100 };
 }
 
 function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
@@ -300,25 +332,45 @@ function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
   const rejected =
     rows.filter((r) => r.current_status === "rejected" || r.current_status === "dean_rejected")
       .length;
-  const pending = n - approved - rejected;
+  const resubmittedApprovals = rows.filter(
+    (r) => r.current_status === "approved" && r.applicant_attempt_number > 1,
+  ).length;
+  const attemptNums = rows.map((r) => r.applicant_attempt_number).filter((x) => typeof x === "number" && x > 0);
+  const avgAttempts = mean(attemptNums);
   const dd = collectDeanDecisionDays(rows);
-  const id = collectIrebDecisionDays(rows);
-  const cy = collectTotalCycleDays(rows);
+  const irebPhase = collectIrebPhaseDays(rows);
+  const terminalCycle = collectTerminalCycleDays(rows);
+  const approvedWithIrebEnd = rows.filter((r) => r.current_status === "approved" && r.ireb_decision_at);
+  const approvedWithin3 = approvedWithIrebEnd.filter(
+    (r) => daysBetween(r.submitted_at, r.ireb_decision_at!) <= 3,
+  ).length;
+  const delayedOver3 = rows.filter((r) => {
+    const terminal =
+      r.current_status === "approved" ||
+      r.current_status === "rejected" ||
+      r.current_status === "dean_rejected";
+    if (!terminal) return false;
+    const end = r.ireb_decision_at ?? r.dean_decision_at;
+    if (!end) return false;
+    return daysBetween(r.submitted_at, end) > 3;
+  }).length;
+  const share = deanIrebDelaySharePct(rows);
+  const avgProcDays = mean(terminalCycle);
+  const avgDeanDays = mean(dd);
+  const avgIrebPhaseDays = mean(irebPhase);
   const rowsHtml: [string, string][] = [
-    ["Applications in period", String(n)],
-    ["Approved (IREB)", String(approved)],
-    ["Rejected (Dean or IREB)", String(rejected)],
-    ["In progress", String(Math.max(0, pending))],
+    ["Total submissions", String(n)],
     ["Approval rate", n ? `${((approved / n) * 100).toFixed(1)}%` : "—"],
-    ["Mean days to dean decision (where recorded)", fmtDays(mean(dd))],
-    ["Median days to dean decision (where recorded)", fmtDays(median(dd))],
-    ["Mean days to IREB decision (where recorded)", fmtDays(mean(id))],
-    ["Median days to IREB decision (where recorded)", fmtDays(median(id))],
-    [
-      "Mean total cycle (submitted → terminal, where dated)",
-      fmtDays(mean(cy)),
-    ],
-    ["Median total cycle (submitted → terminal, where dated)", fmtDays(median(cy))],
+    ["Resubmitted approvals", String(resubmittedApprovals)],
+    ["Total rejection rate", n ? fmtPct((rejected / n) * 100) : "—"],
+    ["Avg. number of attempts", avgAttempts != null ? (Math.round(avgAttempts * 100) / 100).toFixed(2) : "—"],
+    ["Avg. processing time", avgProcDays != null ? `${fmtDays(avgProcDays)} days` : "—"],
+    ["Cases approved within 3 days", String(approvedWithin3)],
+    ["Number of delayed cases (more than 3 days)", String(delayedOver3)],
+    ["Avg. delay caused by Dean", avgDeanDays != null ? `${fmtDays(avgDeanDays)} days` : "—"],
+    ["Avg. delay caused by IREB", avgIrebPhaseDays != null ? `${fmtDays(avgIrebPhaseDays)} days` : "—"],
+    ["Delay by Faculty (Dean)", share ? fmtPct(share.dean) : "—"],
+    ["Delay by IREB member", share ? fmtPct(share.ireb) : "—"],
   ];
   const body = rowsHtml
     .map(([a, b]) => `<tr><th>${escapeHtml(a)}</th><td>${escapeHtml(b)}</td></tr>`)
@@ -347,6 +399,187 @@ function topFaculties(rows: AggregateSubmissionInput[], limit: number): string {
   return `<div class="sec-title">Top faculties by volume</div><table class="pdf-data">${head}<tbody>${body}</tbody></table>`;
 }
 
+function ethicsForm(ethics: unknown): Record<string, unknown> {
+  if (!ethics || typeof ethics !== "object") return {};
+  const e = ethics as { form?: unknown };
+  if (e.form && typeof e.form === "object" && !Array.isArray(e.form)) {
+    return e.form as Record<string, unknown>;
+  }
+  return {};
+}
+
+function ethicsField(form: Record<string, unknown>, key: string): string {
+  const v = form[key];
+  if (v == null) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) {
+    return v
+      .map((x) => (typeof x === "string" ? x.trim() : typeof x === "number" ? String(x) : ""))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof v === "object" && v && "label" in (v as object)) {
+    const l = (v as { label?: unknown }).label;
+    return typeof l === "string" ? l : "";
+  }
+  return "";
+}
+
+function mostCommonInsightText(values: string[]): string | null {
+  const buckets = new Map<string, { count: number; display: string }>();
+  for (const raw of values) {
+    const display = raw.replace(/\s+/g, " ").trim();
+    if (!display) continue;
+    const key = display.toLowerCase();
+    const cur = buckets.get(key);
+    if (cur) cur.count += 1;
+    else buckets.set(key, { count: 1, display });
+  }
+  if (buckets.size === 0) return null;
+  let best: { count: number; display: string } | null = null;
+  for (const v of buckets.values()) {
+    if (!best || v.count > best.count || (v.count === best.count && v.display.localeCompare(best.display) < 0)) {
+      best = v;
+    }
+  }
+  return best?.display ?? null;
+}
+
+function researchPurposeLine(r: AggregateSubmissionInput): string {
+  const form = ethicsForm(r.ethics_json);
+  return (ethicsField(form, "researchPurpose") || (r.objectives ?? "").trim()).trim();
+}
+
+function researchMethodLine(r: AggregateSubmissionInput): string {
+  const form = ethicsForm(r.ethics_json);
+  return (ethicsField(form, "methodology") || (r.methodology ?? "").trim()).trim();
+}
+
+function topSdgsSummary(rows: AggregateSubmissionInput[], limit: number): string {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const raw = ethicsField(ethicsForm(r.ethics_json), "sdgs");
+    for (const part of raw.split(",")) {
+      const p = part.trim();
+      if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+    }
+  }
+  const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const top = sorted.slice(0, limit);
+  if (top.length === 0) return "—";
+  return top.map(([label, c]) => `${label} (${c})`).join("; ");
+}
+
+type FacultyInsightAgg = { total: number; approved: number; rejected: number };
+
+function facultyAggregates(rows: AggregateSubmissionInput[]): Map<string, FacultyInsightAgg> {
+  const m = new Map<string, FacultyInsightAgg>();
+  for (const r of rows) {
+    const fac = r.faculty.trim() || "—";
+    const cur = m.get(fac) ?? { total: 0, approved: 0, rejected: 0 };
+    cur.total += 1;
+    if (r.current_status === "approved") cur.approved += 1;
+    if (r.current_status === "rejected" || r.current_status === "dean_rejected") cur.rejected += 1;
+    m.set(fac, cur);
+  }
+  return m;
+}
+
+function extremalFacultyByMetric(
+  byFac: Map<string, FacultyInsightAgg>,
+  totalN: number,
+  mode: "volumeShare" | "approvedRate" | "rejectedRate",
+  pick: "max" | "min",
+): { names: string; pct: number } | null {
+  if (byFac.size === 0 || totalN === 0) return null;
+  let bestPct = pick === "max" ? -Infinity : Infinity;
+  const namesAt: string[] = [];
+  for (const [fac, agg] of byFac) {
+    let pct = 0;
+    if (mode === "volumeShare") pct = (agg.total / totalN) * 100;
+    else if (mode === "approvedRate") pct = agg.total > 0 ? (agg.approved / agg.total) * 100 : 0;
+    else pct = agg.total > 0 ? (agg.rejected / agg.total) * 100 : 0;
+
+    if (pick === "max") {
+      if (pct > bestPct + 1e-9) {
+        bestPct = pct;
+        namesAt.length = 0;
+        namesAt.push(fac);
+      } else if (Math.abs(pct - bestPct) < 1e-9) {
+        namesAt.push(fac);
+      }
+    } else {
+      if (pct < bestPct - 1e-9) {
+        bestPct = pct;
+        namesAt.length = 0;
+        namesAt.push(fac);
+      } else if (Math.abs(pct - bestPct) < 1e-9) {
+        namesAt.push(fac);
+      }
+    }
+  }
+  namesAt.sort((a, b) => a.localeCompare(b));
+  return { names: namesAt.join(", "), pct: bestPct };
+}
+
+function truncateForCell(s: string, maxLen: number): string {
+  const t = s.trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+/** Row titles follow the admin research-insights checklist wording. */
+function researchInsightsSummaryTable(rows: AggregateSubmissionInput[]): string {
+  const n = rows.length;
+  const emptyTitles: [string, string][] = [
+    ["Common research purpose", "—"],
+    ["Common research method", "—"],
+    ["Top 5 SDGs", "—"],
+    ["% of thesis / project requests", "—"],
+    ["% of publication requests", "—"],
+    ["Highest % of research requests by faculty", "—"],
+    ["Lowest % of research requests by faculty", "—"],
+    ["Highest approved % of requests by faculty", "—"],
+    ["Highest rejected % of requests by faculty", "—"],
+  ];
+  if (n === 0) {
+    const body = emptyTitles
+      .map(([a, b]) => `<tr><th>${escapeHtml(a)}</th><td>${escapeHtml(b)}</td></tr>`)
+      .join("");
+    return `<div class="sec-title">Research insights (aggregate)</div><table class="pdf-grid"><tbody>${body}</tbody></table>`;
+  }
+  const commonPurpose = mostCommonInsightText(rows.map(researchPurposeLine));
+  const commonMethod = mostCommonInsightText(rows.map(researchMethodLine));
+  const thesisN = rows.filter((r) => r.type === "thesis").length;
+  const pubN = rows.filter((r) => r.type === "publication").length;
+  const byFac = facultyAggregates(rows);
+  const hiVol = extremalFacultyByMetric(byFac, n, "volumeShare", "max");
+  const loVol = extremalFacultyByMetric(byFac, n, "volumeShare", "min");
+  const hiAppr = extremalFacultyByMetric(byFac, n, "approvedRate", "max");
+  const hiRej = extremalFacultyByMetric(byFac, n, "rejectedRate", "max");
+  const fmtFac = (x: { names: string; pct: number } | null) =>
+    x && x.names ? `${x.names} (${fmtPct(x.pct)})` : "—";
+  const rowsHtml: [string, string][] = [
+    [
+      "Common research purpose",
+      commonPurpose ? truncateForCell(commonPurpose, 700) : "—",
+    ],
+    ["Common research method", commonMethod ? truncateForCell(commonMethod, 700) : "—"],
+    ["Top 5 SDGs", topSdgsSummary(rows, 5)],
+    ["% of thesis / project requests", fmtPct((thesisN / n) * 100)],
+    ["% of publication requests", fmtPct((pubN / n) * 100)],
+    ["Highest % of research requests by faculty", fmtFac(hiVol)],
+    ["Lowest % of research requests by faculty", fmtFac(loVol)],
+    ["Highest approved % of requests by faculty", fmtFac(hiAppr)],
+    ["Highest rejected % of requests by faculty", fmtFac(hiRej)],
+  ];
+  const body = rowsHtml
+    .map(([a, b]) => `<tr><th>${escapeHtml(a)}</th><td>${escapeHtml(b)}</td></tr>`)
+    .join("");
+  return `<div class="sec-title">Research insights (aggregate)</div><table class="pdf-grid"><tbody>${body}</tbody></table>`;
+}
+
 function researchCrossTab(rows: AggregateSubmissionInput[]): string {
   const domains: AggregateSubmissionInput["domain"][] = ["medical", "non_medical"];
   const types: AggregateSubmissionInput["type"][] = ["thesis", "publication"];
@@ -368,19 +601,6 @@ function researchCrossTab(rows: AggregateSubmissionInput[]): string {
   return `<div class="sec-title">Research mix (type × domain)</div><table class="pdf-data">${head}<tbody>${body}</tbody></table>`;
 }
 
-export function buildDeansReportHtml(
-  rows: AggregateSubmissionInput[],
-  ctx: AggregateReportContext,
-): string {
-  const inner = `
-  ${coverBlock(ctx)}
-  ${tableFromMap("Applications by current status", countsByStatus(rows))}
-  ${efficiencyMetricsTable(rows)}
-  ${topFaculties(rows, 12)}
-  <p class="footer-note">Dean&rsquo;s report summarizes ethical applications visible under the selected dean scope. Metrics use approval timestamps where recorded; otherwise values show &ldquo;—&rdquo;.</p>`;
-  return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
-}
-
 export function buildTotalEfficiencyReportHtml(
   rows: AggregateSubmissionInput[],
   ctx: AggregateReportContext,
@@ -388,7 +608,6 @@ export function buildTotalEfficiencyReportHtml(
   const inner = `
   ${coverBlock(ctx)}
   ${efficiencyMetricsTable(rows)}
-  ${tableFromMap("Status distribution", countsByStatus(rows))}
   ${topFaculties(rows, 10)}
   <p class="footer-note">Total efficiency view for the selected period and scope.</p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
@@ -401,34 +620,8 @@ export function buildOverallResearchSpecificReportHtml(
   const inner = `
   ${coverBlock(ctx)}
   ${researchCrossTab(rows)}
-  ${tableFromMap("Status distribution", countsByStatus(rows))}
+  ${researchInsightsSummaryTable(rows)}
   ${topFaculties(rows, 10)}
   <p class="footer-note">Research-specific overview: thesis vs publication and medical vs non-medical domain.</p>`;
-  return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
-}
-
-export function buildOverallStudentReportHtml(
-  rows: AggregateSubmissionInput[],
-  ctx: AggregateReportContext,
-): string {
-  const inner = `
-  ${coverBlock(ctx)}
-  ${efficiencyMetricsTable(rows)}
-  ${tableFromMap("Status distribution (student applicants)", countsByStatus(rows))}
-  ${researchCrossTab(rows)}
-  <p class="footer-note">Filtered to submissions with applicant role &ldquo;student&rdquo; only.</p>`;
-  return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
-}
-
-export function buildOverallFacultyReportHtml(
-  rows: AggregateSubmissionInput[],
-  ctx: AggregateReportContext,
-): string {
-  const inner = `
-  ${coverBlock(ctx)}
-  ${efficiencyMetricsTable(rows)}
-  ${tableFromMap("Status distribution (faculty applicants)", countsByStatus(rows))}
-  ${researchCrossTab(rows)}
-  <p class="footer-note">Filtered to submissions with applicant role &ldquo;faculty&rdquo; only.</p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
 }

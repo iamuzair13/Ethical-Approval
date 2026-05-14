@@ -3,6 +3,7 @@ import type { AuthenticatedAdmin } from "@/lib/admin-auth";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 
 export type ReportSubmissionRow = {
+  submission_id: number;
   application_id: string;
   type: "thesis" | "publication";
   domain: "medical" | "non_medical";
@@ -17,8 +18,16 @@ export type ReportSubmissionRow = {
     | "rejected";
   submitted_at: Date;
   faculty: string;
+  applicant_email: string;
+  applicant_department: string;
+  applicant_program: string | null;
   dean_decision_at: Date | null;
   ireb_decision_at: Date | null;
+  /** 1-based count of non-draft submissions by this applicant up to and including this row. */
+  applicant_attempt_number: number;
+  objectives: string | null;
+  methodology: string | null;
+  ethics_json: unknown;
 };
 
 /**
@@ -48,6 +57,7 @@ export async function fetchReportSubmissionRows(
   const result = await db.query<ReportSubmissionRow>(
     `
       SELECT
+        s.id AS submission_id,
         s.application_id,
         s.type,
         s.domain,
@@ -55,6 +65,9 @@ export async function fetchReportSubmissionRows(
         s.current_status,
         s.submitted_at,
         sas.faculty,
+        sas.email AS applicant_email,
+        sas.department AS applicant_department,
+        sas.program AS applicant_program,
         (
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad
@@ -66,9 +79,23 @@ export async function fetchReportSubmissionRows(
           FROM approval_decisions ad
           WHERE ad.submission_id = s.id
             AND ad.stage = 'ireb'
-        ) AS ireb_decision_at
+        ) AS ireb_decision_at,
+        (
+          SELECT COUNT(*)::int
+          FROM submissions s2
+          INNER JOIN submission_applicant_snapshot sas2
+            ON sas2.submission_id = s2.id
+          WHERE sas2.sap_id = sas.sap_id
+            AND s2.current_status <> 'draft'
+            AND s2.submitted_at <= s.submitted_at
+        ) AS applicant_attempt_number,
+        src.objectives AS objectives,
+        src.methodology AS methodology,
+        sep.ethics_json AS ethics_json
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+      LEFT JOIN submission_research_core src ON src.submission_id = s.id
+      LEFT JOIN submission_ethics_payload sep ON sep.submission_id = s.id
       WHERE ${whereParts.join(" AND ")}
       ORDER BY s.submitted_at ASC
     `,

@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator, type AuthenticatedAdmin } from "@/lib/admin-auth";
+import type { AdminScope, AdminUserRecord } from "@/lib/admin-rbac";
 import {
-  buildDeansReportHtml,
-  buildOverallFacultyReportHtml,
   buildOverallResearchSpecificReportHtml,
-  buildOverallStudentReportHtml,
   buildTotalEfficiencyReportHtml,
   type AggregateReportContext,
 } from "@/lib/admin-aggregate-reports-html";
+import { buildDeanReportHtml } from "@/lib/admin-dean-report-html";
+import { buildOverallFacultyReportHtml, isFacultyStaffPublicationRow } from "@/lib/admin-faculty-overall-report-html";
+import { buildOverallStudentReportHtml, isStudentCohortRow } from "@/lib/admin-student-overall-report-html";
+import {
+  classifyDeanRejectionReasonStated,
+  fetchFacultyNamesForIds,
+  fetchInstitutionNonDraftSubmissionCount,
+} from "@/lib/admin-dean-report-queries";
 import { getAdminUserById, getAdminScope } from "@/lib/admin-repository";
 import { fetchReportSubmissionRows, filterReportRowsByScope } from "@/lib/admin-report-queries";
 
@@ -153,6 +159,7 @@ export async function POST(
   let periodLabelStr: string;
   let dateStart: Date | null;
   let dateEnd: Date | null;
+  let deanReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
 
   if (reportType === "deans-report") {
     periodLabelStr = "All submissions (lifetime view)";
@@ -168,6 +175,7 @@ export async function POST(
     scopeForFilter = scopeCheckAdmin(deanScope);
     skipFacultyFilter = false;
     subjectLine = `${deanUser.name} (${deanUser.email})`;
+    deanReportPack = { user: deanUser, scope: deanScope };
   } else {
     const w = periodWindow(period, year, month);
     dateStart = w.start;
@@ -177,12 +185,6 @@ export async function POST(
 
   const rawRows = await fetchReportSubmissionRows(dateStart, dateEnd);
   let rows = await filterReportRowsByScope(scopeForFilter, skipFacultyFilter, rawRows);
-
-  if (reportType === "overall-student") {
-    rows = rows.filter((r) => r.applicant_role === "student");
-  } else if (reportType === "overall-faculty") {
-    rows = rows.filter((r) => r.applicant_role === "faculty");
-  }
 
   const generatedAt = new Date();
   const baseCtx: Omit<AggregateReportContext, "reportTitle"> = {
@@ -200,13 +202,33 @@ export async function POST(
   let title: string;
 
   switch (reportType) {
-    case "deans-report":
-      html = buildDeansReportHtml(rows, {
-        ...baseCtx,
-        reportTitle: "Dean's Report",
-      });
+    case "deans-report": {
+      if (!deanReportPack) {
+        return NextResponse.json({ ok: false, error: "Dean not found." }, { status: 404 });
+      }
+      const { user: deanUser, scope: deanScope } = deanReportPack;
+      const institutionTotal = await fetchInstitutionNonDraftSubmissionCount(dateStart, dateEnd);
+      const facultyLabel = await fetchFacultyNamesForIds(deanScope.facultyIds);
+      const rejectedIds = [
+        ...new Set(rows.filter((r) => r.current_status === "dean_rejected").map((r) => r.application_id)),
+      ];
+      const rejectionReasonStated = await classifyDeanRejectionReasonStated(rejectedIds);
+      html = buildDeanReportHtml(
+        {
+          dean: { id: deanUser.id, name: deanUser.name, email: deanUser.email },
+          facultyLabel,
+          rows,
+          institutionTotalSubmissions: institutionTotal,
+          rejectionReasonStated,
+        },
+        {
+          ...baseCtx,
+          reportTitle: "Dean's Report",
+        },
+      );
       title = `Dean's Report — ${subjectLine ?? "Dean"}`;
       break;
+    }
     case "total-efficiency":
       html = buildTotalEfficiencyReportHtml(rows, {
         ...baseCtx,
@@ -221,20 +243,25 @@ export async function POST(
       });
       title = `Overall Research Specific Report — ${periodLabelStr}`;
       break;
-    case "overall-student":
-      html = buildOverallStudentReportHtml(rows, {
+    case "overall-student": {
+      const studentRows = rows.filter(isStudentCohortRow);
+      html = buildOverallStudentReportHtml(studentRows, {
         ...baseCtx,
         reportTitle: "Overall Student Report",
       });
       title = `Overall Student Report — ${periodLabelStr}`;
       break;
-    case "overall-faculty":
-      html = buildOverallFacultyReportHtml(rows, {
+    }
+    case "overall-faculty": {
+      const scopedAll = rows;
+      const facultyRows = scopedAll.filter(isFacultyStaffPublicationRow);
+      html = buildOverallFacultyReportHtml(facultyRows, scopedAll, {
         ...baseCtx,
         reportTitle: "Overall Faculty Report",
       });
       title = `Overall Faculty Report — ${periodLabelStr}`;
       break;
+    }
     default:
       return NextResponse.json({ ok: false, error: "Unknown report type." }, { status: 404 });
   }
