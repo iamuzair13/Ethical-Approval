@@ -5,6 +5,7 @@
 
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
 import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import { buildOverallFacultyChartsHtml } from "@/lib/admin-report-charts-html";
 
 const STUDENT_UOL_EMAIL_SUFFIX = "@student.uol.edu.pk";
 
@@ -266,6 +267,7 @@ export function buildOverallFacultyReportHtml(
     .join("");
   const inner = `
   ${coverBlock(ctx)}
+  ${buildOverallFacultyChartsHtml(facultyRows)}
   <div class="sec-title">Faculty / staff publication summary</div>
   <table class="pdf-grid"><tbody>${body}</tbody></table>
   <p class="footer-note">

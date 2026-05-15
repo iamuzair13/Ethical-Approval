@@ -5,6 +5,7 @@
 
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
 import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import { buildOverallStudentChartsHtml } from "@/lib/admin-report-charts-html";
 import { isStudentUolEmail } from "@/lib/admin-faculty-overall-report-html";
 
 export function isStudentCohortRow(r: AggregateSubmissionInput): boolean {
@@ -281,6 +282,7 @@ export function buildOverallStudentReportHtml(
     .join("");
   const inner = `
   ${coverBlock(ctx)}
+  ${buildOverallStudentChartsHtml(studentRows)}
   <div class="sec-title">Student applicant summary</div>
   <table class="pdf-grid"><tbody>${body}</tbody></table>
   <p class="footer-note">

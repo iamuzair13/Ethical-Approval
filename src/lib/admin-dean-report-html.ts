@@ -5,6 +5,7 @@
 
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
 import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import { buildDeanReportChartsHtml } from "@/lib/admin-report-charts-html";
 
 const DEAN_RESPONSE_DELAY_DAYS = 3;
 
@@ -79,13 +80,17 @@ export function buildDeanReportHtml(metrics: DeanReportMetricsInput, ctx: Aggreg
     .join("");
   const inner = `
   ${coverBlock(ctx)}
+  ${buildDeanReportChartsHtml({
+    rows: metrics.rows,
+    institutionTotalSubmissions: metrics.institutionTotalSubmissions,
+  })}
   <div class="sec-title">Dean performance summary</div>
   <table class="pdf-grid"><tbody>${body}</tbody></table>
   <p class="footer-note">
     &ldquo;Total approved forms&rdquo; counts submissions that passed the dean stage (including those later rejected by IREB).
     &ldquo;Average response days&rdquo; uses the latest dean-stage decision timestamp where recorded.
     &ldquo;Delay response&rdquo; is <strong>Yes</strong> if any dean response exceeded ${DEAN_RESPONSE_DELAY_DAYS} days from submission, or the average exceeded ${DEAN_RESPONSE_DELAY_DAYS} days.
-    &ldquo;Total contribution&rdquo; is this dean&rsquo;s scoped submissions as a percentage of all non-draft submissions in the same period (lifetime for this report).
+    &ldquo;Total contribution&rdquo; is this dean&rsquo;s scoped submissions as a percentage of all non-draft submissions in the same selected date range.
     Rejection reasons reflect whether every dean rejection in scope has a non-empty comment on the latest dean rejection decision.
   </p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);

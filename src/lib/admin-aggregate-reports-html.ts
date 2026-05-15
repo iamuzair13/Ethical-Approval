@@ -3,6 +3,11 @@
  * Styling matches admin-leads-reports-html (print + toolbar).
  */
 
+import {
+  buildOverallResearchSpecificChartsHtml,
+  buildTotalEfficiencyChartsHtml,
+} from "@/lib/admin-report-charts-html";
+
 export type AggregateReportContext = {
   reportTitle: string;
   generatedAt: Date;
@@ -75,7 +80,7 @@ function mean(values: number[]): number | null {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-function statusLabel(cs: AggregateSubmissionInput["current_status"]): string {
+export function submissionStatusLabel(cs: AggregateSubmissionInput["current_status"]): string {
   switch (cs) {
     case "submitted":
       return "Submitted";
@@ -199,6 +204,86 @@ const REPORT_STYLES = `
     color: var(--muted);
     font-family: ui-sans-serif, system-ui, sans-serif;
   }
+  .report-charts {
+    margin: 0 0 20px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid #e5e7eb;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .report-charts > .sec-title {
+    margin-top: 0;
+  }
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  .chart-figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fafafa;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  .chart-caption {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .chart-empty {
+    margin: 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .stacked-bar-track {
+    display: flex;
+    height: 22px;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+    background: #fff;
+  }
+  .stack-seg {
+    min-width: 0;
+    height: 100%;
+    transition: none;
+  }
+  .chart-legend {
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .chart-legend-item {
+    display: inline-block;
+    margin-right: 12px;
+    white-space: nowrap;
+  }
+  .chart-legend-item .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 4px;
+    border-radius: 2px;
+    vertical-align: middle;
+    border: 1px solid #d1d5db;
+  }
+  .chart-svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
   @media print {
     .no-print { display: none !important; }
     body { padding: 12mm; }
@@ -256,27 +341,13 @@ export function coverBlock(ctx: AggregateReportContext): string {
   </div>`;
 }
 
-function countsByStatus(rows: AggregateSubmissionInput[]): Map<string, number> {
+export function submissionStatusCountsByLabel(rows: AggregateSubmissionInput[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const r of rows) {
-    const k = statusLabel(r.current_status);
+    const k = submissionStatusLabel(r.current_status);
     m.set(k, (m.get(k) ?? 0) + 1);
   }
   return m;
-}
-
-function tableFromMap(title: string, map: Map<string, number>): string {
-  const rows = Array.from(map.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const body =
-    rows.length === 0
-      ? `<tr><td colspan="2">No applications in this scope.</td></tr>`
-      : rows
-          .map(
-            ([k, v]) =>
-              `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`,
-          )
-          .join("");
-  return `<div class="sec-title">${escapeHtml(title)}</div><table class="pdf-grid"><tbody>${body}</tbody></table>`;
 }
 
 function collectDeanDecisionDays(rows: AggregateSubmissionInput[]): number[] {
@@ -607,6 +678,7 @@ export function buildTotalEfficiencyReportHtml(
 ): string {
   const inner = `
   ${coverBlock(ctx)}
+  ${buildTotalEfficiencyChartsHtml(rows)}
   ${efficiencyMetricsTable(rows)}
   ${topFaculties(rows, 10)}
   <p class="footer-note">Total efficiency view for the selected period and scope.</p>`;
@@ -619,6 +691,7 @@ export function buildOverallResearchSpecificReportHtml(
 ): string {
   const inner = `
   ${coverBlock(ctx)}
+  ${buildOverallResearchSpecificChartsHtml(rows)}
   ${researchCrossTab(rows)}
   ${researchInsightsSummaryTable(rows)}
   ${topFaculties(rows, 10)}

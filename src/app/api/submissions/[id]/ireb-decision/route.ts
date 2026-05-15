@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertActiveAdmin } from "@/lib/admin-auth";
 import { canAccessFacultySnapshot, canAccessSubmissionStage } from "@/lib/authorization";
+import {
+  formatRejectionDecisionComment,
+  normalizeRejectionReasonIds,
+} from "@/lib/rejection-reasons";
 
 type DecisionBody = {
   decision?: "approved" | "rejected";
   comment?: string;
+  rejectionReasonCodes?: string[];
 };
 
 type SubmissionStageRow = {
@@ -35,11 +40,21 @@ export async function POST(
   if (body.decision !== "approved" && body.decision !== "rejected") {
     return NextResponse.json({ ok: false, error: "Invalid decision." }, { status: 400 });
   }
-  if (body.decision === "rejected" && !body.comment?.trim()) {
-    return NextResponse.json(
-      { ok: false, error: "Comment is required when rejecting." },
-      { status: 400 },
-    );
+  if (body.decision === "rejected") {
+    const codes = normalizeRejectionReasonIds(body.rejectionReasonCodes);
+    const elaborate = body.comment?.trim() ?? "";
+    if (codes.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "Select at least one rejection reason." },
+        { status: 400 },
+      );
+    }
+    if (!elaborate) {
+      return NextResponse.json(
+        { ok: false, error: "Please elaborate is required when rejecting." },
+        { status: 400 },
+      );
+    }
   }
 
   const submissionResult = await db.query<SubmissionStageRow>(
@@ -68,6 +83,14 @@ export async function POST(
   }
 
   const nextStatus = body.decision === "approved" ? "approved" : "rejected";
+  const commentForDb =
+    body.decision === "rejected"
+      ? formatRejectionDecisionComment(
+          normalizeRejectionReasonIds(body.rejectionReasonCodes),
+          body.comment?.trim() ?? "",
+        )
+      : (body.comment?.trim() ?? null);
+
   await db.query("BEGIN");
   try {
     await db.query(
@@ -84,7 +107,7 @@ export async function POST(
       [
         submissionId,
         body.decision,
-        body.comment?.trim() ?? null,
+        commentForDb,
         admin.adminId,
         `Admin ${admin.adminId}`,
       ],

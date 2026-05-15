@@ -7,14 +7,24 @@ import {
   type AggregateReportContext,
 } from "@/lib/admin-aggregate-reports-html";
 import { buildDeanReportHtml } from "@/lib/admin-dean-report-html";
+import {
+  buildDepartmentWiseResearchReportHtml,
+  buildFacultyWiseResearchReportHtml,
+} from "@/lib/admin-faculty-dept-research-report-html";
 import { buildOverallFacultyReportHtml, isFacultyStaffPublicationRow } from "@/lib/admin-faculty-overall-report-html";
+import {
+  filterReportRowsByDepartmentId,
+  filterReportRowsByMasterFacultyId,
+  getDepartmentRow,
+  intIdEq,
+} from "@/lib/admin-report-faculty-dept-filters";
 import { buildOverallStudentReportHtml, isStudentCohortRow } from "@/lib/admin-student-overall-report-html";
 import {
   classifyDeanRejectionReasonStated,
   fetchFacultyNamesForIds,
   fetchInstitutionNonDraftSubmissionCount,
 } from "@/lib/admin-dean-report-queries";
-import { getAdminUserById, getAdminScope } from "@/lib/admin-repository";
+import { getAdminUserById, getAdminScope, listFaculties } from "@/lib/admin-repository";
 import { fetchReportSubmissionRows, filterReportRowsByScope } from "@/lib/admin-report-queries";
 
 const REPORT_TYPES = new Set([
@@ -23,6 +33,8 @@ const REPORT_TYPES = new Set([
   "overall-research-specific",
   "overall-student",
   "overall-faculty",
+  "faculty-wise-research",
+  "department-wise-research",
 ]);
 
 type Period = "monthly" | "yearly";
@@ -32,6 +44,11 @@ type Body = {
   year?: number;
   month?: number;
   deanId?: string | null;
+  /** ISO calendar date `YYYY-MM-DD` (local interpretation on server). */
+  deanReportDateFrom?: string | null;
+  deanReportDateTo?: string | null;
+  facultyId?: number | null;
+  departmentId?: number | null;
 };
 
 function periodWindow(period: Period, year: number, month: number): { start: Date; end: Date } {
@@ -54,6 +71,46 @@ function periodLabel(period: Period, year: number, month: number): string {
   }
   const d = new Date(year, month - 1, 1);
   return d.toLocaleString(undefined, { month: "long", year: "numeric" });
+}
+
+/** Accepts JSON number or string (e.g. from clients); BIGINT-safe positive id. */
+function parsePositiveIntId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const n = Math.floor(value);
+    return n > 0 ? n : null;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const n = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
+function parseYmdString(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, mo, d] = s.split("-").map((x) => Number.parseInt(x, 10));
+  const dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
+  if (
+    Number.isNaN(dt.getTime()) ||
+    dt.getFullYear() !== y ||
+    dt.getMonth() !== mo - 1 ||
+    dt.getDate() !== d
+  ) {
+    return null;
+  }
+  return s;
+}
+
+function ymdToLocalStartOfDay(ymd: string): Date {
+  const [y, mo, d] = ymd.split("-").map((x) => Number.parseInt(x, 10));
+  return new Date(y, mo - 1, d, 0, 0, 0, 0);
+}
+
+function ymdToLocalEndOfDay(ymd: string): Date {
+  const [y, mo, d] = ymd.split("-").map((x) => Number.parseInt(x, 10));
+  return new Date(y, mo - 1, d, 23, 59, 59, 999);
 }
 
 /** Synthetic admin for faculty snapshot checks (never role administrator). */
@@ -136,6 +193,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
+  if (reportType !== "deans-report") {
+    const hasDeanFrom =
+      body.deanReportDateFrom != null && String(body.deanReportDateFrom).trim() !== "";
+    const hasDeanTo =
+      body.deanReportDateTo != null && String(body.deanReportDateTo).trim() !== "";
+    if (hasDeanFrom || hasDeanTo) {
+      return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+    }
+  }
+
   const period: Period = body.period === "yearly" ? "yearly" : "monthly";
   const year =
     typeof body.year === "number" && Number.isFinite(body.year)
@@ -150,6 +217,71 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Invalid year." }, { status: 400 });
   }
 
+  const facultyIdParsed = parsePositiveIntId(body.facultyId);
+  const departmentIdParsed = parsePositiveIntId(body.departmentId);
+
+  if (facultyIdParsed != null && reportType !== "faculty-wise-research") {
+    return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+  }
+  if (departmentIdParsed != null && reportType !== "department-wise-research") {
+    return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+  }
+
+  let facultyWiseFocusName: string | null = null;
+  let departmentFilterRow: { id: number; faculty_id: number; name: string } | null = null;
+  let departmentWiseFacultyName: string | null = null;
+
+  if (reportType === "faculty-wise-research") {
+    if (!facultyIdParsed || facultyIdParsed <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Select a faculty to generate this report." },
+        { status: 400 },
+      );
+    }
+    const faculties = await listFaculties();
+    const f = faculties.find((row) => intIdEq(row.id, facultyIdParsed) && row.is_active);
+    if (!f) {
+      return NextResponse.json({ ok: false, error: "Faculty not found." }, { status: 404 });
+    }
+    if (!isAdministrator(actor)) {
+      if (
+        actor.scopeMode === "restricted" &&
+        !actor.facultyIds.some((fid) => intIdEq(fid, f.id))
+      ) {
+        return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+      }
+    }
+    facultyWiseFocusName = f.name;
+  }
+
+  if (reportType === "department-wise-research") {
+    if (!departmentIdParsed || departmentIdParsed <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Select a department to generate this report." },
+        { status: 400 },
+      );
+    }
+    const d = await getDepartmentRow(departmentIdParsed);
+    if (!d) {
+      return NextResponse.json({ ok: false, error: "Department not found." }, { status: 404 });
+    }
+    const faculties = await listFaculties();
+    const f = faculties.find((row) => intIdEq(row.id, d.faculty_id) && row.is_active);
+    if (!f) {
+      return NextResponse.json({ ok: false, error: "Department not available." }, { status: 404 });
+    }
+    if (!isAdministrator(actor)) {
+      if (
+        actor.scopeMode === "restricted" &&
+        !actor.facultyIds.some((fid) => intIdEq(fid, f.id))
+      ) {
+        return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+      }
+    }
+    departmentFilterRow = d;
+    departmentWiseFacultyName = f.name;
+  }
+
   const institutionWide =
     !isAdministrator(actor) ? false : reportType !== "deans-report";
 
@@ -162,9 +294,32 @@ export async function POST(
   let deanReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
 
   if (reportType === "deans-report") {
-    periodLabelStr = "All submissions (lifetime view)";
-    dateStart = null;
-    dateEnd = null;
+    const fromStr = parseYmdString(body.deanReportDateFrom);
+    const toStr = parseYmdString(body.deanReportDateTo);
+    if (!fromStr || !toStr) {
+      return NextResponse.json(
+        { ok: false, error: "Select a start and end date for the Dean's Report." },
+        { status: 400 },
+      );
+    }
+    dateStart = ymdToLocalStartOfDay(fromStr);
+    dateEnd = ymdToLocalEndOfDay(toStr);
+    if (dateStart.getTime() > dateEnd.getTime()) {
+      return NextResponse.json(
+        { ok: false, error: "Start date must be on or before end date." },
+        { status: 400 },
+      );
+    }
+    const maxSpanMs = 10 * 366 * 24 * 60 * 60 * 1000;
+    if (dateEnd.getTime() - dateStart.getTime() > maxSpanMs) {
+      return NextResponse.json(
+        { ok: false, error: "Date range cannot exceed 10 years." },
+        { status: 400 },
+      );
+    }
+    periodLabelStr = `${dateStart.toLocaleDateString(undefined, {
+      dateStyle: "medium",
+    })} – ${dateEnd.toLocaleDateString(undefined, { dateStyle: "medium" })}`;
 
     const targetDeanId = isAdministrator(actor) ? deanIdRaw : actor.adminId;
     const deanUser = await getAdminUserById(targetDeanId);
@@ -185,6 +340,13 @@ export async function POST(
 
   const rawRows = await fetchReportSubmissionRows(dateStart, dateEnd);
   let rows = await filterReportRowsByScope(scopeForFilter, skipFacultyFilter, rawRows);
+
+  if (reportType === "faculty-wise-research" && facultyIdParsed) {
+    rows = await filterReportRowsByMasterFacultyId(rows, facultyIdParsed);
+  }
+  if (reportType === "department-wise-research" && departmentFilterRow) {
+    rows = await filterReportRowsByDepartmentId(rows, departmentFilterRow);
+  }
 
   const generatedAt = new Date();
   const baseCtx: Omit<AggregateReportContext, "reportTitle"> = {
@@ -226,7 +388,7 @@ export async function POST(
           reportTitle: "Dean's Report",
         },
       );
-      title = `Dean's Report — ${subjectLine ?? "Dean"}`;
+      title = `Dean's Report — ${subjectLine ?? "Dean"} — ${periodLabelStr}`;
       break;
     }
     case "total-efficiency":
@@ -260,6 +422,39 @@ export async function POST(
         reportTitle: "Overall Faculty Report",
       });
       title = `Overall Faculty Report — ${periodLabelStr}`;
+      break;
+    }
+    case "faculty-wise-research": {
+      if (!facultyWiseFocusName || !facultyIdParsed) {
+        return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+      }
+      html = buildFacultyWiseResearchReportHtml(
+        rows,
+        {
+          ...baseCtx,
+          reportTitle: "Faculty Wise Research Report",
+        },
+        { facultyName: facultyWiseFocusName },
+      );
+      title = `Faculty Wise Research Report — ${facultyWiseFocusName} — ${periodLabelStr}`;
+      break;
+    }
+    case "department-wise-research": {
+      if (!departmentFilterRow || !departmentWiseFacultyName) {
+        return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+      }
+      html = buildDepartmentWiseResearchReportHtml(
+        rows,
+        {
+          ...baseCtx,
+          reportTitle: "Department Wise Research Report",
+        },
+        {
+          departmentName: departmentFilterRow.name,
+          facultyName: departmentWiseFacultyName,
+        },
+      );
+      title = `Department Wise Research Report — ${departmentFilterRow.name} — ${periodLabelStr}`;
       break;
     }
     default:

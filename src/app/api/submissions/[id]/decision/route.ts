@@ -2,12 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
 import { getAdminUserById, resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
+import {
+  scheduleDeanRejectionEmail,
+  scheduleIrebApprovalEmail,
+  scheduleIrebRejectionEmail,
+} from "@/lib/email";
 import { db } from "@/lib/db";
 import { getSubmissionDetailById } from "@/lib/submission-details";
+import {
+  formatRejectionDecisionComment,
+  normalizeRejectionReasonIds,
+} from "@/lib/rejection-reasons";
 
 type DecisionBody = {
   decision?: "approved" | "rejected";
   comment?: string;
+  /** Required when rejecting: predefined reason ids (see `REJECTION_REASON_OPTIONS`). */
+  rejectionReasonCodes?: string[];
   onBehalfOfAdminId?: string;
 };
 
@@ -36,11 +47,21 @@ export async function POST(
   if (body.decision !== "approved" && body.decision !== "rejected") {
     return NextResponse.json({ ok: false, error: "Invalid decision." }, { status: 400 });
   }
-  if (body.decision === "rejected" && !body.comment?.trim()) {
-    return NextResponse.json(
-      { ok: false, error: "Comment is required when rejecting." },
-      { status: 400 },
-    );
+  if (body.decision === "rejected") {
+    const codes = normalizeRejectionReasonIds(body.rejectionReasonCodes);
+    const elaborate = body.comment?.trim() ?? "";
+    if (codes.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "Select at least one rejection reason." },
+        { status: 400 },
+      );
+    }
+    if (!elaborate) {
+      return NextResponse.json(
+        { ok: false, error: "Please elaborate is required when rejecting." },
+        { status: 400 },
+      );
+    }
   }
 
   const submission = await getSubmissionDetailById(submissionId);
@@ -121,7 +142,17 @@ export async function POST(
     actor.role === "administrator" && actor.adminId !== effectiveAdmin.id
       ? `Action performed by administrator ${actingAdmin.name} on behalf of ${effectiveAdmin.name}.`
       : null;
-  const finalComment = [body.comment?.trim(), auditNote].filter(Boolean).join("\n\n") || null;
+
+  let decisionCommentForDb: string | null;
+  if (body.decision === "rejected") {
+    const codes = normalizeRejectionReasonIds(body.rejectionReasonCodes);
+    const elaborate = body.comment?.trim() ?? "";
+    decisionCommentForDb = formatRejectionDecisionComment(codes, elaborate);
+  } else {
+    decisionCommentForDb = body.comment?.trim() ?? null;
+  }
+
+  const finalComment = [decisionCommentForDb, auditNote].filter(Boolean).join("\n\n") || null;
 
   const client = await db.connect();
   try {
@@ -161,6 +192,31 @@ export async function POST(
     );
 
     await client.query("COMMIT");
+
+    if (body.decision === "rejected" && stage === "dean") {
+      scheduleDeanRejectionEmail({
+        to: submission.applicant_email,
+        applicantName: submission.applicant_name,
+        facultyName: submission.applicant_faculty,
+        deanName: effectiveAdmin.name,
+        comment: finalComment,
+      });
+    } else if (body.decision === "rejected" && stage === "ireb") {
+      scheduleIrebRejectionEmail({
+        to: submission.applicant_email,
+        applicantName: submission.applicant_name,
+        comment: finalComment,
+      });
+    } else if (body.decision === "approved" && stage === "ireb") {
+      scheduleIrebApprovalEmail({
+        to: submission.applicant_email,
+        applicantName: submission.applicant_name,
+        title: submission.title,
+        applicationId: submission.application_id,
+        approvedAt: new Date(),
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     await client.query("ROLLBACK");

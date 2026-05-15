@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { allocateUniqueApplicationId } from "@/lib/application-id";
 import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
+import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
+import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
 import { db } from "@/lib/db";
 
 type ProfileSubmissionRow = {
@@ -24,17 +26,6 @@ type ProfileSubmissionRow = {
   ethics_json: unknown;
   latest_feedback_comment: string | null;
 };
-
-function stripAdminAuditNote(comment: string | null): string | null {
-  if (!comment) return null;
-  const cleaned = comment
-    .replace(
-      /(?:^|\n)\s*Action performed by administrator .*? on behalf of .*?\.\s*(?=\n|$)/g,
-      "",
-    )
-    .trim();
-  return cleaned || null;
-}
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -307,6 +298,13 @@ export async function POST(request: NextRequest) {
 
       await client.query("COMMIT");
 
+      scheduleSubmissionConfirmationEmail({
+        to: applicantEmail,
+        applicantName,
+        applicationId: existing.application_id,
+        submittedAt: existing.submitted_at,
+      });
+
       return NextResponse.json({
         ok: true,
         submission: {
@@ -424,6 +422,13 @@ export async function POST(request: NextRequest) {
 
       await client.query("COMMIT");
 
+      scheduleSubmissionConfirmationEmail({
+        to: applicantEmail,
+        applicantName,
+        applicationId: existingDraft.application_id,
+        submittedAt: existingDraft.submitted_at,
+      });
+
       return NextResponse.json({
         ok: true,
         submission: {
@@ -521,6 +526,13 @@ export async function POST(request: NextRequest) {
 
       await client.query("COMMIT");
 
+      scheduleSubmissionConfirmationEmail({
+        to: applicantEmail,
+        applicantName,
+        applicationId: latestDraft.application_id,
+        submittedAt: latestDraft.submitted_at,
+      });
+
       return NextResponse.json({
         ok: true,
         submission: {
@@ -591,6 +603,13 @@ export async function POST(request: NextRequest) {
     );
 
     await client.query("COMMIT");
+
+    scheduleSubmissionConfirmationEmail({
+      to: applicantEmail,
+      applicantName,
+      applicationId: submission.application_id,
+      submittedAt: submission.submitted_at,
+    });
 
     return NextResponse.json({
       ok: true,

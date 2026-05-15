@@ -6,6 +6,7 @@ import {
 } from "@/app/profile/_components/forms/form-registry";
 import { resolveAttachmentSlotLabels } from "@/app/profile/_components/forms/attachment-lists-by-form";
 import { describeEthicsAttachmentValue } from "@/lib/ethics-attachment-meta";
+import { REJECTION_REASON_OPTIONS } from "@/lib/rejection-reasons";
 import { type SubmissionReportInput } from "@/lib/application-report-html";
 import {
   buildApplicationStatusReportHtml,
@@ -484,6 +485,7 @@ export function LeadsReport({
   const [decisionLead, setDecisionLead] = useState<Lead | null>(null);
   const [decisionAction, setDecisionAction] = useState<DecisionAction>("approved");
   const [decisionComment, setDecisionComment] = useState("");
+  const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [adminOptions, setAdminOptions] = useState<{
     deanOption: AdminOption | null;
     irebOptions: AdminOption[];
@@ -743,6 +745,7 @@ export function LeadsReport({
   const resetDecisionModal = () => {
     setDecisionLead(null);
     setDecisionComment("");
+    setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
     setAdminOptions({ deanOption: null, irebOptions: [] });
   };
@@ -751,9 +754,16 @@ export function LeadsReport({
     setActionError(null);
     setDecisionAction(action);
     setDecisionComment("");
+    setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
     setAdminOptions({ deanOption: null, irebOptions: [] });
     setDecisionLead(lead);
+  };
+
+  const toggleRejectionReason = (reasonId: string) => {
+    setSelectedRejectionReasons((prev) =>
+      prev.includes(reasonId) ? prev.filter((id) => id !== reasonId) : [...prev, reasonId],
+    );
   };
 
   const closeAttachmentModal = () => {
@@ -1003,6 +1013,20 @@ export function LeadsReport({
       toast.error(message);
       return;
     }
+    if (decisionAction === "rejected") {
+      if (selectedRejectionReasons.length === 0) {
+        const message = "Select at least one rejection reason.";
+        setActionError(message);
+        toast.error(message);
+        return;
+      }
+      if (!decisionComment.trim()) {
+        const message = "Please elaborate is required when rejecting.";
+        setActionError(message);
+        toast.error(message);
+        return;
+      }
+    }
 
     setBusyLeadId(decisionLead.id);
     setActionError(null);
@@ -1013,6 +1037,9 @@ export function LeadsReport({
         body: JSON.stringify({
           decision: decisionAction,
           comment: decisionComment,
+          ...(decisionAction === "rejected"
+            ? { rejectionReasonCodes: selectedRejectionReasons }
+            : {}),
           onBehalfOfAdminId: currentRole === "administrator" ? selectedOnBehalfOf : undefined,
         }),
       });
@@ -1850,9 +1877,40 @@ export function LeadsReport({
               </div>
             )}
 
+            {decisionAction === "rejected" && (
+              <div className="mt-5 rounded-lg border border-stroke p-4 dark:border-dark-3">
+                <p className="text-sm font-semibold text-dark dark:text-white">
+                  Dean / IREB reasons for rejection (select all that apply)
+                  <span className="text-red"> *</span>
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {REJECTION_REASON_OPTIONS.map((opt) => (
+                    <li key={opt.id}>
+                      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-dark dark:text-white">
+                        <input
+                          type="checkbox"
+                          checked={selectedRejectionReasons.includes(opt.id)}
+                          onChange={() => toggleRejectionReason(opt.id)}
+                          className="mt-0.5 size-4 shrink-0 rounded border-stroke text-primary focus:ring-primary dark:border-dark-3"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mt-5">
               <label className="mb-2 block text-sm font-semibold text-dark dark:text-white">
-                {decisionAction === "rejected" ? "Rejection Comment" : "Comment (optional)"}
+                {decisionAction === "rejected" ? (
+                  <>
+                    Please elaborate
+                    <span className="text-red"> *</span>
+                  </>
+                ) : (
+                  "Comment (optional)"
+                )}
               </label>
               <textarea
                 value={decisionComment}
@@ -1861,7 +1919,7 @@ export function LeadsReport({
                 className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
                 placeholder={
                   decisionAction === "rejected"
-                    ? "Provide reason for rejection"
+                    ? "Add detail and context for the applicant"
                     : "Optional note"
                 }
               />

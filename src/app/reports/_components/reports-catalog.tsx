@@ -1,11 +1,12 @@
 "use client";
 
 import { ReportCatalogCard } from "@/app/reports/_components/report-catalog-card";
+import { DeanReportDateRange, defaultDeanReportDateRange } from "@/app/reports/_components/dean-report-date-range";
 import { DeanPickerSelect } from "@/app/reports/_components/dean-picker-select";
 import { ReportPeriodControl, type ReportPeriod } from "@/app/reports/_components/report-period-control";
 import { ReportPreviewModal } from "@/app/reports/_components/report-preview-modal";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type AdminRole = "administrator" | "dean" | "ireb";
@@ -17,7 +18,17 @@ type ReportSlug =
   | "total-efficiency"
   | "overall-research-specific"
   | "overall-student"
-  | "overall-faculty";
+  | "overall-faculty"
+  | "faculty-wise-research"
+  | "department-wise-research";
+
+type ReportFilterFaculty = { id: number; name: string };
+type ReportFilterDepartment = {
+  id: number;
+  name: string;
+  facultyId: number;
+  facultyName: string;
+};
 
 export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   const isAdministrator = adminRole === "administrator";
@@ -30,6 +41,21 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   const [deans, setDeans] = useState<DeanRow[]>([]);
   const [deansLoading, setDeansLoading] = useState(isAdministrator);
   const [deanId, setDeanId] = useState("");
+
+  const deanRangeDefaults = useMemo(() => defaultDeanReportDateRange(), []);
+  const [deanDateFrom, setDeanDateFrom] = useState(deanRangeDefaults.from);
+  const [deanDateTo, setDeanDateTo] = useState(deanRangeDefaults.to);
+
+  const onDeanDateFrom = useCallback((ymd: string) => {
+    setDeanDateFrom(ymd);
+    setDeanDateTo((prev) => (prev < ymd ? ymd : prev));
+  }, []);
+
+  const [reportFaculties, setReportFaculties] = useState<ReportFilterFaculty[]>([]);
+  const [reportDepartments, setReportDepartments] = useState<ReportFilterDepartment[]>([]);
+  const [reportFiltersLoading, setReportFiltersLoading] = useState(true);
+  const [facultyWiseFacultyId, setFacultyWiseFacultyId] = useState("");
+  const [deptWiseDepartmentId, setDeptWiseDepartmentId] = useState("");
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
@@ -69,6 +95,35 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
     };
   }, [isAdministrator]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setReportFiltersLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/reports/report-filters", { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          faculties?: ReportFilterFaculty[];
+          departments?: ReportFilterDepartment[];
+        };
+        if (cancelled) return;
+        if (res.ok && data.ok && data.faculties && data.departments) {
+          setReportFaculties(data.faculties);
+          setReportDepartments(data.departments);
+        } else {
+          toast.error("Could not load faculty/department lists for reports.");
+        }
+      } catch {
+        if (!cancelled) toast.error("Could not load faculty/department lists for reports.");
+      } finally {
+        if (!cancelled) setReportFiltersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const downloadPdf = useCallback(async () => {
     const d = downloadRef.current;
     if (!d?.html || pdfBusy) return;
@@ -106,9 +161,17 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
       const body: Record<string, unknown> =
         slug === "deans-report"
           ? isAdministrator
-            ? { deanId: deanId || undefined }
-            : {}
-          : { period, year, month };
+            ? {
+                deanId: deanId || undefined,
+                deanReportDateFrom: deanDateFrom,
+                deanReportDateTo: deanDateTo,
+              }
+            : { deanReportDateFrom: deanDateFrom, deanReportDateTo: deanDateTo }
+          : slug === "faculty-wise-research"
+            ? { period, year, month, facultyId: Number(facultyWiseFacultyId) }
+            : slug === "department-wise-research"
+              ? { period, year, month, departmentId: Number(deptWiseDepartmentId) }
+              : { period, year, month };
 
       const res = await fetch(`/api/admin/reports/${slug}`, {
         method: "POST",
@@ -160,21 +223,40 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
         {adminRole !== "ireb" ? (
           <ReportCatalogCard
             title="Dean's Report"
-            description="Single-dean performance snapshot: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions (lifetime, faculty-scoped)."
-            badge="Scope"
+            description="Single-dean performance snapshot for submissions received in the selected date range: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions in that same range (faculty-scoped)."
+            badge="Scope / Dates"
             controls={
-              isAdministrator ? (
-                <DeanPickerSelect
-                  deans={deans}
-                  value={deanId}
-                  onChange={setDeanId}
-                  loading={deansLoading}
+              <div className="flex flex-col gap-3">
+                {isAdministrator ? (
+                  <DeanPickerSelect
+                    deans={deans}
+                    value={deanId}
+                    onChange={setDeanId}
+                    loading={deansLoading}
+                  />
+                ) : (
+                  <p className="text-xs text-body">
+                    This report uses your assigned dean faculty automatically.
+                  </p>
+                )}
+                <DeanReportDateRange
+                  dateFrom={deanDateFrom}
+                  dateTo={deanDateTo}
+                  onChangeFrom={onDeanDateFrom}
+                  onChangeTo={setDeanDateTo}
                 />
-              ) : (
-                <p className="text-xs text-body">This report uses your assigned dean faculty automatically.</p>
-              )
+              </div>
             }
-            action={primaryBtn("deans-report", "Preview report", isAdministrator && !deanId.trim())}
+            action={primaryBtn(
+              "deans-report",
+              "Preview report",
+              Boolean(
+                (isAdministrator && !deanId.trim()) ||
+                  !deanDateFrom.trim() ||
+                  !deanDateTo.trim() ||
+                  deanDateFrom > deanDateTo,
+              ),
+            )}
           />
         ) : null}
 
@@ -244,6 +326,92 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
             />
           }
           action={primaryBtn("overall-faculty")}
+        />
+
+        <ReportCatalogCard
+          title="Faculty Wise Research Report"
+          description="Per-faculty snapshot for the period: thesis vs publication volume, approval/rejection/pending counts, common research purpose, top SDGs, highest and lowest department volume within the faculty, and faculty-applicant share."
+          badge="Faculty / Monthly / Yearly"
+          controls={
+            <div className="flex flex-col gap-3">
+              <ReportPeriodControl
+                period={period}
+                onPeriodChange={setPeriod}
+                year={year}
+                onYearChange={setYear}
+                month={month}
+                onMonthChange={setMonth}
+              />
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+                  Faculty
+                </span>
+                <select
+                  disabled={reportFiltersLoading}
+                  value={facultyWiseFacultyId}
+                  onChange={(e) => setFacultyWiseFacultyId(e.target.value)}
+                  className="w-full max-w-md rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-medium text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                >
+                  <option value="">
+                    {reportFiltersLoading ? "Loading…" : "Select a faculty…"}
+                  </option>
+                  {reportFaculties.map((f) => (
+                    <option key={f.id} value={String(f.id)}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          }
+          action={primaryBtn(
+            "faculty-wise-research",
+            "Preview report",
+            !facultyWiseFacultyId.trim() || reportFiltersLoading,
+          )}
+        />
+
+        <ReportCatalogCard
+          title="Department Wise Research Report"
+          description="Per-department snapshot for the period: thesis vs publication volume, outcomes, common research purpose, top SDGs, and faculty-applicant share — scoped to the selected master department record."
+          badge="Department / Monthly / Yearly"
+          controls={
+            <div className="flex flex-col gap-3">
+              <ReportPeriodControl
+                period={period}
+                onPeriodChange={setPeriod}
+                year={year}
+                onYearChange={setYear}
+                month={month}
+                onMonthChange={setMonth}
+              />
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+                  Department
+                </span>
+                <select
+                  disabled={reportFiltersLoading}
+                  value={deptWiseDepartmentId}
+                  onChange={(e) => setDeptWiseDepartmentId(e.target.value)}
+                  className="w-full max-w-md rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-medium text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                >
+                  <option value="">
+                    {reportFiltersLoading ? "Loading…" : "Select a department…"}
+                  </option>
+                  {reportDepartments.map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.name} — {d.facultyName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          }
+          action={primaryBtn(
+            "department-wise-research",
+            "Preview report",
+            !deptWiseDepartmentId.trim() || reportFiltersLoading,
+          )}
         />
       </div>
 
