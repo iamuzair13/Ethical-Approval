@@ -112,17 +112,6 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
     };
   }
 
-  const deptAssigned = await db.query<{ faculty_id: number }>(
-    `
-      SELECT DISTINCT ada.faculty_id
-      FROM admin_department_assignments ada
-      WHERE ada.admin_user_id = $1
-        AND ada.assignment_type = 'ireb_scope'
-        AND ada.deleted_at IS NULL
-      ORDER BY ada.faculty_id
-    `,
-    [admin.id],
-  );
   const assigned = await db.query<{ faculty_id: number }>(
     `
       SELECT DISTINCT afa.faculty_id
@@ -134,10 +123,7 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
     `,
     [admin.id],
   );
-  const departmentFacultyIds = deptAssigned.rows.map((row: { faculty_id: number }) => row.faculty_id);
-  const facultyIds = (departmentFacultyIds.length > 0 ? deptAssigned.rows : assigned.rows).map(
-    (row: { faculty_id: number }) => row.faculty_id,
-  );
+  const facultyIds = assigned.rows.map((row: { faculty_id: number }) => row.faculty_id);
   if (facultyIds.length === 0) {
     return { scopeMode: "all", facultyIds: [] };
   }
@@ -326,7 +312,7 @@ export async function assignDeanFaculty(input: {
 
 export async function assignIrebFaculties(input: {
   adminUserId: string;
-  assignments: { facultyId: number; departmentId: number }[];
+  facultyIds: number[];
   assignedBy: string;
 }) {
   await db.query("BEGIN");
@@ -353,7 +339,7 @@ export async function assignIrebFaculties(input: {
       [input.adminUserId],
     );
 
-    const uniqueFacultyIds = Array.from(new Set(input.assignments.map((item) => item.facultyId)));
+    const uniqueFacultyIds = Array.from(new Set(input.facultyIds));
     for (const facultyId of uniqueFacultyIds) {
       await db.query(
         `
@@ -368,21 +354,6 @@ export async function assignIrebFaculties(input: {
       );
     }
 
-    for (const assignment of input.assignments) {
-      await db.query(
-        `
-          INSERT INTO admin_department_assignments (
-            admin_user_id,
-            faculty_id,
-            department_id,
-            assignment_type,
-            assigned_by
-          ) VALUES ($1, $2, $3, 'ireb_scope', $4)
-        `,
-        [input.adminUserId, assignment.facultyId, assignment.departmentId, input.assignedBy],
-      );
-    }
-
     await db.query(
       `
         UPDATE admin_users
@@ -393,6 +364,57 @@ export async function assignIrebFaculties(input: {
       [input.adminUserId],
     );
 
+    await db.query("COMMIT");
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  }
+}
+
+export async function applyIrebScope(input: {
+  adminUserId: string;
+  facultyIds: number[];
+  assignedBy: string;
+}) {
+  await assignIrebFaculties({
+    adminUserId: input.adminUserId,
+    facultyIds: input.facultyIds,
+    assignedBy: input.assignedBy,
+  });
+}
+
+/** Removes all faculty/department scope rows for an admin (e.g. role → administrator). */
+export async function clearAdminScopeAssignments(adminUserId: string) {
+  await db.query("BEGIN");
+  try {
+    await db.query(
+      `
+        UPDATE admin_faculty_assignments
+        SET deleted_at = NOW()
+        WHERE admin_user_id = $1
+          AND deleted_at IS NULL
+      `,
+      [adminUserId],
+    );
+    await db.query(
+      `
+        UPDATE admin_department_assignments
+        SET deleted_at = NOW()
+        WHERE admin_user_id = $1
+          AND deleted_at IS NULL
+      `,
+      [adminUserId],
+    );
+    await db.query(
+      `
+        UPDATE admin_users
+        SET faculty_id = NULL,
+            updated_at = NOW(),
+            token_version = token_version + 1
+        WHERE id = $1
+      `,
+      [adminUserId],
+    );
     await db.query("COMMIT");
   } catch (error) {
     await db.query("ROLLBACK");
@@ -630,33 +652,42 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
 
   const scopeMap = new Map<
     string,
-    { deanFaculty?: string; irebFaculties: string[]; facultyIds: number[]; departmentIds: number[]; departmentNames: string[] }
+    {
+      deanFaculty?: string;
+      deanFacultyId?: number;
+      irebFaculties: string[];
+      irebFacultyIds: number[];
+      departmentIds: number[];
+      departmentNames: string[];
+    }
   >();
 
   for (const row of scopes.rows) {
     const current = scopeMap.get(row.admin_user_id) ?? {
       deanFaculty: undefined,
+      deanFacultyId: undefined,
       irebFaculties: [],
-      facultyIds: [],
+      irebFacultyIds: [],
       departmentIds: [],
       departmentNames: [],
     };
-    if (!current.facultyIds.includes(row.faculty_id)) {
-      current.facultyIds.push(row.faculty_id);
-    }
     if (row.assignment_type === "dean_primary") {
       current.deanFaculty = row.faculty_name;
-    } else {
+      current.deanFacultyId = row.faculty_id;
+    } else if (!current.irebFacultyIds.includes(row.faculty_id)) {
+      current.irebFacultyIds.push(row.faculty_id);
       current.irebFaculties.push(row.faculty_name);
     }
     scopeMap.set(row.admin_user_id, current);
   }
 
   for (const row of departmentScopes.rows) {
+    if (row.assignment_type !== "dean_primary") continue;
     const current = scopeMap.get(row.admin_user_id) ?? {
       deanFaculty: undefined,
+      deanFacultyId: undefined,
       irebFaculties: [],
-      facultyIds: [],
+      irebFacultyIds: [],
       departmentIds: [],
       departmentNames: [],
     };
@@ -682,7 +713,7 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
     } else if (admin.role === "ireb") {
       facultyScope =
         scope?.irebFaculties && scope.irebFaculties.length > 0
-          ? `${scope.irebFaculties.join(", ")}${scope.departmentNames.length > 0 ? ` — ${scope.departmentNames.join(", ")}` : ""}`
+          ? scope.irebFaculties.join(", ")
           : "All Faculties";
     }
 
@@ -694,8 +725,13 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       status: admin.status,
       sapId: admin.sap_id,
       facultyScope,
-      facultyIds: scope?.facultyIds ?? [],
-      departmentIds: scope?.departmentIds ?? [],
+      facultyIds:
+        admin.role === "ireb"
+          ? (scope?.irebFacultyIds ?? [])
+          : admin.role === "dean" && scope?.deanFacultyId != null
+            ? [scope.deanFacultyId]
+            : [],
+      departmentIds: admin.role === "dean" ? (scope?.departmentIds ?? []) : [],
     };
     },
   );

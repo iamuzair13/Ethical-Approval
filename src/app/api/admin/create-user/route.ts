@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
+  applyIrebScope,
   assignDeanFaculty,
-  assignIrebFaculties,
   createAdminUser,
   getAdminUserByEmail,
 } from "@/lib/admin-repository";
-import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { isAdminRole } from "@/lib/admin-rbac";
 
@@ -79,25 +78,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  if (created.role === "ireb" && Array.isArray(body.departmentIds)) {
-    let assignments: { facultyId: number; departmentId: number }[] = [];
-    if (body.departmentIds.length > 0) {
-      const mapped = await db.query<{ id: number; faculty_id: number }>(
-        `
-          SELECT id, faculty_id
-          FROM departments
-          WHERE id = ANY($1::bigint[])
-        `,
-        [body.departmentIds],
-      );
-      assignments = mapped.rows.map((row) => ({
-        facultyId: row.faculty_id,
-        departmentId: row.id,
-      }));
-    }
-    await assignIrebFaculties({
+  if (created.role === "ireb") {
+    const facultyIds = Array.isArray(body.facultyIds) ? body.facultyIds : [];
+    await applyIrebScope({
       adminUserId: created.id,
-      assignments,
+      facultyIds,
       assignedBy: actor.adminId,
     });
   }

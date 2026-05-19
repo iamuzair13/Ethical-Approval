@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type AdminRole = "administrator" | "dean" | "ireb";
@@ -51,7 +51,7 @@ type CreateUserForm = {
   facultyId: number | "";
   facultyIds: number[];
   departmentId: number | "";
-  departmentIds: number[];
+  irebScopeAll: boolean;
 };
 
 type EditUserForm = {
@@ -61,7 +61,16 @@ type EditUserForm = {
   role: AdminRole;
   sapId: string;
   password: string;
+  facultyId: number | "";
+  departmentId: number | "";
+  facultyIds: number[];
+  irebScopeAll: boolean;
 };
+
+const fieldClass =
+  "rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white";
+
+const labelClass = "text-xs font-medium text-dark-5 dark:text-dark-6";
 
 function StatCard({
   label,
@@ -103,6 +112,190 @@ function Badge({
   );
 }
 
+function ScopeFields({
+  role,
+  faculties,
+  departments,
+  facultyId,
+  departmentId,
+  facultyIds,
+  irebScopeAll,
+  onFacultyIdChange,
+  onDepartmentIdChange,
+  onFacultyIdsChange,
+  onIrebScopeAllChange,
+  idPrefix,
+}: {
+  role: AdminRole;
+  faculties: Faculty[];
+  departments: Department[];
+  facultyId: number | "";
+  departmentId: number | "";
+  facultyIds: number[];
+  irebScopeAll: boolean;
+  onFacultyIdChange: (value: number | "") => void;
+  onDepartmentIdChange: (value: number | "") => void;
+  onFacultyIdsChange: (values: number[]) => void;
+  onIrebScopeAllChange: (value: boolean) => void;
+  idPrefix: string;
+}) {
+  const deanDepartments = useMemo(
+    () =>
+      typeof facultyId === "number"
+        ? departments.filter((dep) => dep.faculty_id === facultyId)
+        : [],
+    [departments, facultyId],
+  );
+
+  const toggleIrebFaculty = (facultyIdToToggle: number, checked: boolean) => {
+    onFacultyIdsChange(
+      checked
+        ? [...facultyIds, facultyIdToToggle]
+        : facultyIds.filter((id) => id !== facultyIdToToggle),
+    );
+  };
+
+  if (role === "administrator") {
+    return (
+      <p className="text-sm text-dark-5 dark:text-dark-6">
+        Administrators have access to all faculties.
+      </p>
+    );
+  }
+
+  if (role === "dean") {
+    return (
+      <div className="grid gap-3 sm:col-span-2">
+        <div>
+          <label htmlFor={`${idPrefix}-faculty`} className={labelClass}>
+            Faculty <span className="text-red">*</span>
+          </label>
+          <select
+            id={`${idPrefix}-faculty`}
+            value={facultyId}
+            onChange={(e) => {
+              onFacultyIdChange(e.target.value ? Number(e.target.value) : "");
+              onDepartmentIdChange("");
+            }}
+            className={cn(fieldClass, "mt-1 w-full")}
+            required
+          >
+            <option value="">Select faculty</option>
+            {faculties.map((faculty) => (
+              <option key={faculty.id} value={faculty.id}>
+                {faculty.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor={`${idPrefix}-department`} className={labelClass}>
+            Department <span className="text-red">*</span>
+          </label>
+          <select
+            id={`${idPrefix}-department`}
+            value={departmentId}
+            onChange={(e) =>
+              onDepartmentIdChange(e.target.value ? Number(e.target.value) : "")
+            }
+            className={cn(fieldClass, "mt-1 w-full")}
+            disabled={deanDepartments.length === 0}
+            required
+          >
+            <option value="">
+              {typeof facultyId !== "number"
+                ? "Select a faculty first"
+                : deanDepartments.length === 0
+                  ? "No departments in this faculty"
+                  : "Select department"}
+            </option>
+            {deanDepartments.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:col-span-2">
+      <fieldset className="flex flex-wrap gap-4">
+        <legend className="sr-only">IREB access scope</legend>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-dark dark:text-white">
+          <input
+            type="radio"
+            name={`${idPrefix}-ireb-scope`}
+            checked={irebScopeAll}
+            onChange={() => {
+              onIrebScopeAllChange(true);
+              onFacultyIdsChange([]);
+            }}
+            className="accent-primary"
+          />
+          All faculties
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-dark dark:text-white">
+          <input
+            type="radio"
+            name={`${idPrefix}-ireb-scope`}
+            checked={!irebScopeAll}
+            onChange={() => onIrebScopeAllChange(false)}
+            className="accent-primary"
+          />
+          Restricted to selected faculties
+        </label>
+      </fieldset>
+
+      {!irebScopeAll && (
+        <>
+          <div>
+            <p className={labelClass}>
+              Faculties <span className="text-red">*</span>
+            </p>
+            <p className="mb-2 text-xs text-dark-5">
+              Select one or more faculties. The member can review submissions from
+              all departments within each selected faculty.
+            </p>
+            <div
+              className={cn(
+                fieldClass,
+                "mt-1 max-h-44 space-y-1 overflow-y-auto p-2",
+              )}
+            >
+              {faculties.length === 0 ? (
+                <p className="text-xs text-dark-5">No faculties available.</p>
+              ) : (
+                faculties.map((faculty) => (
+                  <label
+                    key={faculty.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-1 dark:hover:bg-dark-3"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={facultyIds.includes(faculty.id)}
+                      onChange={(e) =>
+                        toggleIrebFaculty(faculty.id, e.target.checked)
+                      }
+                      className="accent-primary"
+                    />
+                    <span className="text-sm text-dark dark:text-white">
+                      {faculty.name}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -110,14 +303,12 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
-  const [selectedAssignUser, setSelectedAssignUser] = useState<string>("");
-  const [assignFacultyId, setAssignFacultyId] = useState<number | "">("");
-  const [assignFacultyIds, setAssignFacultyIds] = useState<number[]>([]);
-  const [assignDepartmentId, setAssignDepartmentId] = useState<number | "">("");
-  const [assignDepartmentIds, setAssignDepartmentIds] = useState<number[]>([]);
+  const [submittingCreate, setSubmittingCreate] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editingUser, setEditingUser] = useState<EditUserForm | null>(null);
+  const editPanelRef = useRef<HTMLFormElement>(null);
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     name: "",
     email: "",
@@ -127,7 +318,7 @@ export default function UsersPage() {
     facultyId: "",
     facultyIds: [],
     departmentId: "",
-    departmentIds: [],
+    irebScopeAll: true,
   });
 
   const fetchData = useCallback(async () => {
@@ -183,11 +374,6 @@ export default function UsersPage() {
     void fetchData();
   }, [fetchData]);
 
-  const selectedUser = useMemo(
-    () => users.find((user) => user.id === selectedAssignUser),
-    [users, selectedAssignUser],
-  );
-
   const admins = users.filter((user) => user.role === "administrator");
   const deans = users.filter((user) => user.role === "dean");
   const irebMembers = users.filter((user) => user.role === "ireb");
@@ -202,11 +388,18 @@ export default function UsersPage() {
       facultyId: "",
       facultyIds: [],
       departmentId: "",
-      departmentIds: [],
+      irebScopeAll: true,
     });
   };
 
-  const beginEditUser = (user: ManagedUser) => {
+  const emptyScope = () => ({
+    facultyId: "" as const,
+    departmentId: "" as const,
+    facultyIds: [] as number[],
+    irebScopeAll: true,
+  });
+
+  const beginEditUser = (user: ManagedUser, focusScope = false) => {
     setEditingUser({
       id: user.id,
       name: user.name,
@@ -214,88 +407,106 @@ export default function UsersPage() {
       role: user.role,
       sapId: user.sapId ?? "",
       password: "",
+      facultyId:
+        user.role === "dean" && user.facultyIds[0] != null ? user.facultyIds[0] : "",
+      departmentId:
+        user.role === "dean" && user.departmentIds[0] != null
+          ? user.departmentIds[0]
+          : "",
+      facultyIds: user.role === "ireb" ? [...user.facultyIds] : [],
+      irebScopeAll: user.role === "ireb" && user.facultyIds.length === 0,
     });
     setShowEditPassword(false);
+    setError(null);
+    requestAnimationFrame(() => {
+      editPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (focusScope) {
+        const scopeField = editPanelRef.current?.querySelector<HTMLElement>(
+          '[data-scope-field="true"]',
+        );
+        scopeField?.focus();
+      }
+    });
   };
+
+  const validateDeanScope = (facultyId: number | "", departmentId: number | "") => {
+    if (typeof facultyId !== "number" || typeof departmentId !== "number") {
+      return "Dean accounts require a faculty and department.";
+    }
+    return null;
+  };
+
+  const validateIrebScope = (irebScopeAll: boolean, facultyIds: number[]) => {
+    if (!irebScopeAll && facultyIds.length === 0) {
+      return "Select at least one faculty, or choose All faculties.";
+    }
+    return null;
+  };
+
+  const irebScopePayload = (irebScopeAll: boolean, facultyIds: number[]) =>
+    irebScopeAll ? { facultyIds: [] as number[] } : { facultyIds };
 
   const onCreateUser = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
-    const payload = {
-      name: createForm.name,
-      email: createForm.email,
-      password: createForm.password,
-      role: createForm.role,
-      sapId: createForm.sapId || null,
-      facultyId:
-        createForm.role === "dean" && createForm.facultyId !== ""
-          ? createForm.facultyId
-          : null,
-      facultyIds: createForm.role === "ireb" ? createForm.facultyIds : [],
-      departmentId:
-        createForm.role === "dean" && createForm.departmentId !== ""
-          ? createForm.departmentId
-          : null,
-      departmentIds: createForm.role === "ireb" ? createForm.departmentIds : [],
-    };
-
-    const response = await fetch("/api/admin/create-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = (await response.json()) as { ok: boolean; error?: string };
-    if (!response.ok || !body.ok) {
-      const message = body.error ?? "Unable to create user.";
-      setError(message);
-      toast.error(message);
-      return;
+    if (createForm.role === "dean") {
+      const scopeError = validateDeanScope(createForm.facultyId, createForm.departmentId);
+      if (scopeError) {
+        setError(scopeError);
+        toast.error(scopeError);
+        return;
+      }
+    }
+    if (createForm.role === "ireb") {
+      const scopeError = validateIrebScope(createForm.irebScopeAll, createForm.facultyIds);
+      if (scopeError) {
+        setError(scopeError);
+        toast.error(scopeError);
+        return;
+      }
     }
 
-    resetCreateForm();
-    await fetchData();
-    toast.success("Admin user created.");
-  };
+    setSubmittingCreate(true);
+    try {
+      const payload = {
+        name: createForm.name,
+        email: createForm.email,
+        password: createForm.password,
+        role: createForm.role,
+        sapId: createForm.sapId || null,
+        facultyId:
+          createForm.role === "dean" && createForm.facultyId !== ""
+            ? createForm.facultyId
+            : null,
+        departmentId:
+          createForm.role === "dean" && createForm.departmentId !== ""
+            ? createForm.departmentId
+            : null,
+        ...(createForm.role === "ireb"
+          ? irebScopePayload(createForm.irebScopeAll, createForm.facultyIds)
+          : {}),
+      };
 
-  const onAssignFaculty = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    if (!selectedUser) {
-      setError("Select a user to assign faculty.");
-      return;
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !body.ok) {
+        const message = body.error ?? "Unable to create user.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      resetCreateForm();
+      await fetchData();
+      toast.success("User created successfully.");
+    } finally {
+      setSubmittingCreate(false);
     }
-
-    const payload =
-      selectedUser.role === "dean"
-        ? {
-            adminUserId: selectedUser.id,
-            role: "dean",
-            facultyId: assignFacultyId,
-            departmentId: assignDepartmentId,
-          }
-        : {
-            adminUserId: selectedUser.id,
-            role: "ireb",
-            facultyIds: assignFacultyIds,
-            departmentIds: assignDepartmentIds,
-          };
-
-    const response = await fetch("/api/admin/assign-faculty", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = (await response.json()) as { ok: boolean; error?: string };
-    if (!response.ok || !body.ok) {
-      const message = body.error ?? "Unable to assign faculties.";
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    await fetchData();
-    toast.success("Faculty/department assignment updated.");
   };
 
   const onUpdateUser = async (event: React.FormEvent) => {
@@ -303,58 +514,65 @@ export default function UsersPage() {
     if (!editingUser) return;
     setError(null);
 
-    const response = await fetch(`/api/admin/users/${editingUser.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    if (editingUser.role === "dean") {
+      const scopeError = validateDeanScope(editingUser.facultyId, editingUser.departmentId);
+      if (scopeError) {
+        setError(scopeError);
+        toast.error(scopeError);
+        return;
+      }
+    }
+    if (editingUser.role === "ireb") {
+      const scopeError = validateIrebScope(editingUser.irebScopeAll, editingUser.facultyIds);
+      if (scopeError) {
+        setError(scopeError);
+        toast.error(scopeError);
+        return;
+      }
+    }
+
+    setSubmittingEdit(true);
+    try {
+      const payload: Record<string, unknown> = {
         name: editingUser.name,
         email: editingUser.email,
         role: editingUser.role,
         sapId: editingUser.sapId || null,
-        password: editingUser.password || undefined,
-      }),
-    });
-    const body = (await response.json()) as { ok: boolean; error?: string };
-    if (!response.ok || !body.ok) {
-      const message = body.error ?? "Unable to update user.";
-      setError(message);
-      toast.error(message);
-      return;
+      };
+      if (editingUser.password.trim()) {
+        payload.password = editingUser.password;
+      }
+      if (editingUser.role === "dean") {
+        payload.facultyId = editingUser.facultyId;
+        payload.departmentId = editingUser.departmentId;
+      }
+      if (editingUser.role === "ireb") {
+        Object.assign(
+          payload,
+          irebScopePayload(editingUser.irebScopeAll, editingUser.facultyIds),
+        );
+      }
+
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !body.ok) {
+        const message = body.error ?? "Unable to update user.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      setEditingUser(null);
+      await fetchData();
+      toast.success("User updated successfully.");
+    } finally {
+      setSubmittingEdit(false);
     }
-
-    setEditingUser(null);
-    await fetchData();
-    toast.success("Admin user updated.");
   };
-
-  const deanCreateDepartments = useMemo(
-    () =>
-      typeof createForm.facultyId === "number"
-        ? departments.filter((dep) => dep.faculty_id === createForm.facultyId)
-        : [],
-    [departments, createForm.facultyId],
-  );
-  const irebCreateDepartments = useMemo(
-    () =>
-      createForm.facultyIds.length > 0
-        ? departments.filter((dep) => createForm.facultyIds.includes(dep.faculty_id))
-        : [],
-    [departments, createForm.facultyIds],
-  );
-  const deanAssignDepartments = useMemo(
-    () =>
-      typeof assignFacultyId === "number"
-        ? departments.filter((dep) => dep.faculty_id === assignFacultyId)
-        : [],
-    [departments, assignFacultyId],
-  );
-  const irebAssignDepartments = useMemo(
-    () =>
-      assignFacultyIds.length > 0
-        ? departments.filter((dep) => assignFacultyIds.includes(dep.faculty_id))
-        : [],
-    [departments, assignFacultyIds],
-  );
 
   const toggleStatus = async (user: ManagedUser) => {
     setBusyUserId(user.id);
@@ -415,8 +633,8 @@ export default function UsersPage() {
               User Administration
             </h3>
             <p className="mt-1 text-sm text-dark-5">
-              Manage all Administrator, Dean, and IREB users with clear faculty
-              access visibility.
+              Create users and set faculty scope in one step. Use Edit to update
+              details or change assignments.
             </p>
           </div>
           <p className="text-sm text-dark-5">Administrator-only controls</p>
@@ -428,296 +646,136 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          <form
-            onSubmit={onCreateUser}
-            className="rounded-lg border border-stroke p-4 dark:border-dark-3"
-          >
-            <h4 className="mb-3 text-base font-semibold text-dark dark:text-white">
-              Create User
-            </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={createForm.name}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                placeholder="Full name"
-                required
-              />
-              <input
-                value={createForm.email}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, email: e.target.value }))
-                }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                placeholder="Email"
-                type="email"
-                required
-              />
+        <form
+          onSubmit={onCreateUser}
+          className="mb-6 rounded-lg border border-stroke p-4 dark:border-dark-3"
+        >
+          <h4 className="mb-1 text-base font-semibold text-dark dark:text-white">
+            Create User
+          </h4>
+          <p className="mb-4 text-xs text-dark-5">
+            Set role and faculty scope when creating dean or IREB accounts.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={createForm.name}
+              onChange={(e) =>
+                setCreateForm((prev) => ({ ...prev, name: e.target.value }))
+              }
+              className={fieldClass}
+              placeholder="Full name"
+              required
+            />
+            <input
+              value={createForm.email}
+              onChange={(e) =>
+                setCreateForm((prev) => ({ ...prev, email: e.target.value }))
+              }
+              className={fieldClass}
+              placeholder="Email"
+              type="email"
+              required
+            />
+            <div className="flex gap-2 sm:col-span-2">
               <input
                 value={createForm.password}
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, password: e.target.value }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                className={cn(fieldClass, "flex-1")}
                 placeholder="Temporary password"
                 type={showCreatePassword ? "text" : "password"}
                 required
+                minLength={8}
               />
               <button
                 type="button"
                 onClick={() => setShowCreatePassword((prev) => !prev)}
-                className="rounded-md border border-stroke px-3 py-2 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                className="shrink-0 rounded-md border border-stroke px-3 py-2 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
               >
-                {showCreatePassword ? "Hide Password" : "View Password"}
+                {showCreatePassword ? "Hide" : "Show"}
               </button>
+            </div>
+            <div>
+              <label htmlFor="create-role" className={labelClass}>
+                Role
+              </label>
               <select
+                id="create-role"
                 value={createForm.role}
                 onChange={(e) =>
                   setCreateForm((prev) => ({
                     ...prev,
                     role: e.target.value as AdminRole,
-                    facultyId: "",
-                    facultyIds: [],
-                    departmentId: "",
-                    departmentIds: [],
+                    ...emptyScope(),
                   }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                className={cn(fieldClass, "mt-1 w-full")}
               >
                 <option value="administrator">Administrator</option>
                 <option value="dean">Dean</option>
                 <option value="ireb">IREB</option>
               </select>
-              <input
-                value={createForm.sapId}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, sapId: e.target.value }))
-                }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
-                placeholder="SAP ID (optional)"
-              />
-              {createForm.role === "dean" && (
-                <>
-                  <select
-                    value={createForm.facultyId}
-                    onChange={(e) =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        facultyId: e.target.value ? Number(e.target.value) : "",
-                        departmentId: "",
-                      }))
-                    }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
-                  >
-                    <option value="">Select dean faculty</option>
-                    {faculties.map((faculty) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={createForm.departmentId}
-                    onChange={(e) =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        departmentId: e.target.value ? Number(e.target.value) : "",
-                      }))
-                    }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
-                    disabled={deanCreateDepartments.length === 0}
-                  >
-                    <option value="">Select dean department</option>
-                    {deanCreateDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-              {createForm.role === "ireb" && (
-                <>
-                  <select
-                    multiple
-                    value={createForm.facultyIds.map(String)}
-                    onChange={(e) => {
-                      const values = Array.from(e.target.selectedOptions).map(
-                        (option) => Number(option.value),
-                      );
-                      setCreateForm((prev) => ({ ...prev, facultyIds: values, departmentIds: [] }));
-                    }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
-                  >
-                    {faculties.map((faculty) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    multiple
-                    value={createForm.departmentIds.map(String)}
-                    onChange={(e) => {
-                      const values = Array.from(e.target.selectedOptions).map(
-                        (option) => Number(option.value),
-                      );
-                      setCreateForm((prev) => ({ ...prev, departmentIds: values }));
-                    }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
-                    disabled={irebCreateDepartments.length === 0}
-                  >
-                    {irebCreateDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
             </div>
-            <button
-              type="submit"
-              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90"
-            >
-              Create User
-            </button>
-          </form>
-
-          <form
-            onSubmit={onAssignFaculty}
-            className="rounded-lg border border-stroke p-4 dark:border-dark-3"
+            <input
+              value={createForm.sapId}
+              onChange={(e) =>
+                setCreateForm((prev) => ({ ...prev, sapId: e.target.value }))
+              }
+              className={fieldClass}
+              placeholder="SAP ID (optional)"
+            />
+            <ScopeFields
+              role={createForm.role}
+              faculties={faculties}
+              departments={departments}
+              facultyId={createForm.facultyId}
+              departmentId={createForm.departmentId}
+              facultyIds={createForm.facultyIds}
+              irebScopeAll={createForm.irebScopeAll}
+              idPrefix="create"
+              onFacultyIdChange={(facultyId) =>
+                setCreateForm((prev) => ({ ...prev, facultyId, departmentId: "" }))
+              }
+              onDepartmentIdChange={(departmentId) =>
+                setCreateForm((prev) => ({ ...prev, departmentId }))
+              }
+              onFacultyIdsChange={(facultyIds) =>
+                setCreateForm((prev) => ({ ...prev, facultyIds }))
+              }
+              onIrebScopeAllChange={(irebScopeAll) =>
+                setCreateForm((prev) => ({ ...prev, irebScopeAll }))
+              }
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={submittingCreate}
+            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <h4 className="mb-3 text-base font-semibold text-dark dark:text-white">
-              Assign Faculty Scope
-            </h4>
-            <div className="grid gap-3">
-              <select
-                value={selectedAssignUser}
-                onChange={(e) => {
-                  setSelectedAssignUser(e.target.value);
-                  setAssignFacultyId("");
-                  setAssignFacultyIds([]);
-                  setAssignDepartmentId("");
-                  setAssignDepartmentIds([]);
-                }}
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-              >
-                <option value="">Select dean or IREB member</option>
-                {users
-                  .filter((user) => user.role !== "administrator")
-                  .map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.role.toUpperCase()})
-                    </option>
-                  ))}
-              </select>
-
-              {selectedUser?.role === "dean" && (
-                <>
-                  <select
-                    value={assignFacultyId}
-                    onChange={(e) => {
-                      setAssignFacultyId(e.target.value ? Number(e.target.value) : "");
-                      setAssignDepartmentId("");
-                    }}
-                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                  >
-                    <option value="">Select dean faculty</option>
-                    {faculties.map((faculty) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={assignDepartmentId}
-                    onChange={(e) =>
-                      setAssignDepartmentId(e.target.value ? Number(e.target.value) : "")
-                    }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                    disabled={deanAssignDepartments.length === 0}
-                  >
-                    <option value="">Select dean department</option>
-                    {deanAssignDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              {selectedUser?.role === "ireb" && (
-                <>
-                  <select
-                    multiple
-                    value={assignFacultyIds.map(String)}
-                    onChange={(e) => {
-                      setAssignFacultyIds(
-                        Array.from(e.target.selectedOptions).map((option) =>
-                          Number(option.value),
-                        ),
-                      );
-                      setAssignDepartmentIds([]);
-                    }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                  >
-                    {faculties.map((faculty) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    multiple
-                    value={assignDepartmentIds.map(String)}
-                    onChange={(e) =>
-                      setAssignDepartmentIds(
-                        Array.from(e.target.selectedOptions).map((option) =>
-                          Number(option.value),
-                        ),
-                      )
-                    }
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                    disabled={irebAssignDepartments.length === 0}
-                  >
-                    {irebAssignDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              <button
-                type="submit"
-                disabled={!selectedUser}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Save Faculty Assignment
-              </button>
-            </div>
-          </form>
-        </div>
+            {submittingCreate ? "Creating…" : "Create User"}
+          </button>
+        </form>
 
         {editingUser && (
           <form
+            ref={editPanelRef}
             onSubmit={onUpdateUser}
-            className="mb-6 rounded-lg border border-stroke p-4 dark:border-dark-3"
+            className="mb-6 rounded-lg border border-primary/30 bg-primary/[0.03] p-4 dark:border-primary/40 dark:bg-primary/[0.06]"
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-base font-semibold text-dark dark:text-white">
-                Edit User
-              </h4>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-base font-semibold text-dark dark:text-white">
+                  Edit User
+                </h4>
+                <p className="text-xs text-dark-5">
+                  Update profile, role, password, and faculty scope together.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingUser(null)}
-                className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                className="shrink-0 rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
               >
                 Cancel
               </button>
@@ -731,7 +789,7 @@ export default function UsersPage() {
                     prev ? { ...prev, name: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                className={fieldClass}
                 placeholder="Full name"
                 required
               />
@@ -742,24 +800,36 @@ export default function UsersPage() {
                     prev ? { ...prev, email: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                className={fieldClass}
                 placeholder="Email"
                 type="email"
                 required
               />
-              <select
-                value={editingUser.role}
-                onChange={(e) =>
-                  setEditingUser((prev) =>
-                    prev ? { ...prev, role: e.target.value as AdminRole } : prev,
-                  )
-                }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-              >
-                <option value="administrator">Administrator</option>
-                <option value="dean">Dean</option>
-                <option value="ireb">IREB</option>
-              </select>
+              <div>
+                <label htmlFor="edit-role" className={labelClass}>
+                  Role
+                </label>
+                <select
+                  id="edit-role"
+                  value={editingUser.role}
+                  onChange={(e) =>
+                    setEditingUser((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            role: e.target.value as AdminRole,
+                            ...emptyScope(),
+                          }
+                        : prev,
+                    )
+                  }
+                  className={cn(fieldClass, "mt-1 w-full")}
+                >
+                  <option value="administrator">Administrator</option>
+                  <option value="dean">Dean</option>
+                  <option value="ireb">IREB</option>
+                </select>
+              </div>
               <input
                 value={editingUser.sapId}
                 onChange={(e) =>
@@ -767,34 +837,64 @@ export default function UsersPage() {
                     prev ? { ...prev, sapId: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
+                className={fieldClass}
                 placeholder="SAP ID (optional)"
               />
-              <input
-                value={editingUser.password}
-                onChange={(e) =>
-                  setEditingUser((prev) =>
-                    prev ? { ...prev, password: e.target.value } : prev,
-                  )
-                }
-                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                placeholder="New password (leave blank to keep current)"
-                type={showEditPassword ? "text" : "password"}
-              />
-              <button
-                type="button"
-                onClick={() => setShowEditPassword((prev) => !prev)}
-                className="rounded-md border border-stroke px-3 py-2 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                {showEditPassword ? "Hide Password" : "View Password"}
-              </button>
+              <div className="flex gap-2 sm:col-span-2">
+                <input
+                  value={editingUser.password}
+                  onChange={(e) =>
+                    setEditingUser((prev) =>
+                      prev ? { ...prev, password: e.target.value } : prev,
+                    )
+                  }
+                  className={cn(fieldClass, "flex-1")}
+                  placeholder="New password (leave blank to keep current)"
+                  type={showEditPassword ? "text" : "password"}
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword((prev) => !prev)}
+                  className="shrink-0 rounded-md border border-stroke px-3 py-2 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                >
+                  {showEditPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              <div data-scope-field="true" className="contents">
+                <ScopeFields
+                  role={editingUser.role}
+                  faculties={faculties}
+                  departments={departments}
+                  facultyId={editingUser.facultyId}
+                  departmentId={editingUser.departmentId}
+                  facultyIds={editingUser.facultyIds}
+                  irebScopeAll={editingUser.irebScopeAll}
+                  idPrefix="edit"
+                  onFacultyIdChange={(facultyId) =>
+                    setEditingUser((prev) =>
+                      prev ? { ...prev, facultyId, departmentId: "" } : prev,
+                    )
+                  }
+                  onDepartmentIdChange={(departmentId) =>
+                    setEditingUser((prev) => (prev ? { ...prev, departmentId } : prev))
+                  }
+                  onFacultyIdsChange={(facultyIds) =>
+                    setEditingUser((prev) => (prev ? { ...prev, facultyIds } : prev))
+                  }
+                  onIrebScopeAllChange={(irebScopeAll) =>
+                    setEditingUser((prev) => (prev ? { ...prev, irebScopeAll } : prev))
+                  }
+                />
+              </div>
             </div>
 
             <button
               type="submit"
-              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90"
+              disabled={submittingEdit}
+              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Save Changes
+              {submittingEdit ? "Saving…" : "Save Changes"}
             </button>
           </form>
         )}
@@ -848,31 +948,15 @@ export default function UsersPage() {
                     >
                       Edit
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedAssignUser(user.id);
-                        setAssignFacultyId(
-                          user.role === "dean" && user.facultyIds[0]
-                            ? user.facultyIds[0]
-                            : "",
-                        );
-                        setAssignFacultyIds(
-                          user.role === "ireb" ? user.facultyIds : [],
-                        );
-                        setAssignDepartmentId(
-                          user.role === "dean" && user.departmentIds[0]
-                            ? user.departmentIds[0]
-                            : "",
-                        );
-                        setAssignDepartmentIds(
-                          user.role === "ireb" ? user.departmentIds : [],
-                        );
-                      }}
-                      className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                    >
-                      Assign Faculty
-                    </button>
+                    {user.role !== "administrator" && (
+                      <button
+                        type="button"
+                        onClick={() => beginEditUser(user, true)}
+                        className="rounded-md border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                      >
+                        Edit Scope
+                      </button>
+                    )}
                     <button
                       type="button"
                       disabled={busyUserId === user.id}

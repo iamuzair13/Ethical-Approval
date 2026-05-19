@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { isAdminRole } from "@/lib/admin-rbac";
 import {
+  applyIrebScope,
+  assignDeanFaculty,
+  clearAdminScopeAssignments,
   getAdminUserByEmailExcludingId,
+  getAdminUserById,
   updateAdminUser,
 } from "@/lib/admin-repository";
 import { hashPassword } from "@/lib/password";
@@ -13,6 +17,10 @@ type UpdateAdminBody = {
   role?: string;
   sapId?: string | null;
   password?: string;
+  facultyId?: number | null;
+  departmentId?: number | null;
+  facultyIds?: number[];
+  departmentIds?: number[];
 };
 
 export async function PATCH(
@@ -42,6 +50,20 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Invalid role." }, { status: 400 });
   }
 
+  const previous = await getAdminUserById(id);
+  if (!previous) {
+    return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
+  }
+
+  if (body.role === "dean") {
+    if (typeof body.facultyId !== "number" || typeof body.departmentId !== "number") {
+      return NextResponse.json(
+        { ok: false, error: "Dean requires faculty and department selection." },
+        { status: 400 },
+      );
+    }
+  }
+
   const existing = await getAdminUserByEmailExcludingId({
     email: body.email,
     excludeAdminId: id,
@@ -69,6 +91,28 @@ export async function PATCH(
 
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
+  }
+
+  const roleChanged = previous.role !== updated.role;
+
+  if (roleChanged) {
+    await clearAdminScopeAssignments(id);
+  }
+
+  if (updated.role === "dean") {
+    await assignDeanFaculty({
+      adminUserId: id,
+      facultyId: body.facultyId!,
+      departmentId: body.departmentId!,
+      assignedBy: actor.adminId,
+    });
+  } else if (updated.role === "ireb") {
+    const facultyIds = Array.isArray(body.facultyIds) ? body.facultyIds : [];
+    await applyIrebScope({
+      adminUserId: id,
+      facultyIds,
+      assignedBy: actor.adminId,
+    });
   }
 
   return NextResponse.json({

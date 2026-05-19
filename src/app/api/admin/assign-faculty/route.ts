@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
+  applyIrebScope,
   assignDeanFaculty,
-  assignIrebFaculties,
   getAdminUserById,
 } from "@/lib/admin-repository";
-import { db } from "@/lib/db";
 
 type AssignFacultyBody = {
   adminUserId?: string;
@@ -57,26 +56,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const departmentIds = Array.isArray(body.departmentIds) ? body.departmentIds : [];
-  let assignments: { facultyId: number; departmentId: number }[] = [];
-  if (departmentIds.length > 0) {
-    const mapped = await db.query<{ id: number; faculty_id: number }>(
-      `
-        SELECT id, faculty_id
-        FROM departments
-        WHERE id = ANY($1::bigint[])
-      `,
-      [departmentIds],
-    );
-    assignments = mapped.rows.map((row) => ({
-      facultyId: row.faculty_id,
-      departmentId: row.id,
-    }));
-  }
-  await assignIrebFaculties({
+  const facultyIds = Array.isArray(body.facultyIds) ? body.facultyIds : [];
+  await applyIrebScope({
     adminUserId: body.adminUserId,
-    assignments,
+    facultyIds,
     assignedBy: actor.adminId,
   });
-  return NextResponse.json({ ok: true, scopeMode: assignments.length ? "restricted" : "all" });
+  const scopeMode = facultyIds.length > 0 ? "restricted" : "all";
+  return NextResponse.json({ ok: true, scopeMode });
 }
