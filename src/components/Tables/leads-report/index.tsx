@@ -1845,7 +1845,7 @@ export function LeadsReport({
                     <select
                       value={selectedOnBehalfOf}
                       onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
-                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                     >
                       <option value="">Select dean</option>
                       {adminOptions.deanOption && (
@@ -1863,7 +1863,7 @@ export function LeadsReport({
                     <select
                       value={selectedOnBehalfOf}
                       onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
-                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
+                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                     >
                       <option value="">Select IREB member</option>
                       {adminOptions.irebOptions.map((member) => (

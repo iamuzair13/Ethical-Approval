@@ -618,13 +618,13 @@ export default function OrganizationsPage() {
                 <input
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                   placeholder="Faculty code (e.g. ENGINEERING)"
                 />
                 <input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                   placeholder="Faculty name"
                 />
                 {modal.mode === "edit" && (
@@ -684,7 +684,7 @@ export default function OrganizationsPage() {
                   onChange={(e) =>
                     setDepartmentFacultyId(e.target.value ? Number(e.target.value) : "")
                   }
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 >
                   <option value="">Select faculty</option>
                   {faculties.map((faculty) => (
@@ -696,7 +696,7 @@ export default function OrganizationsPage() {
                 <input
                   value={departmentName}
                   onChange={(e) => setDepartmentName(e.target.value)}
-                  className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                  className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                   placeholder="Department name"
                 />
                 {departmentModal.mode === "edit" && (

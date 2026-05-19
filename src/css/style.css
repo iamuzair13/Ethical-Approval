@@ -6,6 +6,16 @@
   body {
     @apply bg-gray-2 text-dark-5 dark:bg-[#020D1A] dark:text-dark-6;
   }
+
+  /* Native selects: dark popup + field (avoids white-on-white in dark mode) */
+  .dark select {
+    color-scheme: dark;
+    @apply bg-gray-dark text-white;
+  }
+
+  .dark select option {
+    @apply bg-dark-2 text-white;
+  }
 }
 
 @layer utilities {

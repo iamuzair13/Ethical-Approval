@@ -123,25 +123,11 @@ export function downloadLeadsReportExcel(
       ? "IREB stage only"
       : "Full list";
 
-  const infoRows: (string | number)[][] = [
-    [meta.reportTitle],
-    ["Generated (UTC)", meta.generatedAt.toISOString()],
-    ["View", meta.activeTab === "all" ? "All requests" : "Overdue only"],
-    ["Rows exported", leads.length],
-    ["Scope (dataset)", scopeLabel],
-    ["Scoped row count (before text search)", meta.scopeDatasetSize],
-    ["Search", meta.searchQuery.trim() || "(none)"],
-    ["Faculty filter", meta.facultyFilter ?? "(none)"],
-    ["Department filter", meta.departmentFilter ?? "(none)"],
-    ["Passed status filter", meta.passedStatusFilter ?? "(none)"],
-    ["Current status filter", meta.currentStatusFilter ?? "(none)"],
-    [],
-  ];
-
+  
   const headerRow = cols.map((c) => c.header);
   const dataRows = leads.map((lead) => cols.map((c) => cellText(c.getValue(lead))));
 
-  const aoa: (string | number)[][] = [...infoRows, headerRow, ...dataRows];
+  const aoa: (string | number)[][] = [headerRow, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Leads");

@@ -25,10 +25,14 @@ export const baseInputClasses =
 export const readOnlyInputClasses =
   "w-full rounded-lg border border-stroke bg-gray-1 px-4 py-3 text-sm text-dark dark:border-dark-3 dark:bg-dark-2 dark:text-white";
 
-export const selectClasses = `${baseInputClasses} appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%236B7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px_20px] bg-[right_12px_center] bg-no-repeat pr-10`;
+export const selectClasses = `${baseInputClasses} dark:bg-gray-dark appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%236B7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px_20px] bg-[right_12px_center] bg-no-repeat pr-10`;
+
+/** Compact select for admin tables/modals */
+export const adminSelectClasses =
+  "rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white";
 
 export const disabledSelectClasses =
-  "w-full rounded-lg border border-stroke bg-transparent px-4 py-3 text-sm text-dark opacity-70 cursor-not-allowed dark:border-dark-3 dark:text-white";
+  "w-full rounded-lg border border-stroke bg-transparent px-4 py-3 text-sm text-dark opacity-70 cursor-not-allowed dark:border-dark-3 dark:bg-gray-dark dark:text-white";
 
 /* ============================================================
    Required Mark

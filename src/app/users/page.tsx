@@ -442,7 +442,7 @@ export default function UsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, name: e.target.value }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="Full name"
                 required
               />
@@ -451,7 +451,7 @@ export default function UsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, email: e.target.value }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="Email"
                 type="email"
                 required
@@ -461,7 +461,7 @@ export default function UsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, password: e.target.value }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="Temporary password"
                 type={showCreatePassword ? "text" : "password"}
                 required
@@ -485,7 +485,7 @@ export default function UsersPage() {
                     departmentIds: [],
                   }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
               >
                 <option value="administrator">Administrator</option>
                 <option value="dean">Dean</option>
@@ -496,7 +496,7 @@ export default function UsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, sapId: e.target.value }))
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
                 placeholder="SAP ID (optional)"
               />
               {createForm.role === "dean" && (
@@ -510,7 +510,7 @@ export default function UsersPage() {
                         departmentId: "",
                       }))
                     }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
                   >
                     <option value="">Select dean faculty</option>
                     {faculties.map((faculty) => (
@@ -527,7 +527,7 @@ export default function UsersPage() {
                         departmentId: e.target.value ? Number(e.target.value) : "",
                       }))
                     }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
                     disabled={deanCreateDepartments.length === 0}
                   >
                     <option value="">Select dean department</option>
@@ -550,7 +550,7 @@ export default function UsersPage() {
                       );
                       setCreateForm((prev) => ({ ...prev, facultyIds: values, departmentIds: [] }));
                     }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
                   >
                     {faculties.map((faculty) => (
                       <option key={faculty.id} value={faculty.id}>
@@ -567,7 +567,7 @@ export default function UsersPage() {
                       );
                       setCreateForm((prev) => ({ ...prev, departmentIds: values }));
                     }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent sm:col-span-2"
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:col-span-2"
                     disabled={irebCreateDepartments.length === 0}
                   >
                     {irebCreateDepartments.map((department) => (
@@ -604,7 +604,7 @@ export default function UsersPage() {
                   setAssignDepartmentId("");
                   setAssignDepartmentIds([]);
                 }}
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
               >
                 <option value="">Select dean or IREB member</option>
                 {users
@@ -624,7 +624,7 @@ export default function UsersPage() {
                       setAssignFacultyId(e.target.value ? Number(e.target.value) : "");
                       setAssignDepartmentId("");
                     }}
-                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                   >
                     <option value="">Select dean faculty</option>
                     {faculties.map((faculty) => (
@@ -638,7 +638,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setAssignDepartmentId(e.target.value ? Number(e.target.value) : "")
                     }
-                    className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                     disabled={deanAssignDepartments.length === 0}
                   >
                     <option value="">Select dean department</option>
@@ -664,7 +664,7 @@ export default function UsersPage() {
                       );
                       setAssignDepartmentIds([]);
                     }}
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                   >
                     {faculties.map((faculty) => (
                       <option key={faculty.id} value={faculty.id}>
@@ -682,7 +682,7 @@ export default function UsersPage() {
                         ),
                       )
                     }
-                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                    className="min-h-28 rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                     disabled={irebAssignDepartments.length === 0}
                   >
                     {irebAssignDepartments.map((department) => (
@@ -731,7 +731,7 @@ export default function UsersPage() {
                     prev ? { ...prev, name: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="Full name"
                 required
               />
@@ -742,7 +742,7 @@ export default function UsersPage() {
                     prev ? { ...prev, email: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="Email"
                 type="email"
                 required
@@ -754,7 +754,7 @@ export default function UsersPage() {
                     prev ? { ...prev, role: e.target.value as AdminRole } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
               >
                 <option value="administrator">Administrator</option>
                 <option value="dean">Dean</option>
@@ -767,7 +767,7 @@ export default function UsersPage() {
                     prev ? { ...prev, sapId: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="SAP ID (optional)"
               />
               <input
@@ -777,7 +777,7 @@ export default function UsersPage() {
                     prev ? { ...prev, password: e.target.value } : prev,
                   )
                 }
-                className="rounded-md border border-stroke px-3 py-2 text-sm dark:border-dark-3 dark:bg-transparent"
+                className="rounded-md border border-stroke px-3 py-2 text-sm text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
                 placeholder="New password (leave blank to keep current)"
                 type={showEditPassword ? "text" : "password"}
               />
