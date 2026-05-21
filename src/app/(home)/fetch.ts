@@ -39,17 +39,22 @@ type LeadStatus =
   | "Approved by IREB"
   | "Rejected by IREB";
 
+export function formatSubmissionApplicationType(type: "thesis" | "publication"): string {
+  return type === "thesis" ? "Thesis" : "Research";
+}
+
 export type DashboardLead = {
   id: number;
   /** 6-digit public application reference */
   applicationId: string;
   name: string;
   email: string;
+  applicationType: string;
+  researchTitle: string;
   faculty: string;
   department: string;
   project: string;
   duration: string;
-  passedStatus: LeadStatus;
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
   /** Applicant profile image URL when set; otherwise use name initials in the UI. */
@@ -83,6 +88,8 @@ type SubmissionScopeRow = {
   latest_decision_stage: "dean" | "ireb" | null;
   latest_decided_by_name: string | null;
   applicant_avatar_url: string | null;
+  submission_type: "thesis" | "publication";
+  research_title: string | null;
 };
 
 /** Same rules as profile API: strip `?...` from local avatar paths for next/image. */
@@ -274,6 +281,8 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           up.avatar_url AS applicant_avatar_url,
           sas.faculty,
           sas.department,
+          s.type AS submission_type,
+          src.title AS research_title,
           s.current_status,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
@@ -283,6 +292,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+        LEFT JOIN submission_research_core src ON src.submission_id = s.id
         LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
         LEFT JOIN LATERAL (
           SELECT
@@ -334,6 +344,8 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       applicant_email: row.applicant_email,
       faculty: row.faculty,
       department: row.department,
+      submission_type: row.type,
+      research_title: row.research_title,
       current_status: row.current_status,
       latest_feedback_comment: feedbackMap.get(row.id)?.comment ?? null,
       latest_audit_note: null,
@@ -357,6 +369,8 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           up.avatar_url AS applicant_avatar_url,
           sas.faculty,
           sas.department,
+          s.type AS submission_type,
+          src.title AS research_title,
           s.current_status,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
@@ -366,6 +380,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           ld.latest_decided_by_name
         FROM submissions s
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
+        LEFT JOIN submission_research_core src ON src.submission_id = s.id
         LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
         LEFT JOIN LATERAL (
           SELECT
@@ -702,35 +717,29 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
   const scopedRows = await getScopedSubmissionRows(session);
   const now = Date.now();
   return scopedRows.slice(0, 20).map((row) => {
-    let passedStatus: LeadStatus = "Submitted";
     let currentStatus: LeadStatus = "Under Review by Dean";
     let stage: DashboardLead["stage"] = "dean";
 
     switch (row.current_status) {
       case "submitted":
       case "under_dean_review":
-        passedStatus = "Submitted";
         currentStatus = "Under Review by Dean";
         stage = "dean";
         break;
       case "dean_approved":
       case "under_ireb_review":
-        passedStatus = "Approved by Dean";
         currentStatus = "Under Review by IREB";
         stage = "ireb";
         break;
       case "dean_rejected":
-        passedStatus = "Submitted";
         currentStatus = "Rejected by Dean";
         stage = "completed";
         break;
       case "approved":
-        passedStatus = "Approved by Dean";
         currentStatus = "Approved by IREB";
         stage = "completed";
         break;
       case "rejected":
-        passedStatus = "Approved by Dean";
         currentStatus = "Rejected by IREB";
         stage = "completed";
         break;
@@ -749,11 +758,12 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       applicationId: row.application_id,
       name: row.applicant_name,
       email: row.applicant_email,
+      applicationType: formatSubmissionApplicationType(row.submission_type),
+      researchTitle: row.research_title?.trim() || "—",
       faculty: row.faculty,
       department: row.department,
       project,
       duration: `${days} days`,
-      passedStatus,
       currentStatus,
       stage,
       avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),

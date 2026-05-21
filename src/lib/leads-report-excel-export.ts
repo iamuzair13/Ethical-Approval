@@ -6,11 +6,12 @@ export type LeadsReportExcelLead = {
   applicationId: string;
   name: string;
   email: string;
+  applicationType: string;
+  researchTitle: string;
   faculty: string;
   department: string;
   project: string;
   duration: string;
-  passedStatus: string;
   currentStatus: string;
   stage: string;
   avatar: string | null;
@@ -26,7 +27,6 @@ export type LeadsReportExcelMeta = {
   searchQuery: string;
   facultyFilter: string | null;
   departmentFilter: string | null;
-  passedStatusFilter: string | null;
   currentStatusFilter: string | null;
   deanOnly: boolean;
   ethicalOnly: boolean;
@@ -48,14 +48,20 @@ export const LEADS_EXCEL_COLUMNS: readonly {
   },
   { id: "name", header: "Name", defaultSelected: true, getValue: (l) => l.name },
   { id: "email", header: "Email", defaultSelected: true, getValue: (l) => l.email },
+  {
+    id: "applicationType",
+    header: "Application Type",
+    defaultSelected: true,
+    getValue: (l) => l.applicationType,
+  },
+  {
+    id: "researchTitle",
+    header: "Title",
+    defaultSelected: true,
+    getValue: (l) => l.researchTitle,
+  },
   { id: "faculty", header: "Faculty", defaultSelected: true, getValue: (l) => l.faculty },
   { id: "department", header: "Department", defaultSelected: true, getValue: (l) => l.department },
-  {
-    id: "passedStatus",
-    header: "Passed Status",
-    defaultSelected: true,
-    getValue: (l) => l.passedStatus,
-  },
   {
     id: "currentStatus",
     header: "Current Status",

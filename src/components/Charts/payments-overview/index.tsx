@@ -35,31 +35,31 @@ export async function PaymentsOverview({
     timeline.length > 0
       ? [
           {
-            name: "Total Requests Made",
+            name: "Total Requests",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.total)) })),
           },
           {
-            name: "Pending Approvals From Dean",
+            name: "Pending Approvals (Dean)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingDean)) })),
           },
           {
-            name: "Pending Approvals From IREB",
+            name: "Pending Approvals (IREB)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingIreb)) })),
           },
           {
-            name: "Approved Requests From Dean",
+            name: "Approved (Dean)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedDean)) })),
           },
           {
-            name: "Approved Requests From IREB",
+            name: "Approved (IREB)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedIreb)) })),
           },
           {
-            name: "Rejected by Dean",
+            name: "Rejected (Dean)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedDean)) })),
           },
           {
-            name: "Rejected by IREB",
+            name: "Rejected (IREB)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedIreb)) })),
           },
         ]

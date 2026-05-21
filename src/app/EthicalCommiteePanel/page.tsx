@@ -22,11 +22,12 @@ type PropsType = {
 
 const ETHICAL_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "views", label: "Total Requests" },
-  { key: "deanPending", label: "Pending Approvals From Dean" },
-  { key: "deanApproved", label: "Approved Requests From Dean" },
-  { key: "products", label: "Pending Approvals From IREB" },
-  { key: "users", label: "Approved Requests From IREB" },
-  { key: "profit", label: "Rejected Requests" },
+  { key: "deanPending", label: "Pending Approvals (Dean)" },
+  { key: "deanApproved", label: "Approved (Dean)" },
+  { key: "deanRejected", label: "Rejected (Dean)" },
+  { key: "products", label: "Pending Approvals (IREB)" },
+  { key: "users", label: "Approved (IREB)" },
+  { key: "profit", label: "Rejected (IREB)" },
 ];
 
 export default async function EthicalCommiteePanel({ searchParams }: PropsType) {

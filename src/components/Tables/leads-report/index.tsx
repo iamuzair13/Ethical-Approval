@@ -229,11 +229,12 @@ export type Lead = {
   applicationId: string;
   name: string;
   email: string;
+  applicationType: string;
+  researchTitle: string;
   faculty: string;
   department: string;
   project: string;
   duration: string;
-  passedStatus: LeadStatus;
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
   /** Profile image URL when available; otherwise the table shows initials from `name`. */
@@ -249,11 +250,12 @@ const LEADS: Lead[] = [
     applicationId: "482913",
     name: "Ayesha Khan",
     email: "ayesha.khan@uol.edu.pk",
+    applicationType: "Thesis",
+    researchTitle: "AI Ethics in Healthcare Decision Support",
     faculty: "Faculty of Information Technology",
     department: "Computer Science",
     project: "12 Jan 2026 - 18 Jan 2026",
     duration: "6 days",
-    passedStatus: "Submitted",
     currentStatus: "Rejected by Dean",
     stage: "completed",
     avatar: "/images/user/user-17.png",
@@ -263,11 +265,12 @@ const LEADS: Lead[] = [
     applicationId: "571204",
     name: "Muhammad Ali",
     email: "m.ali@uol.edu.pk",
+    applicationType: "Research",
+    researchTitle: "Clinical Trial Protocol for Novel Antibiotic",
     faculty: "Faculty of Medical Sciences",
     department: "Medicine",
     project: "03 Feb 2026 - 4 Feb 2026",
     duration: "1 days",
-    passedStatus: "Approved by Dean",
     currentStatus: "Under Review by IREB",
     stage: "ireb",
     avatar: "/images/user/user-15.png",
@@ -277,11 +280,12 @@ const LEADS: Lead[] = [
     applicationId: "639847",
     name: "Fatima Noor",
     email: "fatima.noor@uol.edu.pk",
+    applicationType: "Thesis",
+    researchTitle: "Secure Software Architecture for Campus Systems",
     faculty: "Faculty of Information Technology",
     department: "Software Engineering",
     project: "20 Mar 2026 - 27 Mar 2026",
     duration: "7 days",
-    passedStatus: "Approved by Dean",
     currentStatus: "Approved by IREB",
     stage: "completed",
     avatar: "/images/user/user-19.png",
@@ -291,11 +295,12 @@ const LEADS: Lead[] = [
     applicationId: "204815",
     name: "Hassan Raza",
     email: "hassan.raza@uol.edu.pk",
+    applicationType: "Thesis",
+    researchTitle: "Pharmacovigilance in Community Pharmacies",
     faculty: "Faculty of Pharmacy",
     department: "Pharmacy",
     project: "01 Apr 2026 - 04 Apr 2026",
     duration: "3 days",
-    passedStatus: "Submitted",
     currentStatus: "Under Review by Dean",
     stage: "dean",
     avatar: "/images/user/user-14.png",
@@ -305,11 +310,12 @@ const LEADS: Lead[] = [
     applicationId: "918376",
     name: "Zainab Ahmed",
     email: "zainab.ahmed@uol.edu.pk",
+    applicationType: "Research",
+    researchTitle: "Machine Learning for Early Disease Detection",
     faculty: "Faculty of Information Technology",
     department: "Computer Science",
     project: "15 May 2026 - 25 May 2026",
     duration: "10 days",
-    passedStatus: "Approved by Dean",
     currentStatus: "Rejected by IREB",
     stage: "completed",
     avatar: "/images/user/user-21.png",
@@ -364,7 +370,6 @@ function leadToReportRow(lead: Lead): LeadReportRow {
     faculty: lead.faculty,
     project: lead.project,
     duration: lead.duration,
-    passedStatus: lead.passedStatus,
     currentStatus: lead.currentStatus,
     stage: lead.stage,
     latestFeedbackComment: lead.latestFeedbackComment,
@@ -494,8 +499,6 @@ export function LeadsReport({
   const [searchQuery, setSearchQuery] = useState("");
   const [facultyFilter, setFacultyFilter] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
-  const [passedStatusFilter, setPassedStatusFilter] =
-    useState<LeadStatus | null>(null);
   const [currentStatusFilter, setCurrentStatusFilter] =
     useState<LeadStatus | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -540,8 +543,6 @@ export function LeadsReport({
       if (facultyFilter && lead.faculty !== facultyFilter) return false;
       if (departmentFilter && lead.department !== departmentFilter)
         return false;
-      if (passedStatusFilter && lead.passedStatus !== passedStatusFilter)
-        return false;
       if (currentStatusFilter && lead.currentStatus !== currentStatusFilter)
         return false;
       if (!q) return true;
@@ -550,6 +551,8 @@ export function LeadsReport({
         app.includes(q) ||
         lead.name.toLowerCase().includes(q) ||
         lead.email.toLowerCase().includes(q) ||
+        lead.applicationType.toLowerCase().includes(q) ||
+        lead.researchTitle.toLowerCase().includes(q) ||
         lead.faculty.toLowerCase().includes(q) ||
         lead.department.toLowerCase().includes(q)
       );
@@ -559,7 +562,6 @@ export function LeadsReport({
     searchQuery,
     facultyFilter,
     departmentFilter,
-    passedStatusFilter,
     currentStatusFilter,
   ]);
 
@@ -579,15 +581,6 @@ export function LeadsReport({
       ),
     [scopeFilteredLeads],
   );
-  const passedStatusCounts = useMemo(
-    () =>
-      buildCountsList(scopeFilteredLeads, (lead) => lead.passedStatus).sort(
-        (a, b) =>
-          STATUS_ORDER.indexOf(a.value as LeadStatus) -
-          STATUS_ORDER.indexOf(b.value as LeadStatus),
-      ),
-    [scopeFilteredLeads],
-  );
   const currentStatusCounts = useMemo(
     () =>
       buildCountsList(scopeFilteredLeads, (lead) => lead.currentStatus).sort(
@@ -601,13 +594,11 @@ export function LeadsReport({
   const activeFilterCount =
     (facultyFilter ? 1 : 0) +
     (departmentFilter ? 1 : 0) +
-    (passedStatusFilter ? 1 : 0) +
     (currentStatusFilter ? 1 : 0);
 
   const clearAllFilters = useCallback(() => {
     setFacultyFilter(null);
     setDepartmentFilter(null);
-    setPassedStatusFilter(null);
     setCurrentStatusFilter(null);
   }, []);
 
@@ -656,7 +647,6 @@ export function LeadsReport({
         searchQuery,
         facultyFilter,
         departmentFilter,
-        passedStatusFilter,
         currentStatusFilter,
         deanOnly,
         ethicalOnly,
@@ -676,7 +666,6 @@ export function LeadsReport({
     ethicalOnly,
     exportColState,
     facultyFilter,
-    passedStatusFilter,
     scopeFilteredLeads.length,
     searchQuery,
     title,
@@ -693,7 +682,6 @@ export function LeadsReport({
     providedLeads,
     facultyFilter,
     departmentFilter,
-    passedStatusFilter,
     currentStatusFilter,
   ]);
 
@@ -1094,7 +1082,7 @@ export function LeadsReport({
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Application ID, name, email, faculty, department…"
+                placeholder="Application ID, name, email, type, title, faculty, department…"
                 className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark placeholder:text-dark-5 dark:border-dark-3 dark:text-white"
               />
             </label>
@@ -1113,15 +1101,6 @@ export function LeadsReport({
                 options={departmentCounts}
                 totalCount={scopeFilteredLeads.length}
                 onChange={setDepartmentFilter}
-              />
-              <FilterMenu
-                label="Passed Status"
-                value={passedStatusFilter}
-                options={passedStatusCounts}
-                totalCount={scopeFilteredLeads.length}
-                onChange={(v) =>
-                  setPassedStatusFilter(v as LeadStatus | null)
-                }
               />
               <FilterMenu
                 label="Current Status"
@@ -1171,13 +1150,6 @@ export function LeadsReport({
                   label="Department"
                   value={departmentFilter}
                   onClear={() => setDepartmentFilter(null)}
-                />
-              )}
-              {passedStatusFilter && (
-                <FilterChip
-                  label="Passed Status"
-                  value={passedStatusFilter}
-                  onClear={() => setPassedStatusFilter(null)}
                 />
               )}
               {currentStatusFilter && (
@@ -1242,8 +1214,9 @@ export function LeadsReport({
                 <TableHead className="min-w-[7rem] whitespace-nowrap">Application ID</TableHead>
                 <TableHead className="min-w-40">Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Passed Status</TableHead>
-                <TableHead>Current Status </TableHead>
+                <TableHead className="min-w-[5.5rem] whitespace-nowrap">Application Type</TableHead>
+                <TableHead className="min-w-48">Title</TableHead>
+                <TableHead>Current Status</TableHead>
                 <TableHead className="min-w-40">Response In</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead className="sticky right-0 z-20 w-[9.5rem] min-w-[9.5rem] bg-white shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark">
@@ -1273,37 +1246,40 @@ export function LeadsReport({
                   </a>
                 </TableCell>
 
+                <TableCell className="whitespace-nowrap">
+                  <span
+                    className={cn(
+                      "inline-block rounded px-2.5 py-1 text-xs font-semibold",
+                      lead.applicationType === "Type A"
+                        ? "bg-blue-100 text-blue-700"
+                        : lead.applicationType === "Type B"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-800"
+                    )}
+                  >
+                    {lead.applicationType}
+                  </span>
+                </TableCell>
+           
+                <TableCell className="max-w-xs truncate" title={lead.researchTitle}>
+                  {lead.researchTitle}
+                </TableCell>
+
                 <TableCell>
                   <span
                     className={cn(
                       "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
-                      lead.passedStatus === "Approved by Dean" ||
-                        lead.passedStatus === "Approved by IREB"
+                      lead.currentStatus === "Approved by Dean" ||
+                        lead.currentStatus === "Approved by IREB"
                         ? "bg-[#10B981]/[0.08] text-green"
-                        : lead.passedStatus === "Rejected by Dean" ||
-                            lead.passedStatus === "Rejected by IREB"
-                        ? "bg-[#FB5454]/[0.08] text-red"
-                        : "bg-amber-100 text-amber-700",
-                    )}
-                  >
-                    {lead.passedStatus}
-                  </span>
-                </TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
-                        lead.currentStatus === "Approved by Dean" ||
-                          lead.currentStatus === "Approved by IREB"
-                          ? "bg-[#10B981]/[0.08] text-green"
-                          : lead.currentStatus === "Rejected by Dean" ||
-                              lead.currentStatus === "Rejected by IREB"
+                        : lead.currentStatus === "Rejected by Dean" ||
+                            lead.currentStatus === "Rejected by IREB"
                           ? "bg-[#FB5454]/[0.08] text-red"
                           : "bg-amber-100 text-amber-700",
-                      )}
-                    >
-                      {lead.currentStatus}
-                    </span>
+                    )}
+                  >
+                    {lead.currentStatus}
+                  </span>
                 </TableCell>
                 <TableCell>{lead.project}</TableCell>
                 <TableCell>{lead.duration}</TableCell>

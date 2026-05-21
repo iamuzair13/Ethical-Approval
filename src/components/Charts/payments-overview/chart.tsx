@@ -23,23 +23,44 @@ const Chart = dynamic(() => import("react-apexcharts"), {
 export function PaymentsOverviewChart({ data }: PropsType) {
   const isMobile = useIsMobile();
 
+  const categories =
+    data[0]?.data.map((point) =>
+      typeof point.x === "string" ? point.x : String(point.x),
+    ) ?? [];
+
+  const barSeries = data.map((series) => ({
+    name: series.name,
+    data: series.data.map((point) => Math.max(0, Math.round(point.y))),
+  }));
+
   const options: ApexOptions = {
     legend: {
-      show: false,
+      show: true,
+      position: "bottom",
+      horizontalAlign: "center",
+      fontSize: isMobile ? "11px" : "12px",
+      markers: {
+        size: 6,
+      },
     },
-    colors: ["#5750F1", "#0ABEF9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"],
+    colors: ["#5750F1", "#fca708", "#f7c060", "#2aa33f", "#39f029", "#ff0703", "#bf1c19"],
     chart: {
       height: 310,
-      type: "area",
+      type: "bar",
       toolbar: {
         show: false,
       },
       fontFamily: "inherit",
     },
-    fill: {
-      gradient: {
-        opacityFrom: 0.55,
-        opacityTo: 0,
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: isMobile ? "80%" : "65%",
+        borderRadius: 4,
+        borderRadiusApplication: "end",
+        dataLabels: {
+          position: "top",
+        },
       },
     },
     responsive: [
@@ -60,10 +81,6 @@ export function PaymentsOverviewChart({ data }: PropsType) {
         },
       },
     ],
-    stroke: {
-      curve: "smooth",
-      width: isMobile ? 2 : 3,
-    },
     grid: {
       strokeDashArray: 5,
       yaxis: {
@@ -73,19 +90,45 @@ export function PaymentsOverviewChart({ data }: PropsType) {
       },
     },
     dataLabels: {
-      enabled: false,
+      enabled: true,
+      offsetY: -2,
+      formatter: (val) => {
+        const n = Math.round(Number(val) || 0);
+        return n > 0 ? String(n) : "";
+      },
+      style: {
+        fontSize: isMobile ? "9px" : "11px",
+        fontWeight: 600,
+      },
+      background: {
+        enabled: false,
+      },
     },
     tooltip: {
-      marker: {
-        show: true,
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val) => String(Math.round(Number(val) || 0)),
       },
     },
     xaxis: {
+      categories,
       axisBorder: {
         show: false,
       },
       axisTicks: {
         show: false,
+      },
+      labels: {
+        rotate: isMobile ? -45 : 0,
+        style: {
+          fontSize: isMobile ? "10px" : "12px",
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        formatter: (val) => String(Math.round(Number(val) || 0)),
       },
     },
   };
@@ -94,8 +137,8 @@ export function PaymentsOverviewChart({ data }: PropsType) {
     <div className="-ml-4 -mr-5 h-[310px]">
       <Chart
         options={options}
-        series={data}
-        type="area"
+        series={barSeries}
+        type="bar"
         height={310}
       />
     </div>

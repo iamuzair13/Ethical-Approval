@@ -14,7 +14,6 @@ export type LeadReportRow = {
   faculty: string;
   project: string;
   duration: string;
-  passedStatus: string;
   currentStatus: string;
   stage: string;
   latestFeedbackComment?: string | null;

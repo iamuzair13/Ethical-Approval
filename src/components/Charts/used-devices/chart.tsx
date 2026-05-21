@@ -1,5 +1,6 @@
 "use client";
 
+import { colorsForUsedDeviceStatuses } from "@/components/Charts/used-devices/status-colors";
 import { compactFormat } from "@/lib/format-number";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
@@ -17,12 +18,14 @@ const Chart = dynamic(() => import("react-apexcharts"), {
 });
 
 export function DonutChart({ data }: PropsType) {
+  const statusColors = colorsForUsedDeviceStatuses(data.map((item) => item.name));
+
   const chartOptions: ApexOptions = {
     chart: {
       type: "donut",
       fontFamily: "inherit",
     },
-    colors: ["#5750F1", "#5475E5", "#8099EC", "#ADBCF2", "#D2DAF8", "#EEF2FF"],
+    colors: statusColors,
     labels: data.map((item) => item.name),
     legend: {
       show: true,
@@ -106,17 +109,21 @@ export function DonutChart({ data }: PropsType) {
 }
 
 export function BarChartTable({ data, selectedLabel }: BarChartTableProps) {
+  const statusColors = colorsForUsedDeviceStatuses(data.map((item) => item.name));
+
   const options: ApexOptions = {
     chart: {
       type: "bar",
       fontFamily: "inherit",
       toolbar: { show: false },
     },
+    colors: statusColors,
     plotOptions: {
       bar: {
         horizontal: true,
         borderRadius: 4,
         barHeight: "60%",
+        distributed: true,
       },
     },
     xaxis: {
@@ -138,7 +145,7 @@ export function BarChartTable({ data, selectedLabel }: BarChartTableProps) {
     grid: {
       strokeDashArray: 5,
     },
-    colors: ["#5750F1"],
+    legend: { show: false },
     title: selectedLabel
       ? {
           text: selectedLabel,
