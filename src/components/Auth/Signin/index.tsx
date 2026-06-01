@@ -53,7 +53,8 @@ function mapSapError(code: string | null): string {
     case "SAP_ERROR":
       return "SAP verification service is unavailable or returned unexpected data.";
     case "FACULTY_NOT_FOUND":
-      return "No active faculty record found for this email.";
+    case "NOT_FOUND":
+      return "No employee record was found in SAP for this email.";
     default:
       return "Unable to verify your account. Please try again.";
   }

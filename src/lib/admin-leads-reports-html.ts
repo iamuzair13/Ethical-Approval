@@ -456,7 +456,7 @@ function buildIndividualAnalysisReportHtml(
     mode === "faculty" ? "Program / designation (if applicable)" : "Program Level";
 
   const overviewRows: [string, string][] = [
-    ["Submission ID/SAP ID", submissionIdSap],
+    ["Application ID / SAP ID", submissionIdSap],
     ["Attempt Number", escapeHtml(attemptNumber)],
     ["Total No. of Request(s)", escapeHtml(totalRequests)],
     [programRowLabel, escapeHtml(programLevel)],

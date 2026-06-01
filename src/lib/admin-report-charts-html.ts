@@ -209,18 +209,18 @@ export function buildDeanReportChartsHtml(metrics: {
 
   const fig1 =
     rows.length > 0
-      ? stackedShareBar("Past dean stage vs dean-rejected (scoped submissions)", [
-          { label: "Past dean stage", value: passedDean, color: CHART_COLORS[0]! },
-          { label: "Dean rejected", value: deanRejected, color: CHART_COLORS[4]! },
+      ? stackedShareBar("Approved vs Rejected (scoped submissions)", [
+          { label: "Approved", value: passedDean, color: CHART_COLORS[0]! },
+          { label: "Rejected", value: deanRejected, color: CHART_COLORS[4]! },
         ])
-      : figureWrap(`${figCaption("Past dean stage vs dean-rejected")}${emptyChartsMessage()}`);
+      : figureWrap(`${figCaption("Approved vs Rejected")}${emptyChartsMessage()}`);
 
   const inst = institutionTotalSubmissions;
   const scoped = rows.length;
   const rest = Math.max(0, inst - scoped);
   const fig2 =
     inst > 0
-      ? stackedShareBar("Institution submissions in range: this dean’s scope vs other", [
+      ? stackedShareBar("Institution submissions: this dean’s scope vs other", [
           { label: "This dean’s scope", value: scoped, color: CHART_COLORS[0]! },
           { label: "Rest of institution", value: rest, color: CHART_COLORS[6]! },
         ])

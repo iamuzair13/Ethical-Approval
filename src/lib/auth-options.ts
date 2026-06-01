@@ -1,10 +1,10 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { getAuthSecret } from "@/lib/auth-secret";
+import { verifyEmployeeByEmail } from "@/lib/sap-employee";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
 import { verifyPassword } from "@/lib/password";
-import { getActiveFacultyMemberByEmail } from "@/lib/faculty-members";
 
 function isStudentEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
@@ -29,19 +29,18 @@ export const authOptions: NextAuthOptions = {
         if (!email) return null;
 
         if (!isStudentEmail(email)) {
-          const faculty = await getActiveFacultyMemberByEmail(email);
-          if (!faculty) {
+          const empResult = await verifyEmployeeByEmail(email);
+          if (!empResult.ok) {
             return null;
           }
 
           return {
-            id: faculty.id,
-            email: faculty.email,
-            name: faculty.name,
-            sapId: faculty.sapId,
-            facultyMemberId: faculty.id,
-            facultyDepartment: faculty.department,
-            facultyDesignation: faculty.designation,
+            id: empResult.sapId,
+            email: empResult.email,
+            name: empResult.employeeName ?? empResult.email,
+            sapId: empResult.sapId,
+            facultyDepartment: empResult.department ?? undefined,
+            facultyDesignation: empResult.designation,
             applicantRole: "faculty",
           };
         }

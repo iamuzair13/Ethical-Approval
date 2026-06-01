@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertActiveAdmin } from "@/lib/admin-auth";
+import { getAdminUserById } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot, canAccessSubmissionStage } from "@/lib/authorization";
 import {
   formatRejectionDecisionComment,
@@ -91,6 +92,11 @@ export async function POST(
         )
       : (body.comment?.trim() ?? null);
 
+  const adminUser = await getAdminUserById(admin.adminId);
+  if (!adminUser) {
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+
   await db.query("BEGIN");
   try {
     await db.query(
@@ -108,8 +114,8 @@ export async function POST(
         submissionId,
         body.decision,
         commentForDb,
-        admin.adminId,
-        `Admin ${admin.adminId}`,
+        adminUser.sapId ?? adminUser.id,
+        adminUser.name,
       ],
     );
 
@@ -125,7 +131,7 @@ export async function POST(
       [
         submissionId,
         nextStatus === "dean_approved" ? "under_ireb_review" : "dean_rejected",
-        admin.adminId,
+        adminUser.sapId ?? adminUser.id,
       ],
     );
 

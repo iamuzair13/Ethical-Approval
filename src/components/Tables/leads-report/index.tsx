@@ -920,7 +920,6 @@ export function LeadsReport({
     const safe = fileName.replace(/[^\w.\-()+ ]/g, "_").slice(0, 120) || "file";
     const body = [
       `Application ID: ${attachmentModalLead.applicationId}`,
-      `Submission record id: ${attachmentModalLead.id}`,
       `Document slot: ${slotLabel}`,
       `File name as selected by applicant: ${fileName}`,
       "",

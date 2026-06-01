@@ -1,6 +1,6 @@
+import { verifyEmployeeByEmail } from "@/lib/sap-employee";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import { NextResponse } from "next/server";
-import { getActiveFacultyMemberByEmail } from "@/lib/faculty-members";
 
 type VerifyRequestBody = {
   email?: string;
@@ -30,18 +30,19 @@ export async function POST(request: Request) {
   }
 
   if (!isStudentEmail(email)) {
-    const faculty = await getActiveFacultyMemberByEmail(email);
-    if (!faculty) {
-      return NextResponse.json(
-        { ok: false, errorCode: "FACULTY_NOT_FOUND" },
-        { status: 400 },
-      );
+    const empResult = await verifyEmployeeByEmail(email);
+    if (!empResult.ok) {
+      const errorCode =
+        empResult.errorCode === "NOT_FOUND"
+          ? "FACULTY_NOT_FOUND"
+          : empResult.errorCode;
+      return NextResponse.json({ ok: false, errorCode }, { status: 400 });
     }
 
     return NextResponse.json({
       ok: true,
       userType: "faculty",
-      sapId: faculty.sapId,
+      sapId: empResult.sapId,
     });
   }
 

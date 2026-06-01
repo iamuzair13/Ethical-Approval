@@ -1299,7 +1299,6 @@ export default function ProfileDashboard() {
                         </TableCell>
                         <TableCell className="py-4">
                           <p className="font-semibold text-dark leading-tight dark:text-white">{request.title}</p>
-                          <p className="mt-0.5 text-xs text-dark-6 dark:text-slate-500">{request.id}</p>
                         </TableCell>
                         <TableCell className="whitespace-nowrap py-4 text-sm text-dark-6 dark:text-slate-400">{request.submittedOn}</TableCell>
                         <TableCell className="whitespace-nowrap py-4 text-sm text-dark-6 dark:text-slate-400">

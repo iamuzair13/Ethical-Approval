@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
+import { formatDecidedByName } from "@/lib/application-id";
 import { db } from "@/lib/db";
 
 type ActivityLogRow = {
@@ -13,6 +14,7 @@ type ActivityLogRow = {
   decided_by_name: string | null;
   decided_at: string;
   actor_name_from_trace: string | null;
+  decider_name: string | null;
 };
 
 function normalizeActionTraceComment(
@@ -65,7 +67,8 @@ export async function GET(request: NextRequest) {
         ad.comment,
         ad.decided_by_name,
         ad.decided_at::text,
-        actor.name AS actor_name_from_trace
+        actor.name AS actor_name_from_trace,
+        decider.name AS decider_name
       FROM approval_decisions ad
       INNER JOIN submissions s ON s.id = ad.submission_id
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
@@ -74,6 +77,12 @@ export async function GET(request: NextRequest) {
           ad.comment,
           '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})'
         ))[1]
+      LEFT JOIN admin_users decider
+        ON decider.id::text = ad.decided_by_sap_id
+        OR (
+          decider.sap_id IS NOT NULL
+          AND decider.sap_id = ad.decided_by_sap_id
+        )
       WHERE (
         $1 = ''
         OR s.application_id ILIKE '%' || $1 || '%'
@@ -87,9 +96,10 @@ export async function GET(request: NextRequest) {
     [query],
   );
 
-  const logs = result.rows.map((row) => ({
+  const logs = result.rows.map(({ decider_name, actor_name_from_trace, ...row }) => ({
     ...row,
-    comment: normalizeActionTraceComment(row.comment, row.actor_name_from_trace),
+    decided_by_name: formatDecidedByName(row.decided_by_name, decider_name),
+    comment: normalizeActionTraceComment(row.comment, actor_name_from_trace),
   }));
 
   return NextResponse.json({ ok: true, logs });

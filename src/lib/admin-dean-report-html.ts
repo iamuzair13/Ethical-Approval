@@ -6,6 +6,7 @@
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
 import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
 import { buildDeanReportChartsHtml } from "@/lib/admin-report-charts-html";
+import { formatStaffSapId } from "@/lib/application-id";
 
 const DEAN_RESPONSE_DELAY_DAYS = 3;
 
@@ -29,7 +30,7 @@ function fmtPct(n: number | null): string {
 }
 
 export type DeanReportMetricsInput = {
-  dean: { id: string; name: string; email: string };
+  dean: { name: string; email: string; sapId?: string | null };
   facultyLabel: string;
   rows: AggregateSubmissionInput[];
   institutionTotalSubmissions: number;
@@ -61,8 +62,9 @@ function computeDeanSummary(m: DeanReportMetricsInput): [string, string][] {
     institutionTotalSubmissions > 0 ? (rows.length / institutionTotalSubmissions) * 100 : null;
 
   return [
-    ["Dean ID", dean.id],
+    ["Staff SAP ID", formatStaffSapId(dean.sapId)],
     ["Name", dean.name],
+    ["Email", dean.email],
     ["Faculty", facultyLabel],
     ["Total approved forms", String(totalApprovedForms)],
     ["Total rejected forms", String(totalRejectedForms)],

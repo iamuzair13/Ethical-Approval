@@ -37,40 +37,20 @@ const REPORT_TYPES = new Set([
   "department-wise-research",
 ]);
 
-type Period = "monthly" | "yearly";
-
 type Body = {
-  period?: Period;
-  year?: number;
-  month?: number;
   deanId?: string | null;
   /** ISO calendar date `YYYY-MM-DD` (local interpretation on server). */
   deanReportDateFrom?: string | null;
   deanReportDateTo?: string | null;
+  /** Date window for non-dean reports. */
+  reportDateFrom?: string | null;
+  reportDateTo?: string | null;
   facultyId?: number | null;
   departmentId?: number | null;
 };
 
-function periodWindow(period: Period, year: number, month: number): { start: Date; end: Date } {
-  if (period === "yearly") {
-    return {
-      start: new Date(year, 0, 1, 0, 0, 0, 0),
-      end: new Date(year, 11, 31, 23, 59, 59, 999),
-    };
-  }
-  const m = Math.min(12, Math.max(1, month));
-  return {
-    start: new Date(year, m - 1, 1, 0, 0, 0, 0),
-    end: new Date(year, m, 0, 23, 59, 59, 999),
-  };
-}
-
-function periodLabel(period: Period, year: number, month: number): string {
-  if (period === "yearly") {
-    return `Calendar year ${year}`;
-  }
-  const d = new Date(year, month - 1, 1);
-  return d.toLocaleString(undefined, { month: "long", year: "numeric" });
+function formatDateRangeLabel(from: Date, to: Date): string {
+  return `${from.toLocaleDateString(undefined, { dateStyle: "medium" })} – ${to.toLocaleDateString(undefined, { dateStyle: "medium" })}`;
 }
 
 /** Accepts JSON number or string (e.g. from clients); BIGINT-safe positive id. */
@@ -203,18 +183,40 @@ export async function POST(
     }
   }
 
-  const period: Period = body.period === "yearly" ? "yearly" : "monthly";
-  const year =
-    typeof body.year === "number" && Number.isFinite(body.year)
-      ? Math.floor(body.year)
-      : new Date().getFullYear();
-  const month =
-    typeof body.month === "number" && Number.isFinite(body.month)
-      ? Math.min(12, Math.max(1, Math.floor(body.month)))
-      : new Date().getMonth() + 1;
-
-  if (year < 2000 || year > 2100) {
-    return NextResponse.json({ ok: false, error: "Invalid year." }, { status: 400 });
+  let reportDateFromParsed: Date | null = null;
+  let reportDateToParsed: Date | null = null;
+  if (reportType !== "deans-report") {
+    const hasReportFrom = body.reportDateFrom != null && String(body.reportDateFrom).trim() !== "";
+    const hasReportTo = body.reportDateTo != null && String(body.reportDateTo).trim() !== "";
+    if (!hasReportFrom || !hasReportTo) {
+      return NextResponse.json(
+        { ok: false, error: "Select both start and end dates for the report range." },
+        { status: 400 },
+      );
+    }
+    const fromStr = parseYmdString(body.reportDateFrom);
+    const toStr = parseYmdString(body.reportDateTo);
+    if (!fromStr || !toStr) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid report date range." },
+        { status: 400 },
+      );
+    }
+    reportDateFromParsed = ymdToLocalStartOfDay(fromStr);
+    reportDateToParsed = ymdToLocalEndOfDay(toStr);
+    if (reportDateFromParsed.getTime() > reportDateToParsed.getTime()) {
+      return NextResponse.json(
+        { ok: false, error: "Start date must be on or before end date." },
+        { status: 400 },
+      );
+    }
+    const maxSpanMs = 10 * 366 * 24 * 60 * 60 * 1000;
+    if (reportDateToParsed.getTime() - reportDateFromParsed.getTime() > maxSpanMs) {
+      return NextResponse.json(
+        { ok: false, error: "Date range cannot exceed 10 years." },
+        { status: 400 },
+      );
+    }
   }
 
   const facultyIdParsed = parsePositiveIntId(body.facultyId);
@@ -332,10 +334,9 @@ export async function POST(
     subjectLine = `${deanUser.name} (${deanUser.email})`;
     deanReportPack = { user: deanUser, scope: deanScope };
   } else {
-    const w = periodWindow(period, year, month);
-    dateStart = w.start;
-    dateEnd = w.end;
-    periodLabelStr = periodLabel(period, year, month);
+    dateStart = reportDateFromParsed!;
+    dateEnd = reportDateToParsed!;
+    periodLabelStr = formatDateRangeLabel(dateStart, dateEnd);
   }
 
   const rawRows = await fetchReportSubmissionRows(dateStart, dateEnd);
@@ -377,7 +378,7 @@ export async function POST(
       const rejectionReasonStated = await classifyDeanRejectionReasonStated(rejectedIds);
       html = buildDeanReportHtml(
         {
-          dean: { id: deanUser.id, name: deanUser.name, email: deanUser.email },
+          dean: { name: deanUser.name, email: deanUser.email, sapId: deanUser.sapId },
           facultyLabel,
           rows,
           institutionTotalSubmissions: institutionTotal,

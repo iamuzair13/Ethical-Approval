@@ -305,8 +305,8 @@ CREATE INDEX IF NOT EXISTS idx_faculty_auth_accounts_provider_email_lower
 -- Per-user settings keyed by SAP id. SAP id is the canonical identity used
 -- across the app (session.user.sapId, faculty_members.sap_id,
 -- submission_applicant_snapshot.sap_id), so a single table covers both
--- students and faculty/staff. Read-only identity (name, faculty, department,
--- designation, etc.) continues to come from the SAP feed / faculty_members.
+-- students and faculty/staff. Read-only identity at login comes from SAP OData;
+-- faculty_members table is retained for imports/history (not used for auth).
 CREATE TABLE IF NOT EXISTS user_profiles (
   sap_id              VARCHAR(50) PRIMARY KEY,
   phone               VARCHAR(40),

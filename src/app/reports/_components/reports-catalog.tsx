@@ -1,12 +1,16 @@
 "use client";
 
 import { ReportCatalogCard } from "@/app/reports/_components/report-catalog-card";
-import { DeanReportDateRange, defaultDeanReportDateRange } from "@/app/reports/_components/dean-report-date-range";
 import { DeanPickerSelect } from "@/app/reports/_components/dean-picker-select";
-import { ReportPeriodControl, type ReportPeriod } from "@/app/reports/_components/report-period-control";
+import {
+  createDefaultReportDateRange,
+  isReportDateRangeValid,
+  ReportDateRange,
+  type ReportDateRangeValue,
+} from "@/app/reports/_components/report-date-range";
 import { ReportPreviewModal } from "@/app/reports/_components/report-preview-modal";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type AdminRole = "administrator" | "dean" | "ireb";
@@ -22,6 +26,16 @@ type ReportSlug =
   | "faculty-wise-research"
   | "department-wise-research";
 
+const REPORT_SLUGS: ReportSlug[] = [
+  "deans-report",
+  "total-efficiency",
+  "overall-research-specific",
+  "overall-student",
+  "overall-faculty",
+  "faculty-wise-research",
+  "department-wise-research",
+];
+
 type ReportFilterFaculty = { id: number; name: string };
 type ReportFilterDepartment = {
   id: number;
@@ -30,25 +44,23 @@ type ReportFilterDepartment = {
   facultyName: string;
 };
 
+function buildInitialDateRanges(): Record<ReportSlug, ReportDateRangeValue> {
+  return Object.fromEntries(
+    REPORT_SLUGS.map((slug) => [slug, createDefaultReportDateRange()]),
+  ) as Record<ReportSlug, ReportDateRangeValue>;
+}
+
 export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   const isAdministrator = adminRole === "administrator";
-  const now = new Date();
-
-  const [period, setPeriod] = useState<ReportPeriod>("monthly");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
 
   const [deans, setDeans] = useState<DeanRow[]>([]);
   const [deansLoading, setDeansLoading] = useState(isAdministrator);
   const [deanId, setDeanId] = useState("");
 
-  const deanRangeDefaults = useMemo(() => defaultDeanReportDateRange(), []);
-  const [deanDateFrom, setDeanDateFrom] = useState(deanRangeDefaults.from);
-  const [deanDateTo, setDeanDateTo] = useState(deanRangeDefaults.to);
+  const [dateRanges, setDateRanges] = useState(buildInitialDateRanges);
 
-  const onDeanDateFrom = useCallback((ymd: string) => {
-    setDeanDateFrom(ymd);
-    setDeanDateTo((prev) => (prev < ymd ? ymd : prev));
+  const setReportDateRange = useCallback((slug: ReportSlug, next: ReportDateRangeValue) => {
+    setDateRanges((prev) => ({ ...prev, [slug]: next }));
   }, []);
 
   const [reportFaculties, setReportFaculties] = useState<ReportFilterFaculty[]>([]);
@@ -156,6 +168,7 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   }, [downloadPdf]);
 
   const generate = async (slug: ReportSlug) => {
+    const range = dateRanges[slug];
     setGenerating(slug);
     try {
       const body: Record<string, unknown> =
@@ -163,15 +176,23 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
           ? isAdministrator
             ? {
                 deanId: deanId || undefined,
-                deanReportDateFrom: deanDateFrom,
-                deanReportDateTo: deanDateTo,
+                deanReportDateFrom: range.from,
+                deanReportDateTo: range.to,
               }
-            : { deanReportDateFrom: deanDateFrom, deanReportDateTo: deanDateTo }
+            : { deanReportDateFrom: range.from, deanReportDateTo: range.to }
           : slug === "faculty-wise-research"
-            ? { period, year, month, facultyId: Number(facultyWiseFacultyId) }
+            ? {
+                reportDateFrom: range.from,
+                reportDateTo: range.to,
+                facultyId: Number(facultyWiseFacultyId),
+              }
             : slug === "department-wise-research"
-              ? { period, year, month, departmentId: Number(deptWiseDepartmentId) }
-              : { period, year, month };
+              ? {
+                  reportDateFrom: range.from,
+                  reportDateTo: range.to,
+                  departmentId: Number(deptWiseDepartmentId),
+                }
+              : { reportDateFrom: range.from, reportDateTo: range.to };
 
       const res = await fetch(`/api/admin/reports/${slug}`, {
         method: "POST",
@@ -208,6 +229,8 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
     </button>
   );
 
+  const dateRangeInvalid = (slug: ReportSlug) => !isReportDateRangeValid(dateRanges[slug]);
+
   return (
     <div className="space-y-8">
       <div className="max-w-3xl">
@@ -239,108 +262,91 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
                     This report uses your assigned dean faculty automatically.
                   </p>
                 )}
-                <DeanReportDateRange
-                  dateFrom={deanDateFrom}
-                  dateTo={deanDateTo}
-                  onChangeFrom={onDeanDateFrom}
-                  onChangeTo={setDeanDateTo}
+                <ReportDateRange
+                  idPrefix="deans-report"
+                  range={dateRanges["deans-report"]}
+                  onChange={(next) => setReportDateRange("deans-report", next)}
                 />
               </div>
             }
             action={primaryBtn(
               "deans-report",
               "Preview report",
-              Boolean(
-                (isAdministrator && !deanId.trim()) ||
-                  !deanDateFrom.trim() ||
-                  !deanDateTo.trim() ||
-                  deanDateFrom > deanDateTo,
-              ),
+              Boolean((isAdministrator && !deanId.trim()) || dateRangeInvalid("deans-report")),
             )}
           />
         ) : null}
 
         <ReportCatalogCard
           title="Total Efficiency Report"
-          description="Throughput, status mix, and timing metrics for the selected period — scoped to your faculties, or institution-wide for administrators."
-          badge="Monthly / Yearly"
+          description="Throughput, status mix, and timing metrics for the selected date range — scoped to your faculties, or institution-wide for administrators."
+          badge="Date range"
           controls={
-            <ReportPeriodControl
-              period={period}
-              onPeriodChange={setPeriod}
-              year={year}
-              onYearChange={setYear}
-              month={month}
-              onMonthChange={setMonth}
+            <ReportDateRange
+              idPrefix="total-efficiency"
+              range={dateRanges["total-efficiency"]}
+              onChange={(next) => setReportDateRange("total-efficiency", next)}
             />
           }
-          action={primaryBtn("total-efficiency")}
+          action={primaryBtn("total-efficiency", "Preview report", dateRangeInvalid("total-efficiency"))}
         />
 
         <ReportCatalogCard
           title="Overall Research Specific Report"
-          description="Thesis vs publication and medical vs non-medical mix for the period, with status and faculty volume context."
-          badge="Monthly / Yearly"
+          description="Thesis vs publication and medical vs non-medical mix for the selected date range, with status and faculty volume context."
+          badge="Date range"
           controls={
-            <ReportPeriodControl
-              period={period}
-              onPeriodChange={setPeriod}
-              year={year}
-              onYearChange={setYear}
-              month={month}
-              onMonthChange={setMonth}
+            <ReportDateRange
+              idPrefix="overall-research-specific"
+              range={dateRanges["overall-research-specific"]}
+              onChange={(next) => setReportDateRange("overall-research-specific", next)}
             />
           }
-          action={primaryBtn("overall-research-specific")}
+          action={primaryBtn(
+            "overall-research-specific",
+            "Preview report",
+            dateRangeInvalid("overall-research-specific"),
+          )}
         />
 
         <ReportCatalogCard
           title="Overall Student Report"
           description="UOL student applicants (@student.uol.edu.pk), thesis and publications: program mix, faculty concentration, thesis vs publication volume, outcomes, response times, and top SDGs."
-          badge="Monthly / Yearly"
+          badge="Date range"
           controls={
-            <ReportPeriodControl
-              period={period}
-              onPeriodChange={setPeriod}
-              year={year}
-              onYearChange={setYear}
-              month={month}
-              onMonthChange={setMonth}
+            <ReportDateRange
+              idPrefix="overall-student"
+              range={dateRanges["overall-student"]}
+              onChange={(next) => setReportDateRange("overall-student", next)}
             />
           }
-          action={primaryBtn("overall-student")}
+          action={primaryBtn("overall-student", "Preview report", dateRangeInvalid("overall-student"))}
         />
 
         <ReportCatalogCard
           title="Overall Faculty Report"
           description="Faculty/staff research publications only (excludes @student.uol.edu.pk). One summary table: volume, faculty/department concentration, PhD share, medical vs other domain counts, approval/rejection rates, attempts, student dean-throughput by faculty snapshot, response times, processing days, and top SDGs."
-          badge="Monthly / Yearly"
+          badge="Date range"
           controls={
-            <ReportPeriodControl
-              period={period}
-              onPeriodChange={setPeriod}
-              year={year}
-              onYearChange={setYear}
-              month={month}
-              onMonthChange={setMonth}
+            <ReportDateRange
+              idPrefix="overall-faculty"
+              range={dateRanges["overall-faculty"]}
+              onChange={(next) => setReportDateRange("overall-faculty", next)}
             />
           }
-          action={primaryBtn("overall-faculty")}
+          action={primaryBtn("overall-faculty", "Preview report", dateRangeInvalid("overall-faculty"))}
         />
 
         <ReportCatalogCard
           title="Faculty Wise Research Report"
-          description="Per-faculty snapshot for the period: thesis vs publication volume, approval/rejection/pending counts, common research purpose, top SDGs, highest and lowest department volume within the faculty, and faculty-applicant share."
-          badge="Faculty / Monthly / Yearly"
+          description="Per-faculty snapshot for the selected date range: thesis vs publication volume, approval/rejection/pending counts, common research purpose, top SDGs, highest and lowest department volume within the faculty, and faculty-applicant share."
+          badge="Faculty / Date range"
           controls={
             <div className="flex flex-col gap-3">
-              <ReportPeriodControl
-                period={period}
-                onPeriodChange={setPeriod}
-                year={year}
-                onYearChange={setYear}
-                month={month}
-                onMonthChange={setMonth}
+              <ReportDateRange
+                idPrefix="faculty-wise-research"
+                range={dateRanges["faculty-wise-research"]}
+                onChange={(next) => setReportDateRange("faculty-wise-research", next)}
               />
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
@@ -367,23 +373,22 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
           action={primaryBtn(
             "faculty-wise-research",
             "Preview report",
-            !facultyWiseFacultyId.trim() || reportFiltersLoading,
+            !facultyWiseFacultyId.trim() ||
+              reportFiltersLoading ||
+              dateRangeInvalid("faculty-wise-research"),
           )}
         />
 
         <ReportCatalogCard
           title="Department Wise Research Report"
-          description="Per-department snapshot for the period: thesis vs publication volume, outcomes, common research purpose, top SDGs, and faculty-applicant share — scoped to the selected master department record."
-          badge="Department / Monthly / Yearly"
+          description="Per-department snapshot for the selected date range: thesis vs publication volume, outcomes, common research purpose, top SDGs, and faculty-applicant share — scoped to the selected master department record."
+          badge="Department / Date range"
           controls={
             <div className="flex flex-col gap-3">
-              <ReportPeriodControl
-                period={period}
-                onPeriodChange={setPeriod}
-                year={year}
-                onYearChange={setYear}
-                month={month}
-                onMonthChange={setMonth}
+              <ReportDateRange
+                idPrefix="department-wise-research"
+                range={dateRanges["department-wise-research"]}
+                onChange={(next) => setReportDateRange("department-wise-research", next)}
               />
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
@@ -410,7 +415,9 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
           action={primaryBtn(
             "department-wise-research",
             "Preview report",
-            !deptWiseDepartmentId.trim() || reportFiltersLoading,
+            !deptWiseDepartmentId.trim() ||
+              reportFiltersLoading ||
+              dateRangeInvalid("department-wise-research"),
           )}
         />
       </div>

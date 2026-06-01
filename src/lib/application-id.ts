@@ -18,6 +18,40 @@ export function generateSixDigitApplicationId(): string {
  * Reserves a unique `application_id` for `submissions` within an open transaction.
  * Retries on collision (unlikely with 900k codes).
  */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True when a value looks like an internal UUID (not user-facing). */
+export function isInternalUuid(value: string | null | undefined): boolean {
+  return typeof value === "string" && UUID_RE.test(value.trim());
+}
+
+/** 6-digit public application reference for display (never internal submission ids). */
+export function formatApplicationReference(id: string | null | undefined): string {
+  const s = typeof id === "string" ? id.trim() : "";
+  return s || "—";
+}
+
+/** Staff SAP ID for reports — shows the SAP ID or a clear missing label; never email/UUID. */
+export function formatStaffSapId(sapId: string | null | undefined): string {
+  const sap = sapId?.trim();
+  if (sap && !isInternalUuid(sap)) return sap;
+  return "Not Provided";
+}
+
+/** Cleans legacy stored admin labels like "Admin {uuid}" for display. */
+export function formatDecidedByName(
+  name: string | null | undefined,
+  resolvedName?: string | null,
+): string {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) return resolvedName?.trim() || "—";
+  if (/^Admin\s+[0-9a-f-]{36}$/i.test(trimmed) || isInternalUuid(trimmed)) {
+    return resolvedName?.trim() || "Administrator";
+  }
+  return trimmed;
+}
+
 export async function allocateUniqueApplicationId(
   client: PoolClient,
   maxAttempts = 40,
