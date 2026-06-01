@@ -45,7 +45,7 @@ function mapAuthError(code: string | null): string | null {
 }
 
 const FACULTY_ERP_NOT_FOUND_MESSAGE =
-  "We could not find your employee record in the university SAP. Please contact the HR department to ensure your official email and employment details are correctly maintained in SAP, then try signing in again.";
+  "We could not find your employee record in the university SAP. Please contact the HR department to ensure your official email and employment details are correctly updated in SAP, then try signing in again.";
 
 function isStudentEmailAddress(email: string): boolean {
   return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
