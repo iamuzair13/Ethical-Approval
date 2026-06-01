@@ -44,20 +44,39 @@ function mapAuthError(code: string | null): string | null {
   }
 }
 
-function mapSapError(code: string | null): string {
+const FACULTY_ERP_NOT_FOUND_MESSAGE =
+  "We could not find your employee record in the university ERP. Please contact the HR department to ensure your official email and employment details are correctly maintained in ERP, then try signing in again.";
+
+function isStudentEmailAddress(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
+}
+
+function mapSapError(
+  code: string | null,
+  options?: { isFacultyEmail?: boolean },
+): string {
+  const isFaculty = options?.isFacultyEmail ?? false;
+
   switch (code) {
     case "INVALID_EMAIL":
-      return "Invalid SAP ID format in email. Example: 70088579@studen.uol.edu.pk";
+      return isFaculty
+        ? "Enter a valid university email address."
+        : "Invalid SAP ID format in email. Example: 70088579@studen.uol.edu.pk";
+    case "FACULTY_NOT_FOUND":
+      return FACULTY_ERP_NOT_FOUND_MESSAGE;
     case "NOT_FOUND":
-      return "No student record was found in SAP for this SAP ID.";
+      return isFaculty
+        ? FACULTY_ERP_NOT_FOUND_MESSAGE
+        : "No student record was found in SAP for this SAP ID.";
     case "SAP_ERROR":
       return "SAP verification service is unavailable or returned unexpected data.";
-    case "FACULTY_NOT_FOUND":
-    case "NOT_FOUND":
-      return "No employee record was found in SAP for this email.";
     default:
       return "Unable to verify your account. Please try again.";
   }
+}
+
+function isFacultyErpNotFoundError(code: string | null | undefined): boolean {
+  return code === "FACULTY_NOT_FOUND" || code === "NOT_FOUND";
 }
 
 export default function Signin() {
@@ -67,6 +86,7 @@ export default function Signin() {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingManual, setLoadingManual] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formWarning, setFormWarning] = useState<string | null>(null);
 
   const callbackUrl = useMemo(() => {
     const raw = searchParams.get("callbackUrl");
@@ -81,20 +101,41 @@ export default function Signin() {
 
   const displayError = formError ?? urlError;
 
+  const showSignInMessage = (
+    message: string,
+    options?: { warning?: boolean; toast?: boolean },
+  ) => {
+    if (options?.warning) {
+      setFormWarning(message);
+      setFormError(null);
+    } else {
+      setFormError(message);
+      setFormWarning(null);
+    }
+    if (options?.toast !== false) {
+      if (options?.warning) toast.warning(message);
+      else toast.error(message);
+    }
+  };
+
   const handleGoogle = useCallback(async () => {
     setFormError(null);
+    setFormWarning(null);
     setLoadingGoogle(true);
     try {
       const { signInStudentViaGoogleBrowserToken } = await import("@/lib/student-google-browser-signin");
       const res = await signInStudentViaGoogleBrowserToken(signIn, callbackUrl);
       if (!res.ok) {
-        toast.error(res.message ?? "Login failed.");
         if (res.errorCode === "Configuration") {
-          setFormError(res.message ?? mapAuthError("Configuration"));
+          showSignInMessage(
+            res.message ?? mapAuthError("Configuration") ?? "Server authentication is misconfigured.",
+          );
+        } else if (res.errorCode === "FACULTY_NOT_FOUND") {
+          showSignInMessage(FACULTY_ERP_NOT_FOUND_MESSAGE, { warning: true });
         } else if (res.errorCode) {
-          setFormError(mapSapError(res.errorCode));
+          showSignInMessage(mapSapError(res.errorCode));
         } else {
-          setFormError(res.message ?? "Google sign-in failed.");
+          showSignInMessage(res.message ?? "Google sign-in failed.");
         }
         return;
       }
@@ -109,7 +150,9 @@ export default function Signin() {
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    setFormWarning(null);
     const email = manualEmail.trim();
+    const isFacultyEmail = !isStudentEmailAddress(email);
     if (!email) {
       const message = "Enter your student email.";
       setFormError(message);
@@ -138,12 +181,18 @@ export default function Signin() {
           | { errorCode?: string }
           | null;
         if (formatError && verifyBody?.errorCode === "INVALID_EMAIL") {
-          setFormError(formatError);
-          toast.error(formatError);
+          showSignInMessage(formatError);
+        } else if (
+          isFacultyEmail &&
+          isFacultyErpNotFoundError(verifyBody?.errorCode)
+        ) {
+          showSignInMessage(FACULTY_ERP_NOT_FOUND_MESSAGE, { warning: true });
         } else {
-          const message = mapSapError(verifyBody?.errorCode ?? null);
-          setFormError(message);
-          toast.error(message);
+          showSignInMessage(
+            mapSapError(verifyBody?.errorCode ?? null, {
+              isFacultyEmail: isFacultyEmail,
+            }),
+          );
         }
         return;
       }
@@ -197,6 +246,15 @@ export default function Signin() {
                 University of Lahore · IREB
               </p>
             </div>
+
+            {formWarning && (
+              <div
+                role="status"
+                className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+              >
+                {formWarning}
+              </div>
+            )}
 
             {displayError && (
               <div
