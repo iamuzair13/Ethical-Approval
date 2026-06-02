@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { deleteFaculty, updateFaculty } from "@/lib/admin-repository";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type UpdateFacultyBody = {
   code?: string;
@@ -47,6 +48,14 @@ export async function PATCH(
     if (!faculty) {
       return NextResponse.json({ ok: false, error: "Faculty not found." }, { status: 404 });
     }
+    void logActivityFromRequest(request, {
+      actionCode: "admin.faculty.update",
+      targetType: "faculty",
+      targetId: String(faculty.id),
+      targetLabel: faculty.name,
+      facultyId: faculty.id,
+      facultyName: faculty.name,
+    });
     return NextResponse.json({ ok: true, faculty });
   } catch {
     return NextResponse.json(
@@ -76,6 +85,11 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ ok: false, error: "Faculty not found." }, { status: 404 });
     }
+    void logActivityFromRequest(request, {
+      actionCode: "admin.faculty.delete",
+      targetType: "faculty",
+      targetId: String(facultyId),
+    });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(

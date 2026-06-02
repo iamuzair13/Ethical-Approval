@@ -32,6 +32,10 @@ declare module "next-auth" {
       adminStatus?: "active" | "inactive";
       adminScopeMode?: "all" | "restricted";
       adminFacultyIds?: number[];
+      actingAdminId?: string;
+      actingAdminRole?: "administrator" | "dean" | "ireb";
+      viewAsActive?: boolean;
+      viewAsUserName?: string;
     };
   }
 }
@@ -50,5 +54,12 @@ declare module "next-auth/jwt" {
     adminScopeMode?: "all" | "restricted";
     adminFacultyIds?: number[];
     adminTokenVersion?: number;
+    actingAdminId?: string;
+    actingAdminRole?: "administrator" | "dean" | "ireb";
+    actingAdminTokenVersion?: number;
+    viewAsActive?: boolean;
+    viewAsUserName?: string;
+    name?: string | null;
+    email?: string | null;
   }
 }

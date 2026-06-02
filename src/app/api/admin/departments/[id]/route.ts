@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { deleteDepartment, updateDepartment } from "@/lib/admin-repository";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type UpdateDepartmentBody = {
   facultyId?: number;
@@ -47,6 +48,13 @@ export async function PATCH(
     if (!department) {
       return NextResponse.json({ ok: false, error: "Department not found." }, { status: 404 });
     }
+    void logActivityFromRequest(request, {
+      actionCode: "admin.department.update",
+      targetType: "department",
+      targetId: String(department.id),
+      targetLabel: department.name,
+      facultyId: body.facultyId,
+    });
     return NextResponse.json({ ok: true, department });
   } catch {
     return NextResponse.json(
@@ -76,6 +84,11 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ ok: false, error: "Department not found." }, { status: 404 });
     }
+    void logActivityFromRequest(request, {
+      actionCode: "admin.department.delete",
+      targetType: "department",
+      targetId: String(departmentId),
+    });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(

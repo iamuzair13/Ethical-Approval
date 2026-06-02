@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { logProfileActivityFromSession } from "@/lib/activity-log/log-profile";
 import { db } from "@/lib/db";
 
 type UserProfileRow = {
@@ -172,6 +173,14 @@ export async function PUT(request: NextRequest) {
   );
 
   const avatarUrl = upsert.rows[0]?.avatar_url ?? null;
+
+  void logProfileActivityFromSession(session, {
+    actionCode: "profile.update",
+    targetId: sapId,
+    metadata: {
+      fields: ["phone", "bio", "locale", "notificationEmail"],
+    },
+  });
 
   const response: UserSettingsResponse = {
     ok: true,

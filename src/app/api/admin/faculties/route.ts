@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { createFaculty, listFaculties } from "@/lib/admin-repository";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 export async function GET(request: NextRequest) {
   const actor = await assertActiveAdmin(request);
@@ -40,6 +41,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const faculty = await createFaculty({ code: body.code, name: body.name });
+    void logActivityFromRequest(request, {
+      actionCode: "admin.faculty.create",
+      targetType: "faculty",
+      targetId: String(faculty.id),
+      targetLabel: faculty.name,
+      facultyId: faculty.id,
+      facultyName: faculty.name,
+    });
     return NextResponse.json({ ok: true, faculty });
   } catch {
     return NextResponse.json(

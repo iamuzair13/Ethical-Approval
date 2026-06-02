@@ -13,6 +13,8 @@ import {
   formatRejectionDecisionComment,
   normalizeRejectionReasonIds,
 } from "@/lib/rejection-reasons";
+import { resolveDecisionRecorder } from "@/lib/view-as";
+import { logApplicationDecisionActivity } from "@/lib/activity-log";
 
 type DecisionBody = {
   decision?: "approved" | "rejected";
@@ -34,6 +36,11 @@ export async function POST(
 ) {
   const actor = await assertActiveAdmin(request);
   if (!actor) {
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+
+  const recorderContext = await resolveDecisionRecorder(request, actor);
+  if (!recorderContext) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
@@ -97,13 +104,19 @@ export async function POST(
     );
   }
 
-  const actingAdmin = await getAdminUserById(actor.adminId);
-  if (!actingAdmin) {
+  const effectiveAdminUser = await getAdminUserById(actor.adminId);
+  if (!effectiveAdminUser) {
     return NextResponse.json({ ok: false, error: "Acting admin not found." }, { status: 404 });
   }
-  let effectiveAdmin = actingAdmin;
 
-  if (actor.role === "administrator") {
+  let effectiveAdmin = effectiveAdminUser;
+  let auditNote: string | null = recorderContext.auditNote;
+
+  if (recorderContext.isViewAs) {
+    if (actor.role !== stage) {
+      return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
+    }
+  } else if (actor.role === "administrator") {
     if (!body.onBehalfOfAdminId) {
       return NextResponse.json(
         { ok: false, error: "Select the admin to act on behalf of." },
@@ -125,9 +138,17 @@ export async function POST(
       );
     }
     effectiveAdmin = selectedAdmin;
+    auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;
   } else if (actor.role !== stage) {
     return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
   }
+
+  const decidedBySapId = recorderContext.isViewAs
+    ? recorderContext.recorderSapId
+    : effectiveAdmin.sapId ?? effectiveAdmin.id;
+  const decidedByName = recorderContext.isViewAs
+    ? recorderContext.recorderName
+    : effectiveAdmin.name;
 
   const nextStatus =
     stage === "dean"
@@ -137,11 +158,6 @@ export async function POST(
       : body.decision === "approved"
         ? "approved"
         : "rejected";
-
-  const auditNote =
-    actor.role === "administrator" && actor.adminId !== effectiveAdmin.id
-      ? `Action performed by administrator ${actingAdmin.name} on behalf of ${effectiveAdmin.name}.`
-      : null;
 
   let decisionCommentForDb: string | null;
   if (body.decision === "rejected") {
@@ -174,8 +190,8 @@ export async function POST(
         stage,
         body.decision,
         finalComment,
-        effectiveAdmin.sapId ?? effectiveAdmin.id,
-        effectiveAdmin.name,
+        decidedBySapId,
+        decidedByName,
       ],
     );
 
@@ -188,7 +204,7 @@ export async function POST(
             last_updated_by_sap_id = $3
         WHERE id = $1
       `,
-      [submissionId, nextStatus, effectiveAdmin.sapId ?? effectiveAdmin.id],
+      [submissionId, nextStatus, decidedBySapId],
     );
 
     await client.query("COMMIT");
@@ -216,6 +232,22 @@ export async function POST(
         approvedAt: new Date(),
       });
     }
+
+    const onBehalfId =
+      actor.role === "administrator" && !recorderContext.isViewAs
+        ? effectiveAdmin.id
+        : undefined;
+
+    void logApplicationDecisionActivity({
+      request,
+      actor,
+      submissionId,
+      applicationId: submission.application_id,
+      applicantFaculty: submission.applicant_faculty,
+      decision: body.decision,
+      stage,
+      onBehalfOfAdminId: onBehalfId,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

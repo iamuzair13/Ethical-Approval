@@ -26,6 +26,7 @@ import {
 } from "@/lib/admin-dean-report-queries";
 import { getAdminUserById, getAdminScope, listFaculties } from "@/lib/admin-repository";
 import { fetchReportSubmissionRows, filterReportRowsByScope } from "@/lib/admin-report-queries";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 const REPORT_TYPES = new Set([
   "deans-report",
@@ -461,6 +462,19 @@ export async function POST(
     default:
       return NextResponse.json({ ok: false, error: "Unknown report type." }, { status: 404 });
   }
+
+  void logActivityFromRequest(request, {
+    actionCode: "admin.report.export",
+    targetType: "report",
+    targetId: reportType,
+    targetLabel: title,
+    metadata: {
+      reportType,
+      periodLabel: periodLabelStr,
+      dateStart: dateStart.toISOString(),
+      dateEnd: dateEnd.toISOString(),
+    },
+  });
 
   return NextResponse.json({ ok: true, html, title });
 }

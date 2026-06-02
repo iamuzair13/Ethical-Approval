@@ -34,16 +34,18 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
+        title: "Activity Center",
+        icon: Icons.Table,
+        url: "/activity-center",
+        items: []
+      },
+      {
         title: "Administration",
         icon: Icons.User,
         items: [
           {
             title: "Users",
             url: "/users",
-          },
-          {
-            title: "Activity logs",
-            url: "/activity-logs",
           },
           {
             title: "Organizations",

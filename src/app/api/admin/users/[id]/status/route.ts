@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
-import { setAdminStatus } from "@/lib/admin-repository";
+import { getAdminUserById, setAdminStatus } from "@/lib/admin-repository";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type StatusBody = {
   status?: "active" | "inactive";
@@ -30,10 +31,32 @@ export async function PATCH(
     );
   }
 
+  const previous = await getAdminUserById(id);
   const updated = await setAdminStatus(id, body.status);
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
   }
+
+  const targetType =
+    updated.role === "dean"
+      ? "dean"
+      : updated.role === "ireb"
+        ? "ireb_member"
+        : "administrator";
+
+  void logActivityFromRequest(request, {
+    actionCode:
+      body.status === "active" ? "admin.user.activate" : "admin.user.deactivate",
+    targetType,
+    targetId: updated.id,
+    targetLabel: updated.name,
+    effective: {
+      adminId: updated.id,
+      name: updated.name,
+      role: updated.role,
+    },
+    metadata: { previousStatus: previous?.status },
+  });
 
   return NextResponse.json({
     ok: true,

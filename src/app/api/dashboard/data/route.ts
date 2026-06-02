@@ -1,29 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getDashboardLeads, getOverviewData, getUsedDevicesData } from "@/app/(home)/fetch";
 import { getScopedSubmissions } from "@/lib/authorization";
-import { normalizeFacultyIds, type AuthenticatedAdmin } from "@/lib/admin-auth";
+import { adminFromSession } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
-
-function toAdminScopeFromSession(
-  session: Session | null,
-): AuthenticatedAdmin | null {
-  if (!session?.user?.adminId || !session.user.adminRole || !session.user.adminStatus) {
-    return null;
-  }
-
-  return {
-    adminId: session.user.adminId,
-    role: session.user.adminRole,
-    status: session.user.adminStatus,
-    scopeMode: session.user.adminScopeMode ?? "all",
-    facultyIds: normalizeFacultyIds(session.user.adminFacultyIds),
-    tokenVersion: 0,
-  };
-}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -47,7 +29,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const adminScope = toAdminScopeFromSession(session);
+  const adminScope = adminFromSession(session);
   const scopedSubmissions = adminScope ? await getScopedSubmissions(adminScope) : [];
   const snapshotFaculties = await db.query<{ faculty: string }>(
     `

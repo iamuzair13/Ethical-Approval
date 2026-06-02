@@ -3,6 +3,7 @@
 import { Header } from "@/components/Layouts/header";
 import { ThemeToggleSwitch } from "@/components/Layouts/header/theme-toggle";
 import { UserInfo } from "@/components/Layouts/header/user-info";
+import { ViewAsBanner } from "@/components/Layouts/view-as-banner";
 import { Sidebar } from "@/components/Layouts/sidebar";
 import Image from "next/image";
 import Link from "next/link";
@@ -85,6 +86,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
 
       <div className="w-full bg-gray-2 dark:bg-[#020d1a]">
         <Header />
+        <ViewAsBanner />
 
         <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
           {children}

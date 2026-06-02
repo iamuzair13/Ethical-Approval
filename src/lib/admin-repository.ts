@@ -809,3 +809,18 @@ export async function listActiveDeansForReportPicker(): Promise<DeanPickerRow[]>
   );
   return result.rows;
 }
+
+/** Active IREB accounts for administrator View As picker. */
+export async function listActiveIrebForViewAs(): Promise<DeanPickerRow[]> {
+  const result = await db.query<DeanPickerRow>(
+    `
+      SELECT id, name, email
+      FROM admin_users
+      WHERE deleted_at IS NULL
+        AND status = 'active'
+        AND role = 'ireb'
+      ORDER BY LOWER(name) ASC, LOWER(email) ASC
+    `,
+  );
+  return result.rows;
+}

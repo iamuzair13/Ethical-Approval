@@ -5,6 +5,12 @@ import { verifyEmployeeByEmail } from "@/lib/sap-employee";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
 import { verifyPassword } from "@/lib/password";
+import {
+  buildAdministratorRestoreTokenFields,
+  buildViewAsTokenFields,
+  validateViewAsTarget,
+  type ViewAsSessionUpdate,
+} from "@/lib/view-as";
 
 function isStudentEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
@@ -99,7 +105,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // Always keep redirects on same-origin.
       const safeUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
       const target = new URL(safeUrl, baseUrl);
 
@@ -116,7 +121,7 @@ export const authOptions: NextAuthOptions = {
 
       return baseUrl;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.sub = user.id;
         token.sapId = user.sapId;
@@ -131,7 +136,40 @@ export const authOptions: NextAuthOptions = {
         token.applicantRole = user.applicantRole;
         token.facultyDepartment = (user as { facultyDepartment?: string }).facultyDepartment;
         token.facultyDesignation = (user as { facultyDesignation?: string | null }).facultyDesignation;
+        token.name = user.name;
+        token.email = user.email;
+
+        if (user.adminId) {
+          token.actingAdminId = user.adminId;
+          token.actingAdminRole = user.adminRole;
+          token.actingAdminTokenVersion = user.adminTokenVersion;
+          token.viewAsActive = false;
+          token.viewAsUserName = undefined;
+        }
       }
+
+      if (trigger === "update" && session) {
+        const update = session as ViewAsSessionUpdate;
+        const actingAdminId = String(token.actingAdminId ?? token.adminId ?? "");
+
+        if (update.action === "startViewAs" && update.targetAdminId && update.viewAsRole) {
+          const targetResult = await validateViewAsTarget(
+            actingAdminId,
+            update.targetAdminId,
+            update.viewAsRole,
+          );
+          if (targetResult.ok) {
+            const patch = await buildViewAsTokenFields(targetResult.target);
+            Object.assign(token, patch);
+          }
+        } else if (update.action === "stopViewAs") {
+          const patch = await buildAdministratorRestoreTokenFields(actingAdminId);
+          if (patch) {
+            Object.assign(token, patch);
+          }
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -146,9 +184,20 @@ export const authOptions: NextAuthOptions = {
         session.user.adminFacultyIds = token.adminFacultyIds;
         session.user.facultyMemberId = token.facultyMemberId;
         session.user.applicantRole = token.applicantRole;
+        session.user.actingAdminId = token.actingAdminId;
+        session.user.actingAdminRole = token.actingAdminRole;
+        session.user.viewAsActive = Boolean(token.viewAsActive);
+        session.user.viewAsUserName = token.viewAsUserName;
         (session.user as { facultyDepartment?: string }).facultyDepartment = token.facultyDepartment;
         (session.user as { facultyDesignation?: string | null }).facultyDesignation =
           token.facultyDesignation;
+
+        if (typeof token.name === "string") {
+          session.user.name = token.name;
+        }
+        if (typeof token.email === "string") {
+          session.user.email = token.email;
+        }
       }
       return session;
     },

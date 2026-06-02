@@ -4,15 +4,19 @@ import { SearchIcon } from "@/assets/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useSidebarContext } from "../sidebar/sidebar-context";
 import { MenuIcon } from "./icons";
 import { Notification } from "./notification";
 import { ThemeToggleSwitch } from "./theme-toggle";
 import { UserInfo } from "./user-info";
+import { ViewAsMenu } from "./view-as/view-as-menu";
 
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext();
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const showAdminNotifications = Boolean(session?.user?.adminId);
 
   const dashboardLabel = (() => {
     if (pathname.toLowerCase().includes("deanpanel")) {
@@ -60,6 +64,13 @@ export function Header() {
 
         <ThemeToggleSwitch />
 
+        <ViewAsMenu />
+
+        {showAdminNotifications && (
+          <div className="shrink-0">
+            <Notification />
+          </div>
+        )}
 
         <div className="shrink-0">
           <UserInfo />

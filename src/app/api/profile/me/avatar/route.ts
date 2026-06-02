@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { mkdir, readdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { authOptions } from "@/lib/auth-options";
+import { logProfileActivityFromSession } from "@/lib/activity-log/log-profile";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -135,6 +136,11 @@ export async function POST(request: NextRequest) {
     [sapId, publicUrl],
   );
 
+  void logProfileActivityFromSession(session, {
+    actionCode: "profile.avatar.update",
+    targetId: sapId,
+  });
+
   return NextResponse.json({ ok: true, avatarUrl: publicUrl });
 }
 
@@ -155,5 +161,11 @@ export async function DELETE() {
     `UPDATE user_profiles SET avatar_url = NULL WHERE sap_id = $1`,
     [sapId],
   );
+
+  void logProfileActivityFromSession(session, {
+    actionCode: "profile.avatar.remove",
+    targetId: sapId,
+  });
+
   return NextResponse.json({ ok: true, avatarUrl: "" });
 }

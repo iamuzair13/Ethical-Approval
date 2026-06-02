@@ -1,6 +1,6 @@
 import type { Session } from "next-auth";
 import { db } from "@/lib/db";
-import { normalizeFacultyIds, type AuthenticatedAdmin } from "@/lib/admin-auth";
+import { adminFromSession, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { getScopedSubmissions } from "@/lib/authorization";
 
 export type OverviewData = {
@@ -255,17 +255,7 @@ type DecisionAggregateRow = {
 };
 
 function toAdminScope(session: Session): AuthenticatedAdmin | null {
-  if (!session.user.adminId || !session.user.adminRole || !session.user.adminStatus) {
-    return null;
-  }
-  return {
-    adminId: session.user.adminId,
-    role: session.user.adminRole,
-    status: session.user.adminStatus,
-    scopeMode: session.user.adminScopeMode ?? "all",
-    facultyIds: normalizeFacultyIds(session.user.adminFacultyIds),
-    tokenVersion: 0,
-  };
+  return adminFromSession(session);
 }
 
 async function getScopedSubmissionRows(session?: Session): Promise<SubmissionScopeRow[]> {

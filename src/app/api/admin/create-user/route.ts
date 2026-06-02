@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin-repository";
 import { hashPassword } from "@/lib/password";
 import { isAdminRole } from "@/lib/admin-rbac";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type CreateAdminBody = {
   name?: string;
@@ -86,6 +87,25 @@ export async function POST(request: NextRequest) {
       assignedBy: actor.adminId,
     });
   }
+
+  const targetType =
+    created.role === "dean"
+      ? "dean"
+      : created.role === "ireb"
+        ? "ireb_member"
+        : "administrator";
+
+  void logActivityFromRequest(request, {
+    actionCode: "admin.user.create",
+    targetType,
+    targetId: created.id,
+    targetLabel: created.name,
+    effective: {
+      adminId: created.id,
+      name: created.name,
+      role: created.role,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

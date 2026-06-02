@@ -7,6 +7,8 @@ import {
   formatRejectionDecisionComment,
   normalizeRejectionReasonIds,
 } from "@/lib/rejection-reasons";
+import { resolveDecisionRecorder } from "@/lib/view-as";
+import { logApplicationDecisionActivity } from "@/lib/activity-log";
 
 type DecisionBody = {
   decision?: "approved" | "rejected";
@@ -17,6 +19,7 @@ type DecisionBody = {
 type SubmissionStageRow = {
   current_status: string;
   faculty: string;
+  application_id: string;
 };
 
 export async function POST(
@@ -60,7 +63,7 @@ export async function POST(
 
   const submissionResult = await db.query<SubmissionStageRow>(
     `
-      SELECT s.current_status, sas.faculty
+      SELECT s.current_status, sas.faculty, s.application_id
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       WHERE s.id = $1
@@ -97,6 +100,18 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
+  const recorderContext = await resolveDecisionRecorder(request, admin);
+  if (!recorderContext) {
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+
+  const decidedBySapId = recorderContext.recorderSapId;
+  const decidedByName = recorderContext.recorderName;
+  const commentWithAudit =
+    recorderContext.auditNote && commentForDb
+      ? `${commentForDb}\n\n${recorderContext.auditNote}`
+      : recorderContext.auditNote ?? commentForDb;
+
   await db.query("BEGIN");
   try {
     await db.query(
@@ -113,9 +128,9 @@ export async function POST(
       [
         submissionId,
         body.decision,
-        commentForDb,
-        adminUser.sapId ?? adminUser.id,
-        adminUser.name,
+        commentWithAudit,
+        decidedBySapId,
+        decidedByName,
       ],
     );
 
@@ -128,7 +143,7 @@ export async function POST(
             last_updated_by_sap_id = $3
         WHERE id = $1
       `,
-      [submissionId, nextStatus, adminUser.sapId ?? adminUser.id],
+      [submissionId, nextStatus, decidedBySapId],
     );
 
     await db.query("COMMIT");
@@ -136,6 +151,16 @@ export async function POST(
     await db.query("ROLLBACK");
     throw error;
   }
+
+  void logApplicationDecisionActivity({
+    request,
+    actor: admin,
+    submissionId,
+    applicationId: submission.application_id,
+    applicantFaculty: submission.faculty,
+    decision: body.decision,
+    stage: "ireb",
+  });
 
   return NextResponse.json({ ok: true });
 }

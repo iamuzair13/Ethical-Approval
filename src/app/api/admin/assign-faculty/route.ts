@@ -5,6 +5,7 @@ import {
   assignDeanFaculty,
   getAdminUserById,
 } from "@/lib/admin-repository";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type AssignFacultyBody = {
   adminUserId?: string;
@@ -53,6 +54,18 @@ export async function POST(request: NextRequest) {
       departmentId: body.departmentId,
       assignedBy: actor.adminId,
     });
+    void logActivityFromRequest(request, {
+      actionCode: "admin.faculty.assign_dean",
+      targetType: "dean",
+      targetId: body.adminUserId,
+      targetLabel: target.name,
+      facultyId: body.facultyId,
+      effective: {
+        adminId: target.id,
+        name: target.name,
+        role: target.role,
+      },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -61,6 +74,19 @@ export async function POST(request: NextRequest) {
     adminUserId: body.adminUserId,
     facultyIds,
     assignedBy: actor.adminId,
+  });
+  void logActivityFromRequest(request, {
+    actionCode:
+      facultyIds.length > 0 ? "admin.faculty.assign_ireb" : "admin.faculty.remove_ireb",
+    targetType: "ireb_member",
+    targetId: body.adminUserId,
+    targetLabel: target.name,
+    effective: {
+      adminId: target.id,
+      name: target.name,
+      role: target.role,
+    },
+    metadata: { facultyIds },
   });
   const scopeMode = facultyIds.length > 0 ? "restricted" : "all";
   return NextResponse.json({ ok: true, scopeMode });

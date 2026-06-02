@@ -69,6 +69,71 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS activity_events (
+  id                  BIGSERIAL PRIMARY KEY,
+  action_code         VARCHAR(120) NOT NULL,
+  description         TEXT NOT NULL,
+  target_type         VARCHAR(80) NOT NULL,
+  target_id           VARCHAR(120),
+  target_label        VARCHAR(255),
+
+  actor_admin_id      UUID,
+  actor_name          VARCHAR(255) NOT NULL,
+  actor_role          VARCHAR(32) NOT NULL,
+
+  effective_admin_id  UUID,
+  effective_name      VARCHAR(255),
+  effective_role      VARCHAR(32),
+
+  impersonation_mode  VARCHAR(24),
+
+  faculty_id          BIGINT,
+  faculty_name        VARCHAR(255),
+
+  submission_id       BIGINT,
+  metadata_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actor_timezone      VARCHAR(64)
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_created_at
+  ON activity_events (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_actor_role_created
+  ON activity_events (actor_role, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_action_code_created
+  ON activity_events (action_code, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_target_type_created
+  ON activity_events (target_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_faculty_created
+  ON activity_events (faculty_id, created_at DESC)
+  WHERE faculty_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_impersonation
+  ON activity_events (impersonation_mode, created_at DESC)
+  WHERE impersonation_mode IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_effective_admin_created
+  ON activity_events (effective_admin_id, created_at DESC)
+  WHERE effective_admin_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_activity_events_actor_admin_created
+  ON activity_events (actor_admin_id, created_at DESC)
+  WHERE actor_admin_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS activity_notification_reads (
+  admin_user_id   UUID PRIMARY KEY,
+  last_read_at    TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z'::timestamptz,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_notification_reads_last_read
+  ON activity_notification_reads (last_read_at DESC);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_admin_assignment_single_active
 ON admin_faculty_assignments(admin_user_id, faculty_id, assignment_type)
 WHERE deleted_at IS NULL;

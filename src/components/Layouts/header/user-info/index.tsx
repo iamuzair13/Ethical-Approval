@@ -269,6 +269,7 @@ export function UserInfo() {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string>("");
   const { data: session, status } = useSession();
+  const viewAsActive = Boolean(session?.user?.viewAsActive);
 
   const sessionImage =
     typeof session?.user?.image === "string" ? session.user.image.trim() : "";
@@ -284,6 +285,10 @@ export function UserInfo() {
   // Hydrate the avatar from the user_profiles row once the session is ready.
   useEffect(() => {
     if (status !== "authenticated") {
+      setProfileAvatar("");
+      return;
+    }
+    if (viewAsActive) {
       setProfileAvatar("");
       return;
     }
@@ -308,7 +313,7 @@ export function UserInfo() {
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, viewAsActive]);
 
   // Live updates when the user changes their avatar from the settings page.
   useEffect(() => {
@@ -322,10 +327,18 @@ export function UserInfo() {
       window.removeEventListener(PROFILE_AVATAR_CHANGED_EVENT, handler);
   }, []);
 
+  const roleLabel = (() => {
+    const adminRole = session?.user?.adminRole;
+    if (adminRole === "administrator") return "Administrator";
+    if (adminRole === "dean") return "Dean";
+    if (adminRole === "ireb") return "IREB";
+    return "User";
+  })();
+
   const USER = {
     name: session?.user?.name ?? "Guest",
     email: session?.user?.email ?? "",
-    role: (session?.user as { role?: string })?.role ?? "User",
+    role: roleLabel,
   };
 
   /* Dropdown animation variants */

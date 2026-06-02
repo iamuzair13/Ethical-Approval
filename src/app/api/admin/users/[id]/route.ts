@@ -10,6 +10,7 @@ import {
   updateAdminUser,
 } from "@/lib/admin-repository";
 import { hashPassword } from "@/lib/password";
+import { logActivityFromRequest } from "@/lib/activity-log";
 
 type UpdateAdminBody = {
   name?: string;
@@ -114,6 +115,25 @@ export async function PATCH(
       assignedBy: actor.adminId,
     });
   }
+
+  const targetType =
+    updated.role === "dean"
+      ? "dean"
+      : updated.role === "ireb"
+        ? "ireb_member"
+        : "administrator";
+
+  void logActivityFromRequest(request, {
+    actionCode: passwordHash ? "admin.user.password_reset" : "admin.user.update",
+    targetType,
+    targetId: updated.id,
+    targetLabel: updated.name,
+    effective: {
+      adminId: updated.id,
+      name: updated.name,
+      role: updated.role,
+    },
+  });
 
   return NextResponse.json({
     ok: true,
