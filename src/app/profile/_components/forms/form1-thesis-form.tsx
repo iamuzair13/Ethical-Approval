@@ -10,6 +10,7 @@ import {
   FORM_3_MANDATORY_ATTACHMENTS,
   FORM_3_REQUIRED_ATTACHMENTS,
 } from "./form3-thesis-medical-form";
+import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -509,10 +510,13 @@ export function Form1ThesisForm({
             </FieldRow>
 
             {form.preApprovalDataCollected === "Yes" && (
-              <WarnNote className="mt-4">
-                Note: Please attach the participant information letter (cover letter) and
-                participant consent form in the attachments section.
-              </WarnNote>
+              <InformedConsentDocumentSection
+                form={form}
+                setForm={setForm}
+                onFieldChange={onFieldChange}
+                projectTitleDefault={form.thesisTitle}
+                conductedByDefault={form.supervisorName}
+              />
             )}
           </FormSection>
 

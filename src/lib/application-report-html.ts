@@ -98,6 +98,21 @@ const LABELS: Record<string, string> = {
   recruitmentChannels: "Recruitment channels",
   informedConsentType: "Informed consent type",
   preApprovalDataCollected: "Data collected before approval?",
+  publicationPreApprovalDataCollected: "Data collected before approval? (publication)",
+  informedConsentParticipantName: "Informed consent — participant name (English)",
+  informedConsentParentage: "Informed consent — S/O, D/O (English)",
+  informedConsentProjectTitle: "Informed consent — project title (English)",
+  informedConsentConductedBy: "Informed consent — conducted by (English)",
+  informedConsentSignature: "Informed consent — signature (English)",
+  informedConsentCnic: "Informed consent — CNIC (English)",
+  informedConsentDate: "Informed consent — date (English)",
+  informedConsentParticipantNameUr: "Informed consent — participant name (Urdu)",
+  informedConsentParentageUr: "Informed consent — S/O, D/O (Urdu)",
+  informedConsentProjectTitleUr: "Informed consent — project title (Urdu)",
+  informedConsentNameUr: "Informed consent — name (Urdu)",
+  informedConsentSignatureUr: "Informed consent — signature (Urdu)",
+  informedConsentCnicUr: "Informed consent — CNIC (Urdu)",
+  informedConsentDateUr: "Informed consent — date (Urdu)",
   canWithdraw: "Participants may withdraw?",
   compensation: "Compensation for participants?",
   confidentialityOptions: "Confidentiality / privacy measures",
@@ -240,6 +255,34 @@ function formatValue(key: string, raw: unknown): string {
 
 type SectionDef = { title: string; keys: string[] };
 
+const INFORMED_CONSENT_KEYS: string[] = [
+  "informedConsentParticipantName",
+  "informedConsentParentage",
+  "informedConsentProjectTitle",
+  "informedConsentConductedBy",
+  "informedConsentSignature",
+  "informedConsentCnic",
+  "informedConsentDate",
+  "informedConsentParticipantNameUr",
+  "informedConsentParentageUr",
+  "informedConsentProjectTitleUr",
+  "informedConsentNameUr",
+  "informedConsentSignatureUr",
+  "informedConsentCnicUr",
+  "informedConsentDateUr",
+];
+
+function preApprovalInformedConsentApplies(form: Record<string, unknown>): boolean {
+  const pre = getFormValue(form, "preApprovalDataCollected");
+  const pubPre = getFormValue(form, "publicationPreApprovalDataCollected");
+  return pre === "Yes" || pubPre === "Yes";
+}
+
+function shouldIncludeReportKey(key: string, form: Record<string, unknown>): boolean {
+  if (!INFORMED_CONSENT_KEYS.includes(key)) return true;
+  return preApprovalInformedConsentApplies(form);
+}
+
 const THESIS_SCHOLAR: SectionDef = {
   title: "Step 1 · Scholar's information",
   keys: [
@@ -328,6 +371,7 @@ const ETHICAL_KEYS: string[] = [
   "conflictManagement",
   "recordsWithoutConsent",
   "recordsWithoutConsentJustification",
+  ...INFORMED_CONSENT_KEYS,
 ];
 
 /** Form #3 Medical — Step 2 (matches Word Ethical Considerations section). */
@@ -354,6 +398,7 @@ const MEDICAL_THESIS_ETHICAL_KEYS: string[] = [
   "potentialRiskDetails",
   "conflictOfInterest",
   "conflictManagement",
+  ...INFORMED_CONSENT_KEYS,
 ];
 
 const MEDICAL_THESIS_ETHICAL: SectionDef = {
@@ -486,6 +531,7 @@ const PUBLICATION_ETHICAL: SectionDef = {
     "publicationHumanSubjects",
     "publicationRecruitmentChannels",
     "publicationInformedConsent",
+    "preApprovalDataCollected",
     "publicationPreApprovalDataCollected",
     "publicationCanWithdraw",
     "publicationCompensation",
@@ -510,6 +556,7 @@ const PUBLICATION_ETHICAL: SectionDef = {
     "publicationAdverseEventsReported",
     "publicationThirdPartyPermissions",
     "publicationThirdPartyPermissionDetails",
+    ...INFORMED_CONSENT_KEYS,
   ],
 };
 
@@ -636,6 +683,7 @@ function renderDlRow(key: string, form: Record<string, unknown>): string | null 
 function renderSection(section: SectionDef, form: Record<string, unknown>): string {
   const rows: string[] = [];
   for (const key of section.keys) {
+    if (!shouldIncludeReportKey(key, form)) continue;
     const row = renderDlRow(key, form);
     if (row) rows.push(row);
   }
@@ -669,6 +717,7 @@ function renderOrphans(form: Record<string, unknown>, used: Set<string>): string
   const orphans: string[] = [];
   for (const key of Object.keys(form).sort()) {
     if (used.has(key)) continue;
+    if (!shouldIncludeReportKey(key, form)) continue;
     const row = renderDlRow(key, form);
     if (row) orphans.push(row);
   }

@@ -6,6 +6,7 @@ import { ResearchObjectiveSection } from "./research-objective-section";
 import { ResearchPopulationBox } from "./research-population-box";
 import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import { ignoreRequiredValidationProps } from "./form-validation-mark";
+import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
 import { FieldGroup } from "./form-ui";
 import {
@@ -300,6 +301,19 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
                 <option>No</option>
               </BaseSelect>
             </Required>
+          </FieldRow>
+
+          {form.preApprovalDataCollected === "Yes" && (
+            <InformedConsentDocumentSection
+              form={form}
+              setForm={setForm}
+              onFieldChange={onFieldChange}
+              projectTitleDefault={form.publicationTitle}
+              conductedByDefault={form.scholarName}
+            />
+          )}
+
+          <FieldRow>
             <Required label="2.5 Can participants withdraw from the study at any time? *">
               <BaseSelect
                 value={form.canWithdraw}

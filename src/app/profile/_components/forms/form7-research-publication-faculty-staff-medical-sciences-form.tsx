@@ -5,6 +5,7 @@ import { CoPersonSection } from "./co-person-section";
 import { ResearchObjectiveSection } from "./research-objective-section";
 import { ResearchPopulationBox } from "./research-population-box";
 import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
+import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -301,11 +302,21 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               <option>No</option>
               <option>Not applicable</option>
             </BaseSelect>
-            <InfoNote className="mt-2">
-              Note: If &lsquo;yes&rsquo; is selected, please attach the participant
-              information letter (cover letter) and participant consent form.
-            </InfoNote>
           </Required>
+
+          {form.publicationPreApprovalDataCollected === "Yes" && (
+            <InformedConsentDocumentSection
+              form={form}
+              setForm={setForm}
+              onFieldChange={onFieldChange}
+              projectTitleDefault={form.publicationTitle}
+              conductedByDefault={
+                form.publicationAuthor1UolName.trim() ||
+                form.publicationAuthor1ExternalName.trim() ||
+                form.scholarName
+              }
+            />
+          )}
         </FormSection>
 
         <FormSection title="Withdrawal, Compensation & Anonymization">

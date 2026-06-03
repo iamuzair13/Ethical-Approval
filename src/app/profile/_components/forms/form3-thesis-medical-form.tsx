@@ -6,6 +6,7 @@ import { CoPersonSection } from "./co-person-section";
 import { ResearchObjectiveSection } from "./research-objective-section";
 import { ResearchPopulationBox } from "./research-population-box";
 import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
+import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -591,9 +592,13 @@ export function Form3ThesisMedicalForm({
          
      
           {form.preApprovalDataCollected === "Yes" && (
-            <WarnNote className="mt-2">
-              Attach the participant information letter and consent form where applicable.
-            </WarnNote>
+            <InformedConsentDocumentSection
+              form={form}
+              setForm={setForm}
+              onFieldChange={onFieldChange}
+              projectTitleDefault={form.thesisTitle}
+              conductedByDefault={form.supervisorName}
+            />
           )}
         </FormSection>
 

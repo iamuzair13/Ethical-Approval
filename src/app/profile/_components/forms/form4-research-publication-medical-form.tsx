@@ -8,6 +8,7 @@ import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import {
   allInlineRequiredProps,
 } from "./form-validation-mark";
+import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -295,11 +296,21 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>No</option>
                 <option>Not applicable</option>
               </BaseSelect>
-              <p className="mt-2 text-xs leading-relaxed text-body dark:text-dark-6">
-                Note: If &apos;yes&apos; is selected, please attach the participant
-                information letter (cover letter) and participant consent form.
-              </p>
             </Required>
+
+            {form.publicationPreApprovalDataCollected === "Yes" && (
+              <InformedConsentDocumentSection
+                form={form}
+                setForm={setForm}
+                onFieldChange={onFieldChange}
+                projectTitleDefault={form.publicationTitle}
+                conductedByDefault={
+                  form.publicationAuthor1UolName.trim() ||
+                  form.publicationAuthor1ExternalName.trim() ||
+                  form.scholarName
+                }
+              />
+            )}
 
             <Required
               label="Can participants withdraw from the study at any time? *"

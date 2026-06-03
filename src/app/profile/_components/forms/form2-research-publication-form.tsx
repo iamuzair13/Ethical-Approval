@@ -5,6 +5,10 @@ import { CoPersonSection } from "./co-person-section";
 import { ResearchObjectiveSection } from "./research-objective-section";
 import { ResearchPopulationBox } from "./research-population-box";
 import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
+import {
+  EMPTY_INFORMED_CONSENT_FIELDS,
+  InformedConsentDocumentSection,
+} from "./informed-consent-document-section";
 import { Required } from "./required";
 import {
   AttachmentCard,
@@ -94,7 +98,13 @@ export function Form2ResearchPublicationForm({
   const onValueChange =
     (key: keyof typeof form) =>
     (val: string) =>
-      setForm((prev) => ({ ...prev, [key]: val }));
+      setForm((prev) => {
+        const next = { ...prev, [key]: val };
+        if (key === "preApprovalDataCollected" && val !== "Yes") {
+          Object.assign(next, EMPTY_INFORMED_CONSENT_FIELDS);
+        }
+        return next;
+      });
 
   /* ---------- STEP 0: Scholar Information ---------- */
   if (currentStep === 0) {
@@ -390,6 +400,16 @@ export function Form2ResearchPublicationForm({
               </Required>
             </FieldGroup>
           </FieldRow>
+
+          {form.preApprovalDataCollected === "Yes" && (
+            <InformedConsentDocumentSection
+              form={form}
+              setForm={setForm}
+              onFieldChange={onFieldChange}
+              projectTitleDefault={form.publicationTitle}
+              conductedByDefault={form.scholarName}
+            />
+          )}
         </FormSection>
       </section>
     );

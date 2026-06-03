@@ -37,6 +37,9 @@ import { Form5ResearchPublicationFacultyStaffForm } from "./forms/form5-research
 import { Form6ResearchPublicationFacultyNonMedicalForm } from "./forms/form6-research-publication-faculty-non-medical-form";
 import { Form7ResearchPublicationFacultyStaffMedicalSciencesForm } from "./forms/form7-research-publication-faculty-staff-medical-sciences-form";
 import {
+  EMPTY_INFORMED_CONSENT_FIELDS,
+} from "./forms/informed-consent-document-section";
+import {
   shortenToastLabel,
   validateRequiredMarkFields,
   REQUIRED_CONTROL_SELECTOR,
@@ -434,6 +437,7 @@ const INITIAL_FORM = {
   thesisAnimalSubjectsUsed: "",
   thesisAnimalCareWelfareDetails: "",
   thesisAnimalEthicsCommitteeApproval: "",
+  ...EMPTY_INFORMED_CONSENT_FIELDS,
 };
 
 const LEGACY_DRAFT_KEY = "approval-request-stepper-draft";
@@ -1005,6 +1009,18 @@ export default function ApprovalRequestStepper({
         if (key === "publicationAuthor2ExternalFaculty") next.publicationAuthor2ExternalDepartment = "";
         if (key === "publicationAuthor3UolFaculty") next.publicationAuthor3UolDepartment = "";
         if (key === "publicationAuthor3ExternalFaculty") next.publicationAuthor3ExternalDepartment = "";
+        if (
+          key === "preApprovalDataCollected" &&
+          e.target.value !== "Yes"
+        ) {
+          Object.assign(next, EMPTY_INFORMED_CONSENT_FIELDS);
+        }
+        if (
+          key === "publicationPreApprovalDataCollected" &&
+          e.target.value !== "Yes"
+        ) {
+          Object.assign(next, EMPTY_INFORMED_CONSENT_FIELDS);
+        }
         return next;
       });
       setSubmitError(null);
