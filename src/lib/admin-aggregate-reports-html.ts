@@ -80,26 +80,7 @@ function mean(values: number[]): number | null {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-export function submissionStatusLabel(cs: AggregateSubmissionInput["current_status"]): string {
-  switch (cs) {
-    case "submitted":
-      return "Submitted";
-    case "under_dean_review":
-      return "Pending at Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
-    case "under_ireb_review":
-      return "Pending at IREB";
-    case "approved":
-      return "Approved by IREB";
-    case "rejected":
-      return "Rejected by IREB";
-    default:
-      return cs;
-  }
-}
+export { submissionStatusLabel, submissionStatusCountsByLabel } from "@/lib/admin-submission-status";
 
 const REPORT_STYLES = `
   :root {
@@ -214,14 +195,17 @@ const REPORT_STYLES = `
   .report-charts > .sec-title {
     margin-top: 0;
   }
+  .chart-scope-note {
+    margin: -4px 0 12px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
   .chart-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 14px 18px;
     align-items: start;
-  }
-  @media (max-width: 720px) {
-    .chart-grid { grid-template-columns: 1fr; }
   }
   .chart-figure {
     break-inside: avoid;
@@ -232,6 +216,7 @@ const REPORT_STYLES = `
     border-radius: 8px;
     background: #fafafa;
     font-family: ui-sans-serif, system-ui, sans-serif;
+    overflow: visible;
   }
   .chart-caption {
     font-size: 11px;
@@ -341,15 +326,6 @@ export function coverBlock(ctx: AggregateReportContext): string {
   </div>`;
 }
 
-export function submissionStatusCountsByLabel(rows: AggregateSubmissionInput[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const r of rows) {
-    const k = submissionStatusLabel(r.current_status);
-    m.set(k, (m.get(k) ?? 0) + 1);
-  }
-  return m;
-}
-
 function collectDeanDecisionDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
@@ -449,16 +425,16 @@ function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
   return `<div class="sec-title">Efficiency summary</div><table class="pdf-grid"><tbody>${body}</tbody></table>`;
 }
 
-function topFaculties(rows: AggregateSubmissionInput[], limit: number): string {
+function topFaculties(rows: AggregateSubmissionInput[], limit?: number): string {
   const m = new Map<string, number>();
   for (const r of rows) {
     const f = r.faculty.trim() || "—";
     m.set(f, (m.get(f) ?? 0) + 1);
   }
   const sorted = Array.from(m.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const slice = sorted.slice(0, limit);
+  const slice = limit != null ? sorted.slice(0, limit) : sorted;
   if (slice.length === 0) {
-    return `<div class="sec-title">Top faculties</div><p>No data.</p>`;
+    return `<div class="sec-title">Faculties by submission count</div><p>No data.</p>`;
   }
   const head = `<thead><tr><th>Faculty (snapshot)</th><th>Count</th></tr></thead>`;
   const body = slice
@@ -467,7 +443,7 @@ function topFaculties(rows: AggregateSubmissionInput[], limit: number): string {
         `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(String(c))}</td></tr>`,
     )
     .join("");
-  return `<div class="sec-title">Top faculties by volume</div><table class="pdf-data">${head}<tbody>${body}</tbody></table>`;
+  return `<div class="sec-title">Faculties by submission count</div><table class="pdf-data">${head}<tbody>${body}</tbody></table>`;
 }
 
 function ethicsForm(ethics: unknown): Record<string, unknown> {
@@ -680,7 +656,7 @@ export function buildTotalEfficiencyReportHtml(
   ${coverBlock(ctx)}
   ${buildTotalEfficiencyChartsHtml(rows)}
   ${efficiencyMetricsTable(rows)}
-  ${topFaculties(rows, 10)}
+  ${topFaculties(rows)}
   <p class="footer-note">Total efficiency view for the selected period and scope.</p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
 }
@@ -694,7 +670,7 @@ export function buildOverallResearchSpecificReportHtml(
   ${buildOverallResearchSpecificChartsHtml(rows)}
   ${researchCrossTab(rows)}
   ${researchInsightsSummaryTable(rows)}
-  ${topFaculties(rows, 10)}
+  ${topFaculties(rows)}
   <p class="footer-note">Research-specific overview: thesis vs publication and medical vs non-medical domain.</p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
 }

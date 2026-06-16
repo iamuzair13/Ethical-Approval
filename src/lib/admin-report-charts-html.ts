@@ -6,6 +6,9 @@
  */
 
 import type { AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
+import {
+  submissionStatusCountsByLabel,
+} from "@/lib/admin-submission-status";
 
 function esc(s: string): string {
   return s
@@ -14,37 +17,6 @@ function esc(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-/** Keep aligned with submissionStatusLabel in admin-aggregate-reports-html.ts */
-function submissionStatusLabelForCharts(cs: AggregateSubmissionInput["current_status"]): string {
-  switch (cs) {
-    case "submitted":
-      return "Submitted";
-    case "under_dean_review":
-      return "Pending at Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
-    case "under_ireb_review":
-      return "Pending at IREB";
-    case "approved":
-      return "Approved by IREB";
-    case "rejected":
-      return "Rejected by IREB";
-    default:
-      return cs;
-  }
-}
-
-function submissionStatusCountsByLabelForCharts(rows: AggregateSubmissionInput[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const r of rows) {
-    const k = submissionStatusLabelForCharts(r.current_status);
-    m.set(k, (m.get(k) ?? 0) + 1);
-  }
-  return m;
 }
 
 /** Mirrors student report program-tier logic (keep aligned with admin-student-overall-report-html). */
@@ -90,10 +62,15 @@ function isPhdProgramForFacultyCharts(program: string | null): boolean {
 
 const CHART_COLORS = ["#5750f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b", "#0ea5e9"];
 
-function reportChartsShell(figuresHtml: string): string {
+function reportChartsShell(figuresHtml: string, submissionCount?: number): string {
+  const scopeNote =
+    submissionCount != null
+      ? `<p class="chart-scope-note">${submissionCount} application${submissionCount === 1 ? "" : "s"} in scope — charts include all of them.</p>`
+      : "";
   return `
   <div class="report-charts">
     <div class="sec-title">Visual summary</div>
+    ${scopeNote}
     <div class="chart-grid">
       ${figuresHtml}
     </div>
@@ -136,10 +113,20 @@ function stackedShareBar(caption: string, segments: { label: string; value: numb
   );
 }
 
-function svgHorizontalBars(caption: string, entries: { label: string; value: number; color?: string }[]): string {
+function svgHorizontalBars(
+  caption: string,
+  entries: { label: string; value: number; color?: string }[],
+  totalApplications?: number,
+): string {
   if (entries.length === 0) {
     return figureWrap(`${figCaption(caption)}${emptyChartsMessage()}`);
   }
+  const counted = entries.reduce((sum, e) => sum + e.value, 0);
+  const total = totalApplications ?? counted;
+  const fullCaption =
+    total > 0
+      ? `${caption} (${total} application${total === 1 ? "" : "s"})`
+      : caption;
   const w = 400;
   const rowH = 22;
   const labelW = 150;
@@ -161,8 +148,8 @@ function svgHorizontalBars(caption: string, entries: { label: string; value: num
       <text x="${barX + barW + 4}" y="${y + 14}" font-size="10" font-family="ui-sans-serif,system-ui,sans-serif" fill="#374151">${e.value}</text>`;
     })
     .join("");
-  const svg = `<svg class="chart-svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(caption)}">${rows}</svg>`;
-  return figureWrap(`${figCaption(caption)}${svg}`);
+  const svg = `<svg class="chart-svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(fullCaption)}">${rows}</svg>`;
+  return figureWrap(`${figCaption(fullCaption)}${svg}`);
 }
 
 function svgVerticalGroup(
@@ -199,7 +186,7 @@ export function buildDeanReportChartsHtml(metrics: {
 }): string {
   const { rows, institutionTotalSubmissions } = metrics;
   if (rows.length === 0 && institutionTotalSubmissions === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Dean scope")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Dean scope")}${emptyChartsMessage()}`), 0);
   }
 
   const passedDean = rows.filter((r) =>
@@ -226,25 +213,24 @@ export function buildDeanReportChartsHtml(metrics: {
         ])
       : figureWrap(`${figCaption("Institution submissions in range")}<p class="chart-empty">Institution total not available for chart.</p>`);
 
-  return reportChartsShell(`${fig1}${fig2}`);
+  return reportChartsShell(`${fig1}${fig2}`, rows.length);
 }
 
 export function buildTotalEfficiencyChartsHtml(rows: AggregateSubmissionInput[]): string {
   if (rows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Throughput")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Throughput")}${emptyChartsMessage()}`), 0);
   }
 
-  const statusMap = submissionStatusCountsByLabelForCharts(rows);
+  const statusMap = submissionStatusCountsByLabel(rows);
   const statusEntries = Array.from(statusMap.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 10)
     .map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
 
   const approved = rows.filter((r) => r.current_status === "approved").length;
   const rejected = rows.filter((r) => r.current_status === "rejected" || r.current_status === "dean_rejected").length;
   const pending = rows.length - approved - rejected;
 
-  const fig1 = svgHorizontalBars("Submissions by status (top 10)", statusEntries);
+  const fig1 = svgHorizontalBars("Submissions by status", statusEntries, rows.length);
   const fig2 = stackedShareBar("Outcome-style split (approved vs rejected vs still pending)", [
     { label: "Approved (IREB)", value: approved, color: CHART_COLORS[2]! },
     { label: "Rejected (IREB or dean)", value: rejected, color: CHART_COLORS[4]! },
@@ -258,17 +244,16 @@ export function buildTotalEfficiencyChartsHtml(rows: AggregateSubmissionInput[])
   }
   const topFac = Array.from(byFac.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 8)
     .map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
 
-  const fig3 = svgHorizontalBars("Top faculties by submission count (up to 8)", topFac);
+  const fig3 = svgHorizontalBars("Faculties by submission count", topFac, rows.length);
 
-  return reportChartsShell(`${fig1}${fig2}${fig3}`);
+  return reportChartsShell(`${fig1}${fig3}${fig2}`, rows.length);
 }
 
 export function buildOverallResearchSpecificChartsHtml(rows: AggregateSubmissionInput[]): string {
   if (rows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Research mix")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Research mix")}${emptyChartsMessage()}`), 0);
   }
 
   const thesis = rows.filter((r) => r.type === "thesis").length;
@@ -301,12 +286,12 @@ export function buildOverallResearchSpecificChartsHtml(rows: AggregateSubmission
     { barW: 36, gap: 16, chartH: 100 },
   );
 
-  return reportChartsShell(`${fig1}${fig2}${fig3}`);
+  return reportChartsShell(`${fig1}${fig2}${fig3}`, rows.length);
 }
 
 export function buildOverallStudentChartsHtml(studentRows: AggregateSubmissionInput[]): string {
   if (studentRows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Student cohort")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Student cohort")}${emptyChartsMessage()}`), 0);
   }
 
   let u = 0;
@@ -353,12 +338,12 @@ export function buildOverallStudentChartsHtml(studentRows: AggregateSubmissionIn
     { label: "Pending", value: Math.max(0, pend), color: CHART_COLORS[6]! },
   ]);
 
-  return reportChartsShell(`${fig1}${fig2}${fig3}${fig4}`);
+  return reportChartsShell(`${fig1}${fig2}${fig3}${fig4}`, studentRows.length);
 }
 
 export function buildOverallFacultyChartsHtml(facultyRows: AggregateSubmissionInput[]): string {
   if (facultyRows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Faculty / staff publications")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Faculty / staff publications")}${emptyChartsMessage()}`), 0);
   }
 
   const n = facultyRows.length;
@@ -387,7 +372,7 @@ export function buildOverallFacultyChartsHtml(facultyRows: AggregateSubmissionIn
     { label: "Pending", value: Math.max(0, pend), color: CHART_COLORS[6]! },
   ]);
 
-  return reportChartsShell(`${fig1}${fig2}${fig3}`);
+  return reportChartsShell(`${fig1}${fig2}${fig3}`, facultyRows.length);
 }
 
 function facultyDeptOutcomeCharts(rows: AggregateSubmissionInput[]): string {
@@ -413,14 +398,14 @@ function facultyDeptOutcomeCharts(rows: AggregateSubmissionInput[]): string {
 
 export function buildFacultyWiseResearchChartsHtml(rows: AggregateSubmissionInput[]): string {
   if (rows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Faculty research")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Faculty research")}${emptyChartsMessage()}`), 0);
   }
-  return reportChartsShell(facultyDeptOutcomeCharts(rows));
+  return reportChartsShell(facultyDeptOutcomeCharts(rows), rows.length);
 }
 
 export function buildDepartmentWiseResearchChartsHtml(rows: AggregateSubmissionInput[]): string {
   if (rows.length === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Department research")}${emptyChartsMessage()}`));
+    return reportChartsShell(figureWrap(`${figCaption("Department research")}${emptyChartsMessage()}`), 0);
   }
-  return reportChartsShell(facultyDeptOutcomeCharts(rows));
+  return reportChartsShell(facultyDeptOutcomeCharts(rows), rows.length);
 }

@@ -57,12 +57,14 @@ export function ReportPreviewModal({
         <p className="shrink-0 border-b border-stroke bg-gray-1/50 px-4 py-2 text-xs text-body dark:border-dark-3 dark:bg-dark-2/50 sm:px-6">
           Use <span className="font-medium text-dark dark:text-white">Download PDF</span> for a file export, or{" "}
           <span className="font-medium text-dark dark:text-white">Print / Save as PDF</span> in the embedded preview.
+          Scroll inside the preview to see the full{" "}
+          <span className="font-medium text-dark dark:text-white">Visual summary</span> charts.
         </p>
         <div className="relative min-h-0 flex-1 bg-gray-1 p-3 dark:bg-dark-2/40 sm:p-4">
           <iframe
             ref={iframeRef}
             title="Report preview"
-            className="block h-[min(72vh,720px)] min-h-[380px] w-full rounded-lg border border-stroke bg-white shadow-sm dark:border-dark-3"
+            className="block h-[min(85vh,900px)] min-h-[380px] w-full rounded-lg border border-stroke bg-white shadow-sm dark:border-dark-3"
             srcDoc={html}
             sandbox="allow-scripts allow-same-origin allow-modals"
           />

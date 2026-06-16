@@ -4,7 +4,11 @@
  */
 
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
-import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import {
+  coverBlock,
+  escapeHtml,
+  wrapDocument,
+} from "@/lib/admin-aggregate-reports-html";
 import { buildOverallStudentChartsHtml } from "@/lib/admin-report-charts-html";
 import { isStudentUolEmail } from "@/lib/admin-faculty-overall-report-html";
 

@@ -1,4 +1,5 @@
 import * as Icons from "../icons";
+import { ADMIN_ETHICS_FORM_CATALOG } from "@/app/profile/_components/forms/form-registry";
 
 type NavSubItem = {
   title: string;
@@ -26,6 +27,11 @@ export const NAV_DATA: NavSection[] = [
         icon: Icons.HomeIcon,
         url: "/",
         items: []
+      },
+      {
+        title: "Forms",
+        icon: Icons.Alphabet,
+        items: [],
       },
       {
         title: "Reports",

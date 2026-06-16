@@ -25,9 +25,9 @@ export type LeadsReportExcelMeta = {
   generatedAt: Date;
   activeTab: "all" | "overdue";
   searchQuery: string;
-  facultyFilter: string | null;
-  departmentFilter: string | null;
-  currentStatusFilter: string | null;
+  facultyFilter: string[];
+  departmentFilter: string[];
+  currentStatusFilter: string[];
   deanOnly: boolean;
   ethicalOnly: boolean;
   /** Rows in scope before search / dropdown filters (same base as filter counts). */

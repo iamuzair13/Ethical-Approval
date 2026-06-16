@@ -2,6 +2,7 @@ import type { Session } from "next-auth";
 import { db } from "@/lib/db";
 import { adminFromSession, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { getScopedSubmissions } from "@/lib/authorization";
+import { getStagePendingDays } from "@/lib/lead-overdue";
 
 export type OverviewData = {
   views: { value: number; growthRate: number };
@@ -57,6 +58,8 @@ export type DashboardLead = {
   duration: string;
   currentStatus: LeadStatus;
   stage: "dean" | "ireb" | "completed";
+  submittedAt: string;
+  deanDecisionAt: string | null;
   /** Applicant profile image URL when set; otherwise use name initials in the UI. */
   avatar: string | null;
   latestFeedbackComment: string | null;
@@ -68,6 +71,7 @@ type SubmissionScopeRow = {
   id: number;
   application_id: string;
   submitted_at: Date;
+  dean_decision_at: Date | null;
   applicant_name: string;
   applicant_email: string;
   faculty: string;
@@ -248,6 +252,34 @@ async function getLatestDecisionBySubmissionIds(
   return decisionMap;
 }
 
+async function getDeanDecisionAtBySubmissionIds(
+  submissionIds: number[],
+): Promise<Map<number, Date>> {
+  if (submissionIds.length === 0) return new Map();
+
+  const result = await db.query<{
+    submission_id: number;
+    dean_decision_at: Date;
+  }>(
+    `
+      SELECT
+        ad.submission_id,
+        MAX(ad.decided_at) AS dean_decision_at
+      FROM approval_decisions ad
+      WHERE ad.submission_id = ANY($1::bigint[])
+        AND ad.stage = 'dean'
+      GROUP BY ad.submission_id
+    `,
+    [submissionIds],
+  );
+
+  const map = new Map<number, Date>();
+  for (const row of result.rows) {
+    map.set(row.submission_id, row.dean_decision_at);
+  }
+  return map;
+}
+
 type DecisionAggregateRow = {
   stage: "dean" | "ireb";
   decision: "approved" | "rejected";
@@ -274,6 +306,12 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          (
+            SELECT MAX(ad.decided_at)
+            FROM approval_decisions ad
+            WHERE ad.submission_id = s.id
+              AND ad.stage = 'dean'
+          ) AS dean_decision_at,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
           afd.latest_actor_name,
@@ -326,10 +364,12 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
     const rows = await getScopedSubmissions(admin);
     const feedbackMap = await getLatestFeedbackBySubmissionIds(rows.map((row) => row.id));
     const decisionMap = await getLatestDecisionBySubmissionIds(rows.map((row) => row.id));
+    const deanDecisionMap = await getDeanDecisionAtBySubmissionIds(rows.map((row) => row.id));
     return rows.map((row) => ({
       id: row.id,
       application_id: row.application_id,
       submitted_at: row.submitted_at,
+      dean_decision_at: deanDecisionMap.get(row.id) ?? null,
       applicant_name: row.applicant_name,
       applicant_email: row.applicant_email,
       faculty: row.faculty,
@@ -362,6 +402,12 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          (
+            SELECT MAX(ad.decided_at)
+            FROM approval_decisions ad
+            WHERE ad.submission_id = s.id
+              AND ad.stage = 'dean'
+          ) AS dean_decision_at,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
           afd.latest_actor_name,
@@ -706,7 +752,8 @@ export async function getUsedDevicesData(session: Session) {
 export async function getDashboardLeads(session: Session): Promise<DashboardLead[]> {
   const scopedRows = await getScopedSubmissionRows(session);
   const now = Date.now();
-  return scopedRows.slice(0, 20).map((row) => {
+  const nowDate = new Date(now);
+  return scopedRows.map((row) => {
     let currentStatus: LeadStatus = "Under Review by Dean";
     let stage: DashboardLead["stage"] = "dean";
 
@@ -735,11 +782,24 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
         break;
     }
 
+    const submittedAt = new Date(row.submitted_at).toISOString();
+    const deanDecisionAt = row.dean_decision_at
+      ? new Date(row.dean_decision_at).toISOString()
+      : null;
     const submittedMs = new Date(row.submitted_at).getTime();
-    const days = Math.max(1, Math.ceil((now - submittedMs) / (1000 * 60 * 60 * 24)));
-    const from = new Date(row.submitted_at);
-    const to = new Date(from.getTime() + 2 * 24 * 60 * 60 * 1000);
-    const project = `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`;
+    const stagePendingDays = getStagePendingDays(
+      { currentStatus, stage, submittedAt, deanDecisionAt },
+      nowDate,
+    );
+    const totalDays = Math.max(1, Math.ceil((now - submittedMs) / (1000 * 60 * 60 * 24)));
+    const days = stagePendingDays ?? totalDays;
+
+    const stageStart =
+      stage === "ireb" && row.dean_decision_at
+        ? new Date(row.dean_decision_at)
+        : new Date(row.submitted_at);
+    const projectEnd = new Date(stageStart.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const project = `${stageStart.toLocaleDateString()} - ${projectEnd.toLocaleDateString()}`;
 
     const feedbackAndAudit = splitFeedbackAndAudit(row.latest_feedback_comment, row.latest_actor_name);
     return {
@@ -756,6 +816,8 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       duration: `${days} days`,
       currentStatus,
       stage,
+      submittedAt,
+      deanDecisionAt,
       avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),
       latestActionTrace: buildActionTrace({
         latestDecision: row.latest_decision,

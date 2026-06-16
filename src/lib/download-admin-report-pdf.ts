@@ -168,20 +168,26 @@ export async function downloadReportPdf(
   const safeName = filenameBase.replace(/[^\w.\-]+/g, "_");
   const fileName = `${safeName}.pdf`;
 
+  const html = options.html?.trim() ?? "";
+  if (html.length > 0) {
+    const { iframe, cleanup } = prepareIframeDocument(html);
+    try {
+      const b = iframe.contentDocument?.body;
+      if (!b) {
+        throw new Error("Could not parse report HTML.");
+      }
+      await bodyToPdf(b, fileName);
+      return;
+    } finally {
+      cleanup();
+    }
+  }
+
   const liveBody = options.previewIframe?.contentDocument?.body ?? null;
   if (liveBody && liveBody.textContent && liveBody.textContent.trim().length > 0) {
     await bodyToPdf(liveBody, fileName);
     return;
   }
 
-  const { iframe, cleanup } = prepareIframeDocument(options.html);
-  try {
-    const b = iframe.contentDocument?.body;
-    if (!b) {
-      throw new Error("Could not parse report HTML.");
-    }
-    await bodyToPdf(b, fileName);
-  } finally {
-    cleanup();
-  }
+  throw new Error("No report HTML available to export.");
 }

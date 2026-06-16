@@ -1,5 +1,9 @@
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
-import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import {
+  coverBlock,
+  escapeHtml,
+  wrapDocument,
+} from "@/lib/admin-aggregate-reports-html";
 import {
   buildDepartmentWiseResearchChartsHtml,
   buildFacultyWiseResearchChartsHtml,

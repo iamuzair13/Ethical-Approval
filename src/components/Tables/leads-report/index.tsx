@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   inferFormIdFromLegacyRequiredForm,
@@ -6,8 +6,6 @@ import {
 } from "@/app/profile/_components/forms/form-registry";
 import { resolveAttachmentSlotLabels } from "@/app/profile/_components/forms/attachment-lists-by-form";
 import { describeEthicsAttachmentValue } from "@/lib/ethics-attachment-meta";
-import { REJECTION_REASON_OPTIONS } from "@/lib/rejection-reasons";
-import { type SubmissionReportInput } from "@/lib/application-report-html";
 import {
   buildApplicationStatusReportHtml,
   buildFacultyIndividualReportHtml,
@@ -23,33 +21,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dropdown,
-  DropdownClose,
-  DropdownContent,
-  DropdownTrigger,
-} from "@/components/ui/dropdown";
+import { TableTopScrollArea } from "@/components/ui/table-top-scroll-area";
 import {
   defaultLeadsExcelColumnSelection,
   downloadLeadsReportExcel,
   LEADS_EXCEL_COLUMNS,
 } from "@/lib/leads-report-excel-export";
 import { cn } from "@/lib/utils";
-import { ApplicationReportPdfGeneratorButton } from "./application-report-pdf-generator";
-import Image from "next/image";
+import { isLeadOverdueForRole } from "@/lib/lead-overdue";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { EmptyState } from "./empty-state";
+import { LeadTableAvatar } from "./lead-table-avatar";
+import { ActionTraceModal } from "./modals/action-trace-modal";
+import {
+  AdminReportPreview,
+  AdminReportsPicker,
+} from "./modals/admin-reports-modal";
+import { AttachmentModal } from "./modals/attachment-modal";
+import { AttachmentViewModal } from "./modals/attachment-view-modal";
+import { DecisionModal } from "./modals/decision-modal";
+import { ExportModal } from "./modals/export-modal";
+import { FeedbackModal } from "./modals/feedback-modal";
+import { RowActions } from "./row-actions";
+import {
+  ApplicationIdBadge,
+  ApplicationTypeBadge,
+  StatusBadge,
+} from "./status-badges";
+import { TablePagination } from "./table-pagination";
+import { TableToolbar } from "./table-toolbar";
+import type {
+  AdminOption,
+  CountEntry,
+  DecisionAction,
+  Lead,
+  LeadStatus,
+  SlotFileInfo,
+} from "./types";
 
-type LeadStatus =
-  | "Submitted"
-  | "Under Review by Dean"
-  | "Approved by Dean"
-  | "Rejected by Dean"
-  | "Under Review by IREB"
-  | "Approved by IREB"
-  | "Rejected by IREB";
+export type { Lead, LeadStatus } from "./types";
 
 const STATUS_ORDER: LeadStatus[] = [
   "Submitted",
@@ -60,8 +72,6 @@ const STATUS_ORDER: LeadStatus[] = [
   "Approved by IREB",
   "Rejected by IREB",
 ];
-
-type CountEntry = { value: string; count: number };
 
 function buildCountsList<T>(
   items: readonly T[],
@@ -79,170 +89,8 @@ function buildCountsList<T>(
     );
 }
 
-function FilterMenu({
-  label,
-  value,
-  options,
-  totalCount,
-  onChange,
-}: {
-  label: string;
-  value: string | null;
-  options: CountEntry[];
-  totalCount: number;
-  onChange: (next: string | null) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerLabel = value ? value : `All ${label}s`;
-
-  return (
-    <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
-      <DropdownTrigger
-        className={cn(
-          "flex min-w-[10rem] items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
-          value
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-stroke text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2",
-        )}
-        aria-label={`Filter by ${label}`}
-      >
-        <span className="flex flex-col items-start">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-            {label}
-          </span>
-          <span className="max-w-[12rem] truncate text-sm font-medium">
-            {triggerLabel}
-          </span>
-        </span>
-        <svg
-          className="size-3 shrink-0"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M3 4.5 6 7.5l3-3"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </DropdownTrigger>
-      <DropdownContent
-        align="end"
-        className="z-30 mt-1 max-h-[18rem] w-[16rem] overflow-y-auto overflow-x-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2"
-      >
-        <button
-          type="button"
-          onClick={() => {
-            onChange(null);
-            setIsOpen(false);
-          }}
-          className={cn(
-            "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
-            value === null
-              ? "bg-primary/10 text-primary"
-              : "text-dark hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3",
-          )}
-        >
-          <span>All {label}s</span>
-          <span className="text-[11px] font-semibold text-dark-5 dark:text-dark-6">
-            {totalCount}
-          </span>
-        </button>
-        {options.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-dark-5 dark:text-dark-6">
-            No values to filter by.
-          </div>
-        ) : (
-          options.map((entry) => (
-            <button
-              key={entry.value}
-              type="button"
-              onClick={() => {
-                onChange(entry.value === value ? null : entry.value);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
-                entry.value === value
-                  ? "bg-primary/10 text-primary"
-                  : "text-dark hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3",
-              )}
-            >
-              <span className="truncate">{entry.value}</span>
-              <span className="shrink-0 rounded bg-gray-2 px-1.5 py-0.5 text-[10px] font-semibold text-dark dark:bg-dark-3 dark:text-white">
-                {entry.count}
-              </span>
-            </button>
-          ))
-        )}
-      </DropdownContent>
-    </Dropdown>
-  );
-}
-
-function FilterChip({
-  label,
-  value,
-  onClear,
-}: {
-  label: string;
-  value: string;
-  onClear: () => void;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-        {label}:
-      </span>
-      <span className="max-w-[12rem] truncate">{value}</span>
-      <button
-        type="button"
-        onClick={onClear}
-        aria-label={`Clear ${label} filter`}
-        className="ml-0.5 -mr-0.5 grid size-4 place-items-center rounded-full hover:bg-primary/20"
-      >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M2 2 8 8M8 2 2 8"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-    </span>
-  );
-}
-
-export type Lead = {
-  id: number;
-  /** 6-digit application reference */
-  applicationId: string;
-  name: string;
-  email: string;
-  applicationType: string;
-  researchTitle: string;
-  faculty: string;
-  department: string;
-  project: string;
-  duration: string;
-  currentStatus: LeadStatus;
-  stage: "dean" | "ireb" | "completed";
-  /** Profile image URL when available; otherwise the table shows initials from `name`. */
-  avatar: string | null;
-  latestFeedbackComment?: string | null;
-  latestAuditNote?: string | null;
-  latestActionTrace?: string | null;
-};
+const mockDaysAgoIso = (days: number) =>
+  new Date(Date.now() - days * 86400000).toISOString();
 
 const LEADS: Lead[] = [
   {
@@ -258,6 +106,8 @@ const LEADS: Lead[] = [
     duration: "6 days",
     currentStatus: "Rejected by Dean",
     stage: "completed",
+    submittedAt: mockDaysAgoIso(6),
+    deanDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-17.png",
   },
   {
@@ -270,9 +120,11 @@ const LEADS: Lead[] = [
     faculty: "Faculty of Medical Sciences",
     department: "Medicine",
     project: "03 Feb 2026 - 4 Feb 2026",
-    duration: "1 days",
+    duration: "4 days",
     currentStatus: "Under Review by IREB",
     stage: "ireb",
+    submittedAt: mockDaysAgoIso(10),
+    deanDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-15.png",
   },
   {
@@ -288,6 +140,8 @@ const LEADS: Lead[] = [
     duration: "7 days",
     currentStatus: "Approved by IREB",
     stage: "completed",
+    submittedAt: mockDaysAgoIso(14),
+    deanDecisionAt: mockDaysAgoIso(10),
     avatar: "/images/user/user-19.png",
   },
   {
@@ -300,9 +154,11 @@ const LEADS: Lead[] = [
     faculty: "Faculty of Pharmacy",
     department: "Pharmacy",
     project: "01 Apr 2026 - 04 Apr 2026",
-    duration: "3 days",
+    duration: "4 days",
     currentStatus: "Under Review by Dean",
     stage: "dean",
+    submittedAt: mockDaysAgoIso(4),
+    deanDecisionAt: null,
     avatar: "/images/user/user-14.png",
   },
   {
@@ -318,6 +174,8 @@ const LEADS: Lead[] = [
     duration: "10 days",
     currentStatus: "Rejected by IREB",
     stage: "completed",
+    submittedAt: mockDaysAgoIso(12),
+    deanDecisionAt: mockDaysAgoIso(8),
     avatar: "/images/user/user-21.png",
   },
 ];
@@ -330,11 +188,6 @@ type PropsType = {
   leads?: Lead[];
   currentRole?: "administrator" | "dean" | "ireb" | null;
 };
-
-type DecisionAction = "approved" | "rejected";
-type AdminOption = { id: string; name: string; role: "dean" | "ireb" };
-
-type SlotFileInfo = { displayName: string | null; hasStoredFile: boolean };
 
 function parseAttachmentSlotMap(raw: unknown): Record<string, SlotFileInfo | null> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -414,66 +267,6 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
   return null;
 }
 
-function initialsFromLeadName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) {
-    const w = parts[0];
-    return w.length <= 2 ? w.toUpperCase() : w.slice(0, 2).toUpperCase();
-  }
-  const a = parts[0][0] ?? "";
-  const b = parts[parts.length - 1][0] ?? "";
-  return `${a}${b}`.toUpperCase();
-}
-
-function normalizeLeadAvatarSrc(raw: string | null | undefined): string | null {
-  const v = typeof raw === "string" ? raw.trim() : "";
-  if (!v) return null;
-  if (v.startsWith("/")) {
-    const q = v.indexOf("?");
-    return q === -1 ? v : v.slice(0, q);
-  }
-  return v;
-}
-
-function LeadTableAvatar({ name, avatar }: { name: string; avatar: string | null }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const src = normalizeLeadAvatarSrc(avatar);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [src]);
-
-  const showImage = Boolean(src && !imageFailed);
-
-  return (
-    <figure className="flex items-center gap-4.5">
-      {showImage ? (
-        <Image
-          src={src!}
-          alt=""
-          width={44}
-          height={44}
-          className="size-11 shrink-0 rounded-full object-cover"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <span
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full",
-            "bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600",
-            "text-sm font-bold uppercase tracking-tight text-white",
-          )}
-          aria-hidden
-        >
-          {initialsFromLeadName(name)}
-        </span>
-      )}
-      <figcaption className="truncate font-medium">{name}</figcaption>
-    </figure>
-  );
-}
-
 export function LeadsReport({
   className,
   deanOnly = false,
@@ -497,10 +290,9 @@ export function LeadsReport({
   }>({ deanOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [facultyFilter, setFacultyFilter] = useState<string | null>(null);
-  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
-  const [currentStatusFilter, setCurrentStatusFilter] =
-    useState<LeadStatus | null>(null);
+  const [facultyFilter, setFacultyFilter] = useState<string[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
+  const [currentStatusFilter, setCurrentStatusFilter] = useState<LeadStatus[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [attachmentModalLead, setAttachmentModalLead] = useState<Lead | null>(null);
@@ -528,6 +320,7 @@ export function LeadsReport({
   const [exportColState, setExportColState] = useState<Record<string, boolean>>(() =>
     defaultLeadsExcelColumnSelection(),
   );
+  const [overdueBannerDismissed, setOverdueBannerDismissed] = useState(false);
 
   const sourceLeads = providedLeads ?? LEADS;
   const scopeFilteredLeads = useMemo(() => {
@@ -540,10 +333,17 @@ export function LeadsReport({
   const leads = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return scopeFilteredLeads.filter((lead) => {
-      if (facultyFilter && lead.faculty !== facultyFilter) return false;
-      if (departmentFilter && lead.department !== departmentFilter)
+      if (facultyFilter.length > 0 && !facultyFilter.includes(lead.faculty))
         return false;
-      if (currentStatusFilter && lead.currentStatus !== currentStatusFilter)
+      if (
+        departmentFilter.length > 0 &&
+        !departmentFilter.includes(lead.department)
+      )
+        return false;
+      if (
+        currentStatusFilter.length > 0 &&
+        !currentStatusFilter.includes(lead.currentStatus)
+      )
         return false;
       if (!q) return true;
       const app = lead.applicationId.toLowerCase();
@@ -565,7 +365,7 @@ export function LeadsReport({
     currentStatusFilter,
   ]);
 
-  // Live counts (entity + count) — derived from the scope (e.g. dean-only,
+  // Live counts (entity + count) â€” derived from the scope (e.g. dean-only,
   // ireb-only, or all). Always shows the maximum possible count regardless of
   // which other filter chips are active.
   const facultyCounts = useMemo(
@@ -573,13 +373,21 @@ export function LeadsReport({
       buildCountsList(scopeFilteredLeads, (lead) => lead.faculty || "Unknown"),
     [scopeFilteredLeads],
   );
+
+  const departmentScopeLeads = useMemo(() => {
+    if (facultyFilter.length === 0) return scopeFilteredLeads;
+    return scopeFilteredLeads.filter((lead) =>
+      facultyFilter.includes(lead.faculty),
+    );
+  }, [scopeFilteredLeads, facultyFilter]);
+
   const departmentCounts = useMemo(
     () =>
       buildCountsList(
-        scopeFilteredLeads,
+        departmentScopeLeads,
         (lead) => lead.department || "Unknown",
       ),
-    [scopeFilteredLeads],
+    [departmentScopeLeads],
   );
   const currentStatusCounts = useMemo(
     () =>
@@ -591,31 +399,36 @@ export function LeadsReport({
     [scopeFilteredLeads],
   );
 
-  const activeFilterCount =
-    (facultyFilter ? 1 : 0) +
-    (departmentFilter ? 1 : 0) +
-    (currentStatusFilter ? 1 : 0);
-
   const clearAllFilters = useCallback(() => {
-    setFacultyFilter(null);
-    setDepartmentFilter(null);
-    setCurrentStatusFilter(null);
+    setFacultyFilter([]);
+    setDepartmentFilter([]);
+    setCurrentStatusFilter([]);
   }, []);
+
+  useEffect(() => {
+    const validDepartments = new Set(departmentCounts.map((entry) => entry.value));
+    setDepartmentFilter((current) => {
+      const next = current.filter((value) => validDepartments.has(value));
+      return next.length === current.length ? current : next;
+    });
+  }, [departmentCounts]);
 
   // Reset filters when the source data scope changes.
   useEffect(() => {
     clearAllFilters();
   }, [deanOnly, ethicalOnly, providedLeads, clearAllFilters]);
 
-  const getDurationInDays = (duration: string) => {
-    const days = Number.parseInt(duration, 10);
-    return Number.isNaN(days) ? 0 : days;
-  };
-
   const overdueLeads = useMemo(
-    () => leads.filter((lead) => getDurationInDays(lead.duration) > 2),
-    [leads],
+    () =>
+      leads.filter((lead) =>
+        isLeadOverdueForRole(lead, currentRole, { deanOnly, ethicalOnly }),
+      ),
+    [leads, currentRole, deanOnly, ethicalOnly],
   );
+
+  useEffect(() => {
+    setOverdueBannerDismissed(false);
+  }, [overdueLeads.length]);
 
   const visibleLeads = activeTab === "overdue" ? overdueLeads : leads;
   const totalPages = Math.max(1, Math.ceil(visibleLeads.length / pageSize));
@@ -842,7 +655,7 @@ export function LeadsReport({
       toast.success("Report downloaded.");
     } catch {
       const message =
-        "Could not generate the PDF. Use Print → Save as PDF from the preview, or try again.";
+        "Could not generate the PDF. Use Print â†’ Save as PDF from the preview, or try again.";
       setActionError(message);
       toast.error(message);
     } finally {
@@ -1055,1059 +868,313 @@ export function LeadsReport({
 
   return (
     <div className={cn("col-span-12", className)}>
-      <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark dark:shadow-card">
-        <div className="flex items-start justify-between p-4 sm:p-6 xl:p-7.5">
-          <h2 className="text-[22px] font-bold text-black dark:text-white">
-            {title}
-          </h2>
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-gray-700 dark:bg-gray-800">
+        <TableToolbar
+          title={title}
+          totalCount={visibleLeads.length}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          facultyFilter={facultyFilter}
+          departmentFilter={departmentFilter}
+          currentStatusFilter={currentStatusFilter}
+          facultyCounts={facultyCounts}
+          departmentCounts={departmentCounts}
+          currentStatusCounts={currentStatusCounts}
+          scopeFilteredCount={scopeFilteredLeads.length}
+          departmentScopeCount={departmentScopeLeads.length}
+          onFacultyChange={setFacultyFilter}
+          onDepartmentChange={setDepartmentFilter}
+          onStatusChange={setCurrentStatusFilter}
+          onExport={openExportModal}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          allRequestsCount={leads.length}
+          overdueCount={overdueLeads.length}
+          overdueBannerDismissed={overdueBannerDismissed}
+          onDismissOverdueBanner={() => setOverdueBannerDismissed(true)}
+          onRefresh={() => router.refresh()}
+          onClearFaculty={(value) =>
+            setFacultyFilter((current) => current.filter((item) => item !== value))
+          }
+          onClearDepartment={(value) =>
+            setDepartmentFilter((current) => current.filter((item) => item !== value))
+          }
+          onClearStatus={(value) =>
+            setCurrentStatusFilter((current) =>
+              current.filter((item) => item !== value),
+            )
+          }
+          onClearAllFilters={clearAllFilters}
+          actionError={actionError}
+        />
 
-          <div className="relative">
-            <button className="hover:text-primary" aria-expanded="false" aria-haspopup="menu">
-              <span className="sr-only">Open menu</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-                <path d="M2 10C3.10457 10 4 9.10457 4 8C4 6.89543 3.10457 6 2 6C0.89543 6 0 6.89543 0 8C0 9.10457 0.89543 10 2 10Z" />
-                <path d="M8 10C9.10457 10 10 9.10457 10 8C10 6.89543 9.10457 6 8 6C6.89543 6 6 6.89543 6 8C6 9.10457 6.89543 10 8 10Z" />
-                <path d="M14 10C15.1046 10 16 9.10457 16 8C16 6.89543 15.1046 6 14 6C12.8954 6 12 6.89543 12 8C12 9.10457 12.8954 10 14 10Z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 pb-4 sm:px-6 xl:px-7.5">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <label className="flex w-full max-w-md flex-col gap-1.5 text-sm sm:shrink-0">
-              <span className="font-medium text-dark dark:text-white">Search</span>
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Application ID, name, email, type, title, faculty, department…"
-                className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark placeholder:text-dark-5 dark:border-dark-3 dark:text-white"
-              />
-            </label>
-
-            <div className="flex flex-wrap items-end gap-2">
-              <FilterMenu
-                label="Faculty"
-                value={facultyFilter}
-                options={facultyCounts}
-                totalCount={scopeFilteredLeads.length}
-                onChange={setFacultyFilter}
-              />
-              <FilterMenu
-                label="Department"
-                value={departmentFilter}
-                options={departmentCounts}
-                totalCount={scopeFilteredLeads.length}
-                onChange={setDepartmentFilter}
-              />
-              <FilterMenu
-                label="Current Status"
-                value={currentStatusFilter}
-                options={currentStatusCounts}
-                totalCount={scopeFilteredLeads.length}
-                onChange={(v) =>
-                  setCurrentStatusFilter(v as LeadStatus | null)
-                }
-              />
-              <button
-                type="button"
-                onClick={openExportModal}
-                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-semibold text-dark shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:text-white dark:hover:bg-dark-2"
-              >
-                <svg
-                  className="size-4 shrink-0 text-primary"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <path d="M12 3v12" strokeLinecap="round" />
-                  <path d="m8 11 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M4 21h16" strokeLinecap="round" />
-                </svg>
-                Export Excel
-              </button>
-            </div>
-          </div>
-
-          {activeFilterCount > 0 && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-              <span className="font-medium text-dark-5 dark:text-dark-6">
-                Active filters:
-              </span>
-              {facultyFilter && (
-                <FilterChip
-                  label="Faculty"
-                  value={facultyFilter}
-                  onClear={() => setFacultyFilter(null)}
-                />
-              )}
-              {departmentFilter && (
-                <FilterChip
-                  label="Department"
-                  value={departmentFilter}
-                  onClear={() => setDepartmentFilter(null)}
-                />
-              )}
-              {currentStatusFilter && (
-                <FilterChip
-                  label="Current Status"
-                  value={currentStatusFilter}
-                  onClear={() => setCurrentStatusFilter(null)}
-                />
-              )}
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="ml-1 rounded-md border border-stroke px-2 py-1 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                activeTab === "all"
-                  ? "bg-primary text-white"
-                  : "bg-gray-2 text-dark hover:bg-primary/15 dark:bg-dark-2 dark:text-white",
-              )}
-              onClick={() => setActiveTab("all")}
-            >
-              All Requests ({scopeFilteredLeads.length})
-            </button>
-            <button
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                activeTab === "overdue"
-                  ? "bg-red text-white"
-                  : "bg-red/10 text-red hover:bg-red/20",
-              )}
-              onClick={() => setActiveTab("overdue")}
-            >
-              Over Due Approval ({overdueLeads.length})
-            </button>
-          </div>
-
-          {overdueLeads.length > 0 && (
-            <div className="mt-3 rounded-md border border-red/35 bg-red/10 px-3 py-2 text-sm font-medium text-red dark:border-red/50 dark:bg-red/15">
-              Attention required: {overdueLeads.length} approval request
-              {overdueLeads.length > 1 ? "s have" : " has"} not been responded
-              to within 2 days.
-            </div>
-          )}
-          {actionError && (
-            <div className="mt-3 rounded-md border border-red/35 bg-red/10 px-3 py-2 text-sm font-medium text-red dark:border-red/50 dark:bg-red/15">
-              {actionError}
-            </div>
-          )}
-        </div>
-
-        <div className="max-h-[560px] overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-dark">
-              <TableRow className="border-b text-base [&>th]:px-4 md:[&>th]:px-6 xl:[&>th]:px-7.5">
-                <TableHead className="min-w-[7rem] whitespace-nowrap">Application ID</TableHead>
-                <TableHead className="min-w-40">Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="min-w-[5.5rem] whitespace-nowrap">Application Type</TableHead>
-                <TableHead className="min-w-48">Title</TableHead>
-                <TableHead>Current Status</TableHead>
-                <TableHead className="min-w-40">Response In</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead className="sticky right-0 z-20 w-[9.5rem] min-w-[9.5rem] bg-white shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark">
-                  Actions
+        <TableTopScrollArea maxHeight="34.375rem">
+          <Table unwrapped>
+            <TableHeader className="sticky top-0 z-10 bg-gray-50/80 backdrop-blur-sm dark:bg-gray-800/80">
+              <TableRow className="border-b border-gray-200 [&>th]:px-4 [&>th]:py-3 md:[&>th]:px-6 md:[&>th]:py-4">
+                <TableHead className="min-w-28 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Application ID
+                </TableHead>
+                <TableHead className="min-w-40 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Name
+                </TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Email
+                </TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Current Status
+                </TableHead>
+                <TableHead className="min-w-22.5 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Application Type
+                </TableHead>
+                <TableHead className="min-w-48 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Title
+                </TableHead>
+                <TableHead className="min-w-40 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Response In
+                </TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Duration
+                </TableHead>
+                <TableHead className="sticky right-0 z-20 min-w-40 bg-gray-50/80 shadow-md backdrop-blur-sm dark:bg-gray-800/80">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    Actions
+                  </span>
                 </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {paginatedLeads.map((lead, index) => {
-              const openUpward = index >= paginatedLeads.length - 2;
-              return (
-                <TableRow
-                  key={lead.id}
-                  className="border-none text-base font-medium [&>td]:px-4 md:[&>td]:px-6 xl:[&>td]:px-7.5"
-                >
-                <TableCell className="whitespace-nowrap font-mono text-sm font-semibold">
-                  {lead.applicationId}
-                </TableCell>
-                <TableCell>
-                  <LeadTableAvatar name={lead.name} avatar={lead.avatar} />
-                </TableCell>
-
-                <TableCell>
-                  <a className="hover:underline" href={`mailto:${lead.email}`}>
-                    {lead.email}
-                  </a>
-                </TableCell>
-
-                <TableCell className="whitespace-nowrap">
-                  <span
+                const openUpward =
+                  paginatedLeads.length <= 4 || index >= paginatedLeads.length - 2;
+                const canDecide = lead.stage !== "completed" && Boolean(currentRole);
+                return (
+                  <TableRow
+                    key={lead.id}
                     className={cn(
-                      "inline-block rounded px-2.5 py-1 text-xs font-semibold",
-                      lead.applicationType === "Type A"
-                        ? "bg-blue-100 text-blue-700"
-                        : lead.applicationType === "Type B"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-800"
+                      "border-b border-gray-100 transition-colors hover:bg-blue-50/50 dark:border-gray-700 dark:hover:bg-gray-700/50",
+                      index % 2 === 1 && "bg-gray-50/30 dark:bg-gray-800/30",
+                      "[&>td]:px-4 [&>td]:py-3 md:[&>td]:px-6 md:[&>td]:py-4",
+                      busyLeadId === lead.id && "cursor-wait opacity-60",
                     )}
                   >
-                    {lead.applicationType}
-                  </span>
-                </TableCell>
-           
-                <TableCell className="max-w-xs truncate" title={lead.researchTitle}>
-                  {lead.researchTitle}
-                </TableCell>
-
-                <TableCell>
-                  <span
-                    className={cn(
-                      "inline-block truncate rounded px-2.5 py-1 text-sm font-medium capitalize",
-                      lead.currentStatus === "Approved by Dean" ||
-                        lead.currentStatus === "Approved by IREB"
-                        ? "bg-[#10B981]/[0.08] text-green"
-                        : lead.currentStatus === "Rejected by Dean" ||
-                            lead.currentStatus === "Rejected by IREB"
-                          ? "bg-[#FB5454]/[0.08] text-red"
-                          : "bg-amber-100 text-amber-700",
-                    )}
-                  >
-                    {lead.currentStatus}
-                  </span>
-                </TableCell>
-                <TableCell>{lead.project}</TableCell>
-                <TableCell>{lead.duration}</TableCell>
-
-                <TableCell
-                  className={cn(
-                    "sticky right-0 w-[9.5rem] min-w-[9.5rem] bg-white align-top shadow-[-6px_0_8px_-8px_rgba(0,0,0,0.35)] dark:bg-gray-dark",
-                    actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
-                  )}
-                >
-                  <Dropdown
-                    isOpen={actionMenuLeadId === lead.id}
-                    setIsOpen={(next) => {
-                      const isCurrent = actionMenuLeadId === lead.id;
-                      const resolved = typeof next === "function" ? next(isCurrent) : next;
-                      setActionMenuLeadId(resolved ? lead.id : null);
-                    }}
-                  >
-                    <DropdownTrigger className="w-full rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2">
-                      Actions
-                    </DropdownTrigger>
-                    <DropdownContent
-                      align="end"
+                    <TableCell className="whitespace-nowrap">
+                      <ApplicationIdBadge id={lead.applicationId} />
+                    </TableCell>
+                    <TableCell>
+                      <LeadTableAvatar name={lead.name} avatar={lead.avatar} />
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        className="block max-w-48 truncate text-sm text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                        href={`mailto:${lead.email}`}
+                      >
+                        {lead.email}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={lead.currentStatus} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <ApplicationTypeBadge type={lead.applicationType} />
+                    </TableCell>
+                    <TableCell
+                      className="max-w-xs truncate text-sm text-gray-700 dark:text-gray-300"
+                      title={lead.researchTitle}
+                    >
+                      {lead.researchTitle}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">
+                      {lead.project}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">
+                      {lead.duration}
+                    </TableCell>
+                    <TableCell
                       className={cn(
-                        "w-max min-w-[9.5rem] max-w-[16rem] overflow-hidden rounded-lg border border-stroke bg-white p-1 shadow-md dark:border-dark-3 dark:bg-dark-2",
-                        openUpward ? "bottom-full mb-1" : "top-full mt-1",
+                        "sticky right-0 min-w-40 bg-white align-top shadow-md dark:bg-gray-800",
+                        actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
+                        index % 2 === 1 && "bg-gray-50/30 dark:bg-gray-800/30",
                       )}
                     >
-                      <div className="grid gap-1">
-                        <DropdownClose>
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/admin/submissions/${lead.id}/profile`)}
-                            className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
-                          >
-                            View
-                          </button>
-                        </DropdownClose>
-                        <DropdownClose>
-                          <button
-                            type="button"
-                            disabled={busyLeadId === lead.id}
-                            onClick={() => void openAttachmentModal(lead)}
-                            className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-primary transition hover:bg-primary/10 disabled:opacity-60"
-                          >
-                            Download
-                          </button>
-                        </DropdownClose>
-                        {currentRole === "administrator" && (
-                          <DropdownClose>
-                            <button
-                              type="button"
-                              onClick={() => openAdminReportPicker(lead)}
-                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-primary/10 dark:text-white dark:hover:bg-dark-3"
-                            >
-                              Get Reports
-                            </button>
-                          </DropdownClose>
-                        )}
-                        {lead.latestFeedbackComment && (
-                          <DropdownClose>
-                            <button
-                              type="button"
-                              onClick={() => setFeedbackModalLead(lead)}
-                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-primary transition hover:bg-primary/10"
-                            >
-                              View Feedback
-                            </button>
-                          </DropdownClose>
-                        )}
-                        {lead.latestActionTrace && (
-                          <DropdownClose>
-                            <button
-                              type="button"
-                              onClick={() => setActionTraceModalLead(lead)}
-                              className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
-                            >
-                              View Action Trace
-                            </button>
-                          </DropdownClose>
-                        )}
-                        {lead.stage !== "completed" && currentRole && (
-                          <>
-                            <DropdownClose>
-                              <button
-                                type="button"
-                                disabled={busyLeadId === lead.id}
-                                onClick={() => openDecisionModal(lead, "approved")}
-                                className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-green transition hover:bg-green/10 disabled:opacity-60"
-                              >
-                                Approve
-                              </button>
-                            </DropdownClose>
-                            <DropdownClose>
-                              <button
-                                type="button"
-                                disabled={busyLeadId === lead.id}
-                                onClick={() => openDecisionModal(lead, "rejected")}
-                                className="w-full rounded-md px-3 py-1.5 text-left text-xs font-medium text-red transition hover:bg-red/10 disabled:opacity-60"
-                              >
-                                Reject
-                              </button>
-                            </DropdownClose>
-                          </>
-                        )}
-                      </div>
-                    </DropdownContent>
-                  </Dropdown>
-                </TableCell>
-                </TableRow>
-              );
+                      <RowActions
+                        lead={lead}
+                        currentRole={currentRole}
+                        busyLeadId={busyLeadId}
+                        isMenuOpen={actionMenuLeadId === lead.id}
+                        onMenuOpenChange={(next) => {
+                          const isCurrent = actionMenuLeadId === lead.id;
+                          const resolved =
+                            typeof next === "function" ? next(isCurrent) : next;
+                          setActionMenuLeadId(resolved ? lead.id : null);
+                        }}
+                        openUpward={openUpward}
+                        onView={() => router.push(`/admin/submissions/${lead.id}/profile`)}
+                        onDownload={() => void openAttachmentModal(lead)}
+                        onGetReports={
+                          currentRole === "administrator"
+                            ? () => openAdminReportPicker(lead)
+                            : undefined
+                        }
+                        onViewFeedback={
+                          lead.latestFeedbackComment
+                            ? () => setFeedbackModalLead(lead)
+                            : undefined
+                        }
+                        onViewActionTrace={
+                          lead.latestActionTrace
+                            ? () => setActionTraceModalLead(lead)
+                            : undefined
+                        }
+                        onApprove={
+                          canDecide ? () => openDecisionModal(lead, "approved") : undefined
+                        }
+                        onReject={
+                          canDecide ? () => openDecisionModal(lead, "rejected") : undefined
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
               })}
               {visibleLeads.length === 0 && (
-                <TableRow className="border-none">
-                  <TableCell colSpan={8} className="text-center text-dark-5">
-                    No approval requests found for this tab.
+                <TableRow>
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState message="No approval requests found for this tab." />
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableTopScrollArea>
         {visibleLeads.length > 0 && (
-          <div className="flex items-center justify-between border-t border-stroke px-4 py-3 dark:border-dark-3 md:px-6 xl:px-7.5">
-            <p className="text-sm text-body">
-              Showing {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, visibleLeads.length)} of {visibleLeads.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-body">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={visibleLeads.length}
+            pageSize={pageSize}
+            onPrevious={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+          />
         )}
       </div>
 
-      {exportModalOpen && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div
-            className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="leads-export-title"
-          >
-            <div className="border-b border-stroke px-5 py-4 dark:border-dark-3">
-              <h3 id="leads-export-title" className="text-lg font-bold text-dark dark:text-white">
-                Export to Excel
-              </h3>
-              <p className="mt-1 text-sm text-body">
-                Exports <span className="font-semibold text-dark dark:text-white">{visibleLeads.length}</span>{" "}
-                row{visibleLeads.length === 1 ? "" : "s"} from the current tab and filters. Active search and
-                filter values are written to a summary block at the top of the sheet.
-              </p>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, true])))
-                  }
-                  className="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, false])))
-                  }
-                  className="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-dark hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                >
-                  Clear all
-                </button>
-              </div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-                Columns
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {LEADS_EXCEL_COLUMNS.map((col) => (
-                  <label
-                    key={col.id}
-                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-stroke px-3 py-2 text-sm dark:border-dark-3"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 size-4 shrink-0 rounded border-stroke text-primary focus:ring-primary"
-                      checked={Boolean(exportColState[col.id])}
-                      onChange={() =>
-                        setExportColState((prev) => ({ ...prev, [col.id]: !prev[col.id] }))
-                      }
-                    />
-                    <span className="text-dark dark:text-white">{col.header}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-stroke px-5 py-4 dark:border-dark-3">
-              <button
-                type="button"
-                onClick={() => setExportModalOpen(false)}
-                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void runLeadsExcelExport()}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-opacity-90"
-              >
-                Download .xlsx
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        visibleCount={visibleLeads.length}
+        exportColState={exportColState}
+        onToggleColumn={(id) =>
+          setExportColState((prev) => ({ ...prev, [id]: !prev[id] }))
+        }
+        onSelectAll={() =>
+          setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, true])))
+        }
+        onClearAll={() =>
+          setExportColState(Object.fromEntries(LEADS_EXCEL_COLUMNS.map((c) => [c.id, false])))
+        }
+        onExport={() => void runLeadsExcelExport()}
+      />
 
       {attachmentModalLead && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="flex h-auto max-h-[min(58vh,480px)] w-full max-w-3xl flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-stroke px-5 py-4 dark:border-dark-3">
-              <div>
-                <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-                  Application documents
-                </h3>
-                <p className="mt-1 text-sm text-body">
-                  Application ID{" "}
-                  <span className="font-mono font-semibold text-primary">
-                    {attachmentModalLead.applicationId}
-                  </span>{" "}
-                  · {attachmentModalLead.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeAttachmentModal}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-4 [scrollbar-gutter:stable]">
-              {attachmentModalLoading && (
-                <p className="text-sm text-body">Loading submission…</p>
-              )}
-              {attachmentModalError && (
-                <p className="text-sm text-red-600 dark:text-red-400">{attachmentModalError}</p>
-              )}
-              {!attachmentModalLoading &&
-                !attachmentModalError &&
-                attachmentModalPayload != null &&
-                typeof attachmentModalPayload === "object" && (
-                <>
-                  <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <ApplicationReportPdfGeneratorButton
-                      submission={(attachmentModalPayload as { submission?: SubmissionReportInput }).submission ?? null}
-                      applicationId={attachmentModalLead.applicationId}
-                      submissionId={attachmentModalLead.id}
-                      className="shrink-0 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-                    />
-                    <p className="text-body-sm max-w-xl text-body">
-                      Downloads a polished PDF report with structured application details and attachment audit
-                      sections for professional sharing and record-keeping.
-                    </p>
-                  </div>
-
-                  <h4 className="mb-3 text-sm font-semibold text-dark dark:text-white">
-                    Required attachment slots
-                  </h4>
-                  <ul className="mb-8 grid gap-3">
-                    {attachmentModalSlots.labels.length === 0 && (
-                      <li className="rounded-lg border border-stroke px-4 py-3 text-sm text-body dark:border-dark-3">
-                        No attachment checklist could be inferred for this submission. If the JSON download includes
-                        attachment file names, they may use labels not listed in the template.
-                      </li>
-                    )}
-                    {attachmentModalSlots.labels.map((label) => {
-                      const slotInfo = attachmentModalSlots.files[label];
-                      const fileName = slotInfo?.displayName ?? null;
-                      const attached = Boolean(fileName);
-                      const slotUrl =
-                        attachmentModalLead && attached && fileName
-                          ? `/api/submissions/${attachmentModalLead.id}/attachment?slot=${encodeURIComponent(label)}`
-                          : null;
-                      return (
-                        <li
-                          key={label}
-                          className="rounded-lg border border-stroke px-4 py-3 dark:border-dark-3"
-                        >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-dark dark:text-white">{label}</p>
-                              {attached ? (
-                                <p className="mt-1 truncate font-mono text-xs text-body" title={fileName ?? ""}>
-                                  File: {fileName}
-                                </p>
-                              ) : (
-                                <p className="mt-1 text-xs text-dark-5">No file name recorded for this slot.</p>
-                              )}
-                            </div>
-                            <div className="flex shrink-0 flex-wrap items-center gap-2">
-                              <span
-                                className={cn(
-                                  "rounded-md px-2.5 py-1 text-xs font-semibold",
-                                  attached
-                                    ? "bg-green/15 text-green"
-                                    : "bg-gray-2 text-dark-5 dark:bg-dark-2 dark:text-body",
-                                )}
-                              >
-                                {attached ? "Attached" : "Not attached"}
-                              </span>
-                              {attached && fileName && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (slotUrl) {
-                                        window.open(slotUrl, "_blank", "noopener,noreferrer");
-                                        return;
-                                      }
-                                      setAttachmentViewTarget({
-                                        label,
-                                        fileName,
-                                        hasStoredFile: false,
-                                      });
-                                    }}
-                                    className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                                  >
-                                    View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (slotUrl) {
-                                        void downloadAttachmentFromApi(slotUrl, fileName, label);
-                                        return;
-                                      }
-                                      downloadNameOnlyReference(label, fileName);
-                                    }}
-                                    className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
-                                  >
-                                    Download
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {attachmentModalSlots.extras.length > 0 && (
-                    <>
-                      <h4 className="mb-3 text-sm font-semibold text-dark dark:text-white">
-                        Additional documents
-                      </h4>
-                      <ul className="grid gap-3">
-                        {attachmentModalSlots.extras.map((extra) => {
-                          const extraUrl = attachmentModalLead
-                            ? `/api/submissions/${attachmentModalLead.id}/attachment?extra=${extra.index}`
-                            : null;
-                          return (
-                          <li
-                            key={`extra-${extra.index}-${extra.displayName}`}
-                            className="rounded-lg border border-stroke px-4 py-3 dark:border-dark-3"
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-dark dark:text-white">
-                                  Additional upload {extra.index + 1}
-                                </p>
-                                <p className="mt-1 truncate font-mono text-xs text-body" title={extra.displayName}>
-                                  {extra.displayName}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-md bg-green/15 px-2.5 py-1 text-xs font-semibold text-green">
-                                  Attached
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (extraUrl) {
-                                      window.open(extraUrl, "_blank", "noopener,noreferrer");
-                                      return;
-                                    }
-                                    setAttachmentViewTarget({
-                                      label: `Additional upload ${extra.index + 1}`,
-                                      fileName: extra.displayName,
-                                      hasStoredFile: false,
-                                    });
-                                  }}
-                                  className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                                >
-                                  View
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (extraUrl) {
-                                      void downloadAttachmentFromApi(
-                                        extraUrl,
-                                        extra.displayName,
-                                        `Additional upload ${extra.index + 1}`,
-                                      );
-                                      return;
-                                    }
-                                    downloadNameOnlyReference(
-                                      `Additional upload ${extra.index + 1}`,
-                                      extra.displayName,
-                                    );
-                                  }}
-                                  className="rounded-md border border-primary px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
-                                >
-                                  Download
-                                </button>
-                              </div>
-                            </div>
-                          </li>
-                          );
-                        })}
-                      </ul>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <AttachmentModal
+          lead={attachmentModalLead}
+          loading={attachmentModalLoading}
+          error={attachmentModalError}
+          payload={attachmentModalPayload}
+          slots={attachmentModalSlots}
+          onClose={closeAttachmentModal}
+          onViewSlot={setAttachmentViewTarget}
+          onDownloadSlot={(url, fileName, label) =>
+            void downloadAttachmentFromApi(url, fileName, label)
+          }
+          onDownloadNameOnly={downloadNameOnlyReference}
+        />
       )}
 
       {attachmentViewTarget && attachmentModalLead && (
-        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-lg rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <h4 className="text-lg font-bold text-dark dark:text-white">{attachmentViewTarget.label}</h4>
-            <p className="mt-3 break-all font-mono text-sm text-dark dark:text-white">
-              {attachmentViewTarget.fileName}
-            </p>
-            <p className="mt-4 text-sm text-body">
-              {attachmentViewTarget.hasStoredFile && attachmentViewTarget.downloadUrl
-                ? "This file is stored on the server. Use Open to view it in a new tab, or Download to save a copy."
-                : "For this slot only the file name was recorded (legacy submission). Download saves a short text summary; contact the applicant for the actual file."}
-            </p>
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setAttachmentViewTarget(null)}
-                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-              {attachmentViewTarget.hasStoredFile && attachmentViewTarget.downloadUrl ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.open(attachmentViewTarget.downloadUrl, "_blank", "noopener,noreferrer");
-                    }}
-                    className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                  >
-                    Open file
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void downloadAttachmentFromApi(
-                        attachmentViewTarget.downloadUrl!,
-                        attachmentViewTarget.fileName,
-                        attachmentViewTarget.label,
-                      );
-                    }}
-                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
-                  >
-                    Download file
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    downloadNameOnlyReference(attachmentViewTarget.label, attachmentViewTarget.fileName);
-                  }}
-                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90"
-                >
-                  Download summary
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <AttachmentViewModal
+          label={attachmentViewTarget.label}
+          fileName={attachmentViewTarget.fileName}
+          hasStoredFile={attachmentViewTarget.hasStoredFile}
+          downloadUrl={attachmentViewTarget.downloadUrl}
+          onClose={() => setAttachmentViewTarget(null)}
+          onOpenFile={() => {
+            if (attachmentViewTarget.downloadUrl) {
+              window.open(attachmentViewTarget.downloadUrl, "_blank", "noopener,noreferrer");
+            }
+          }}
+          onDownloadFile={() => {
+            if (attachmentViewTarget.downloadUrl) {
+              void downloadAttachmentFromApi(
+                attachmentViewTarget.downloadUrl,
+                attachmentViewTarget.fileName,
+                attachmentViewTarget.label,
+              );
+            }
+          }}
+          onDownloadSummary={() => {
+            downloadNameOnlyReference(
+              attachmentViewTarget.label,
+              attachmentViewTarget.fileName,
+            );
+          }}
+        />
       )}
 
       {decisionLead && (
-        <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-heading-6 font-bold text-dark dark:text-white">
-                  {decisionAction === "approved" ? "Approve Request" : "Reject Request"}
-                </h3>
-                <p className="mt-1 text-sm text-body">
-                  Application ID {decisionLead.applicationId} · {decisionLead.name} ·{" "}
-                  {decisionLead.faculty}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={resetDecisionModal}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-            </div>
-
-            {currentRole === "administrator" && (
-              <div className="mt-5 grid gap-4">
-                {decisionLead.stage === "dean" && (
-                  <div className="rounded-lg border border-stroke p-4 dark:border-dark-3">
-                    <p className="text-sm font-semibold text-dark dark:text-white">On behalf of dean</p>
-                    <select
-                      value={selectedOnBehalfOf}
-                      onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
-                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                    >
-                      <option value="">Select dean</option>
-                      {adminOptions.deanOption && (
-                        <option value={adminOptions.deanOption.id}>
-                          {adminOptions.deanOption.name}
-                        </option>
-                      )}
-                    </select>
-                  </div>
-                )}
-
-                {decisionLead.stage === "ireb" && (
-                  <div className="rounded-lg border border-stroke p-4 dark:border-dark-3">
-                    <p className="text-sm font-semibold text-dark dark:text-white">On behalf of IREB member</p>
-                    <select
-                      value={selectedOnBehalfOf}
-                      onChange={(e) => setSelectedOnBehalfOf(e.target.value)}
-                      className="mt-3 w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                    >
-                      <option value="">Select IREB member</option>
-                      {adminOptions.irebOptions.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {decisionAction === "rejected" && (
-              <div className="mt-5 rounded-lg border border-stroke p-4 dark:border-dark-3">
-                <p className="text-sm font-semibold text-dark dark:text-white">
-                  Dean / IREB reasons for rejection (select all that apply)
-                  <span className="text-red"> *</span>
-                </p>
-                <ul className="mt-3 space-y-2">
-                  {REJECTION_REASON_OPTIONS.map((opt) => (
-                    <li key={opt.id}>
-                      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-dark dark:text-white">
-                        <input
-                          type="checkbox"
-                          checked={selectedRejectionReasons.includes(opt.id)}
-                          onChange={() => toggleRejectionReason(opt.id)}
-                          className="mt-0.5 size-4 shrink-0 rounded border-stroke text-primary focus:ring-primary dark:border-dark-3"
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-5">
-              <label className="mb-2 block text-sm font-semibold text-dark dark:text-white">
-                {decisionAction === "rejected" ? (
-                  <>
-                    Please elaborate
-                    <span className="text-red"> *</span>
-                  </>
-                ) : (
-                  "Comment (optional)"
-                )}
-              </label>
-              <textarea
-                value={decisionComment}
-                onChange={(e) => setDecisionComment(e.target.value)}
-                rows={4}
-                className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2.5 dark:border-dark-3"
-                placeholder={
-                  decisionAction === "rejected"
-                    ? "Add detail and context for the applicant"
-                    : "Optional note"
-                }
-              />
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={resetDecisionModal}
-                className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={busyLeadId === decisionLead.id}
-                onClick={() => void handleDecisionSubmit()}
-                className={cn(
-                  "rounded-md px-4 py-2 text-sm font-medium text-white transition disabled:opacity-60",
-                  decisionAction === "approved" ? "bg-green hover:bg-green/90" : "bg-red hover:bg-red/90",
-                )}
-              >
-                {decisionAction === "approved" ? "Confirm Approval" : "Confirm Rejection"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DecisionModal
+          lead={decisionLead}
+          action={decisionAction}
+          currentRole={currentRole}
+          comment={decisionComment}
+          onCommentChange={setDecisionComment}
+          selectedRejectionReasons={selectedRejectionReasons}
+          onToggleRejectionReason={toggleRejectionReason}
+          selectedOnBehalfOf={selectedOnBehalfOf}
+          onOnBehalfOfChange={setSelectedOnBehalfOf}
+          adminOptions={adminOptions}
+          busy={busyLeadId === decisionLead.id}
+          onClose={resetDecisionModal}
+          onSubmit={() => void handleDecisionSubmit()}
+        />
       )}
 
       {feedbackModalLead && (
-        <div className="fixed inset-0 z-[99997] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-heading-6 font-bold text-dark dark:text-white">Application Feedback</h3>
-                <p className="mt-1 text-sm text-body">
-                  Application ID {feedbackModalLead.applicationId} · {feedbackModalLead.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeFeedbackModal}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-lg border border-stroke bg-gray-1/40 p-4 dark:border-dark-3 dark:bg-dark-2/40">
-              <p className="whitespace-pre-wrap text-sm text-dark dark:text-white">
-                {feedbackModalLead.latestFeedbackComment}
-              </p>
-            </div>
-
-          </div>
-        </div>
+        <FeedbackModal lead={feedbackModalLead} onClose={closeFeedbackModal} />
       )}
 
       {actionTraceModalLead && (
-        <div className="fixed inset-0 z-[99997] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-heading-6 font-bold text-dark dark:text-white">Action Trace</h3>
-                <p className="mt-1 text-sm text-body">
-                  Application ID {actionTraceModalLead.applicationId} · {actionTraceModalLead.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeActionTraceModal}
-                className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-lg border border-primary/30 bg-primary/5 p-4">
-              <p className="whitespace-pre-wrap text-sm text-dark dark:text-white">
-                {actionTraceModalLead.latestActionTrace}
-              </p>
-            </div>
-          </div>
-        </div>
+        <ActionTraceModal lead={actionTraceModalLead} onClose={closeActionTraceModal} />
       )}
 
-      {portalMounted &&
-        adminReports?.phase === "pick" &&
-        createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-            <div className="w-full max-w-lg rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-              <div className="flex items-start justify-between gap-4 border-b border-stroke px-6 py-5 dark:border-dark-3">
-                <div>
-                  <h3 className="text-xl font-bold text-dark dark:text-white">Get Reports</h3>
-                  <p className="mt-1 text-sm text-body">
-                    Application ID{" "}
-                    <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
-                    {" · "}
-                    {adminReports.lead.name}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeAdminReports}
-                  className="shrink-0 rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="grid gap-2 px-4 py-4 sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => selectAdminReportKind("student")}
-                  className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3.5 text-left transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:hover:bg-dark-2"
-                >
-                  <span className="text-sm font-semibold text-dark dark:text-white">
-                    Student Level Analysis Report (Individual)
-                  </span>
-                  <span className="text-xs leading-snug text-body">
-                    Profile, timeline, status comparison, and recorded feedback for this application.
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectAdminReportKind("status")}
-                  className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3.5 text-left transition hover:border-primary/40 hover:bg-primary/[0.06] dark:border-dark-3 dark:bg-gray-dark dark:hover:bg-dark-2"
-                >
-                  <span className="text-sm font-semibold text-dark dark:text-white">
-                    Report of Application Status
-                  </span>
-                  <span className="text-xs leading-snug text-body">
-                    Same layout as the PDF: workflow fields for this application (submission record when available).
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {portalMounted && adminReports?.phase === "pick" && (
+        <AdminReportsPicker
+          lead={adminReports.lead}
+          onClose={closeAdminReports}
+          onSelectStudent={() => selectAdminReportKind("student")}
+          onSelectStatus={() => selectAdminReportKind("status")}
+        />
+      )}
 
-      {portalMounted &&
-        adminReports?.phase === "preview" &&
-        createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-3 py-6 backdrop-blur-[2px] sm:px-4">
-            <div className="flex max-h-[95vh] min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-              <div className="flex shrink-0 flex-col gap-3 border-b border-stroke px-4 py-4 dark:border-dark-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <div className="min-w-0">
-                  <h3 className="truncate text-lg font-bold text-dark dark:text-white">
-                    {adminReports.kind === "student"
-                      ? "Student Level Analysis Report (Individual)"
-                      : adminReports.kind === "faculty"
-                        ? "Faculty Report (Individual)"
-                        : "Report of Application Status"}
-                  </h3>
-                  <p className="mt-0.5 text-sm text-body">
-                    <>
-                      Application ID{" "}
-                      <span className="font-mono font-semibold text-primary">{adminReports.lead.applicationId}</span>
-                      {" · "}
-                      {adminReports.lead.name}
-                    </>
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {adminReports.kind !== "faculty" && (
-                    <button
-                      type="button"
-                      onClick={() => setAdminReports({ phase: "pick", lead: adminReports.lead })}
-                      className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                    >
-                      Back
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={closeAdminReports}
-                    className="rounded-md border border-stroke px-3 py-2 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="button"
-                    disabled={adminReportPdfExporting || adminReportSubmissionLoading || !adminReportPreviewHtml}
-                    onClick={() => void downloadActiveAdminReport()}
-                    className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-opacity-90 disabled:opacity-60"
-                  >
-                    {adminReportPdfExporting ? "Saving PDF…" : "Download PDF"}
-                  </button>
-                </div>
-              </div>
-              <p className="shrink-0 border-b border-stroke bg-gray-1/50 px-4 py-2 text-xs text-body dark:border-dark-3 dark:bg-dark-2/50 sm:px-6">
-                Use <span className="font-medium text-dark dark:text-white">Download PDF</span> for a{" "}
-                <span className="font-medium text-dark dark:text-white">.pdf</span> file, or{" "}
-                <span className="font-medium text-dark dark:text-white">Print / Save as PDF</span> inside the preview.
-              </p>
-              <div className="relative min-h-0 flex-1 bg-gray-1 p-3 dark:bg-dark-2/40 sm:p-4">
-                {adminReportSubmissionLoading && (
-                  <div className="absolute inset-3 z-10 flex items-center justify-center rounded-lg border border-stroke bg-white/90 text-sm font-medium text-body backdrop-blur-sm dark:border-dark-3 dark:bg-gray-dark/90">
-                    Loading submission for report…
-                  </div>
-                )}
-                <iframe
-                  ref={reportPreviewIframeRef}
-                  title="Report preview"
-                  className="block h-[min(72vh,720px)] min-h-[380px] w-full rounded-lg border border-stroke bg-white shadow-sm dark:border-dark-3"
-                  srcDoc={adminReportPreviewHtml}
-                  sandbox="allow-scripts allow-same-origin allow-modals"
-                />
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {portalMounted && adminReports?.phase === "preview" && (
+        <AdminReportPreview
+          lead={adminReports.lead}
+          kind={adminReports.kind}
+          previewHtml={adminReportPreviewHtml}
+          loading={adminReportSubmissionLoading}
+          exporting={adminReportPdfExporting}
+          iframeRef={reportPreviewIframeRef}
+          onClose={closeAdminReports}
+          onBack={
+            adminReports.kind !== "faculty"
+              ? () => setAdminReports({ phase: "pick", lead: adminReports.lead })
+              : undefined
+          }
+          onDownload={() => void downloadActiveAdminReport()}
+        />
+      )}
     </div>
   );
 }

@@ -28,9 +28,11 @@ export function Sidebar() {
         directHref === "/users" ||
         directHref === "/organizations" ||
         directHref === "/administrator" ||
+        directHref.startsWith("/forms") ||
         childHrefs.includes("/users") ||
         childHrefs.includes("/organizations") ||
-        childHrefs.includes("/administrator");
+        childHrefs.includes("/administrator") ||
+        childHrefs.some((href) => href.startsWith("/forms"));
 
       if (hasAdminOnlyRoute && !isAdministrator) {
         return false;

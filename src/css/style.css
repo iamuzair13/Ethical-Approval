@@ -29,6 +29,57 @@
     scrollbar-width: none; /* Firefox */
   }
 
+  .hide-x-scrollbar {
+    overflow: auto;
+  }
+
+  .hide-x-scrollbar::-webkit-scrollbar:horizontal {
+    height: 0;
+  }
+
+  .table-scroll-prominent {
+    scrollbar-width: auto;
+    scrollbar-color: #5750f1 #d4d4d8;
+  }
+
+  .dark .table-scroll-prominent {
+    scrollbar-color: #7c75f5 #3d4a5c;
+  }
+
+  .table-scroll-prominent::-webkit-scrollbar {
+    width: 10px;
+    height: 14px;
+  }
+
+  .table-scroll-prominent::-webkit-scrollbar-track {
+    @apply rounded-full;
+    background-color: #d4d4d8;
+  }
+
+  .dark .table-scroll-prominent::-webkit-scrollbar-track {
+    background-color: #3d4a5c;
+  }
+
+  .table-scroll-prominent::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background-color: #5750f1;
+    border: 2px solid #d4d4d8;
+    background-clip: padding-box;
+  }
+
+  .table-scroll-prominent::-webkit-scrollbar-thumb:hover {
+    background-color: #4338ca;
+  }
+
+  .dark .table-scroll-prominent::-webkit-scrollbar-thumb {
+    background-color: #7c75f5;
+    border-color: #3d4a5c;
+  }
+
+  .dark .table-scroll-prominent::-webkit-scrollbar-thumb:hover {
+    background-color: #9d97f8;
+  }
+
    .custom-scrollbar {
     @apply overflow-auto;
   }

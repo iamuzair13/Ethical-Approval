@@ -4,7 +4,11 @@
  */
 
 import type { AggregateReportContext, AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-html";
-import { coverBlock, escapeHtml, wrapDocument } from "@/lib/admin-aggregate-reports-html";
+import {
+  coverBlock,
+  escapeHtml,
+  wrapDocument,
+} from "@/lib/admin-aggregate-reports-html";
 import { buildDeanReportChartsHtml } from "@/lib/admin-report-charts-html";
 import { formatStaffSapId } from "@/lib/application-id";
 

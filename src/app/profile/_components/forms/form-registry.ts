@@ -144,3 +144,60 @@ export function inferFormIdFromLegacyRequiredForm(
   return null;
 }
 
+export type AdminEthicsFormCatalogEntry = {
+  id: ApprovalFormId;
+  navTitle: string;
+  label: string;
+  applicationType: ApplicationType;
+};
+
+export const ADMIN_ETHICS_FORM_CATALOG: AdminEthicsFormCatalogEntry[] = [
+  {
+    id: "form1-thesis-non-medical",
+    navTitle: "Form 1 · Thesis (Non-Medical)",
+    label: "Form 1 Thesis form Other than Medical Sciences.docx",
+    applicationType: "thesis",
+  },
+  {
+    id: "form2-publication-non-medical",
+    navTitle: "Form 2 · Publication (Non-Medical)",
+    label: "Form 2 Research Publication Form other than medicla sciences.docx",
+    applicationType: "research-publication",
+  },
+  {
+    id: "form3-thesis-medical",
+    navTitle: "Form 3 · Thesis (Medical)",
+    label: "Form 3_Ethical Form For Students Thesis-Projects (for Medical Sciences).docx",
+    applicationType: "thesis",
+  },
+  {
+    id: "form4-publication-medical",
+    navTitle: "Form 4 · Publication (Medical)",
+    label: "Form 4 Research Publication Medical Sciences.docx",
+    applicationType: "research-publication",
+  },
+  {
+    id: "form6-publication-faculty-non-medical",
+    navTitle: "Form 5 · Faculty Non-Medical",
+    label: "Form 6 Research Publication Faculty Non Medical.docx",
+    applicationType: "research-publication",
+  },
+  {
+    id: "form7-publication-faculty-staff-medical",
+    navTitle: "Form 6 · Faculty Medical Sciences",
+    label: "Form 7 Research Publication Faculty Staff Medical Sciences.docx",
+    applicationType: "research-publication",
+  },
+];
+
+export function getAdminFormById(formId: string): RequiredForm | null {
+  const entry = ADMIN_ETHICS_FORM_CATALOG.find((item) => item.id === formId);
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    label: entry.label,
+    href: `/${encodeURI(`studentsfinalforms/${entry.label}`)}`,
+    applicationType: entry.applicationType,
+  };
+}
+

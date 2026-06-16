@@ -77,7 +77,8 @@ type ApprovalRequestStepperProps = {
     payload: RequestPayload,
     fileBundle?: SubmissionFileBundle,
   ) => Promise<{ ok: boolean; error?: string }>;
-  mode?: "create" | "view" | "edit" | "resume";
+  mode?: "create" | "view" | "edit" | "resume" | "preview";
+  layout?: "modal" | "page";
   submissionMeta?: Record<string, unknown> | null;
   viewSubmissionData?: {
     form?: Record<string, unknown>;
@@ -496,6 +497,7 @@ export default function ApprovalRequestStepper({
   serverDraftSubmissionId = null,
   persistDraft,
   onServerDraftSaved,
+  layout = "modal",
 }: ApprovalRequestStepperProps) {
   const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -525,6 +527,8 @@ export default function ApprovalRequestStepper({
       : null,
   );
   const isViewMode = mode === "view";
+  const isPreviewMode = mode === "preview";
+  const isPageLayout = layout === "page";
   const isPreloadedMode = mode === "view" || mode === "edit" || mode === "resume";
   const revisionOfSubmissionId = parsePositiveInt(submissionMeta?.revisionOfSubmissionId);
   const isRevisionMode = mode === "edit" || revisionOfSubmissionId != null;
@@ -686,7 +690,7 @@ export default function ApprovalRequestStepper({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isPageLayout) return;
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -694,10 +698,10 @@ export default function ApprovalRequestStepper({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [open]);
+  }, [open, isPageLayout]);
 
   useEffect(() => {
-    if (!mounted || !open || isPreloadedMode) return;
+    if (!mounted || !open || isPreloadedMode || isPreviewMode) return;
 
     const uid = userStorageId.trim();
     const sid = draftSessionId?.trim();
@@ -753,7 +757,7 @@ export default function ApprovalRequestStepper({
     const restoredMessage = `Restored draft from ${new Date(draft.savedAt).toLocaleString()}`;
     setSaveMessage(restoredMessage);
     toast.info(restoredMessage);
-  }, [activeSteps.length, draftSessionId, isPreloadedMode, mounted, open, userStorageId]);
+  }, [activeSteps.length, draftSessionId, isPreloadedMode, isPreviewMode, mounted, open, userStorageId]);
 
   useEffect(() => {
     if (open) return;
@@ -761,7 +765,7 @@ export default function ApprovalRequestStepper({
   }, [open]);
 
   useEffect(() => {
-    if (!open || isPreloadedMode) return;
+    if (!open || isPreloadedMode || isPreviewMode) return;
 
     const uid = userStorageId.trim();
     const sid = draftSessionId?.trim();
@@ -800,6 +804,7 @@ export default function ApprovalRequestStepper({
     extraUploadPersistedMeta,
     form,
     isPreloadedMode,
+    isPreviewMode,
     open,
     userStorageId,
   ]);
@@ -960,7 +965,7 @@ export default function ApprovalRequestStepper({
 
   useEffect(() => {
     if (!open) return;
-    if (isViewMode) return;
+    if (isViewMode || isPreviewMode) return;
     const formElement = formElementRef.current;
     if (!formElement) return;
 
@@ -986,7 +991,7 @@ export default function ApprovalRequestStepper({
     return () => {
       controls.forEach((control) => control.removeAttribute("data-required-indicator"));
     };
-  }, [open, currentStep, formMode, isViewMode]);
+  }, [open, currentStep, formMode, isPreviewMode, isViewMode]);
 
   if (!mounted || !open) return null;
 
@@ -1049,6 +1054,8 @@ export default function ApprovalRequestStepper({
   );
 
   const validateCurrentStep = (): string | null => {
+    if (isPreviewMode) return null;
+
     const formElement = formElementRef.current;
     const markedError = validateRequiredMarkFields(formElement);
     if (markedError) return markedError;
@@ -1309,7 +1316,7 @@ export default function ApprovalRequestStepper({
   const handleNext = (e?: MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     e?.stopPropagation();
-    if (!isViewMode) {
+    if (!isViewMode && !isPreviewMode) {
       const validationError = validateCurrentStep();
       if (validationError) {
         setSubmitError(validationError);
@@ -1326,7 +1333,7 @@ export default function ApprovalRequestStepper({
     setCompletedSteps(nextCompleted);
     setCurrentStep(nextStep);
 
-    if (!isViewMode) {
+    if (!isViewMode && !isPreviewMode) {
       const uid = userStorageId.trim();
       const sid = draftSessionId?.trim();
       if (uid && sid) {
@@ -1373,7 +1380,7 @@ export default function ApprovalRequestStepper({
   };
 
   const handleSaveProgress = () => {
-    if (isViewMode) return;
+    if (isViewMode || isPreviewMode) return;
     void (async () => {
       const uid = userStorageId.trim();
       const sid = draftSessionId?.trim();
@@ -1503,7 +1510,7 @@ export default function ApprovalRequestStepper({
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     void (async () => {
-      if (isViewMode) return;
+      if (isViewMode || isPreviewMode) return;
       // Prevent accidental submit from intermediate steps (e.g., while uploading files).
       if (currentStep < activeSteps.length - 1 || isSubmitting) return;
       if (isSavingDraft) {
@@ -1716,26 +1723,31 @@ export default function ApprovalRequestStepper({
       }
     };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-      <div className="flex h-[min(92vh,980px)] w-full max-w-[1200px] flex-col overflow-hidden rounded-[12px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+  const stepperShell = (
+      <div
+        className={cn(
+          "flex w-full flex-col overflow-hidden rounded-[12px] border border-stroke bg-white dark:border-dark-3 dark:bg-gray-dark",
+          isPageLayout
+            ? "min-h-[calc(100vh-10rem)]"
+            : "h-[min(92vh,980px)] max-w-[1200px] shadow-1 dark:shadow-card",
+        )}
+      >
         <div className="border-b border-stroke px-6 py-5 dark:border-dark-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-dark dark:text-white">
-                Student Research Ethical Review Application
-              </h2>
-              <p className="mt-2 text-sm">
-                Complete each step and submit your ethical review request.
+              
+              <p className="mt-2 text-sm text-body dark:text-dark-6">
+                {isPreviewMode
+                  ? "Preview — changes are not saved. Browse and test all steps without validation."
+                  : "Complete each step and submit your ethical review request."}
               </p>
-             
             </div>
             <button
               type="button"
               onClick={resetAndClose}
               className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
             >
-              Close
+              {isPreviewMode ? "Back to Forms" : "Close"}
             </button>
           </div>
         </div>
@@ -1746,8 +1758,9 @@ export default function ApprovalRequestStepper({
               <button
                 key={title}
                 type="button"
-                disabled
-                aria-disabled="true"
+                disabled={!isPreviewMode}
+                aria-disabled={!isPreviewMode}
+                onClick={isPreviewMode ? () => setCurrentStep(index) : undefined}
                 className={cn(
                   "shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition sm:text-sm",
                   stepState[index]?.isActive &&
@@ -1758,7 +1771,8 @@ export default function ApprovalRequestStepper({
                   !stepState[index]?.isActive &&
                     !stepState[index]?.isDone &&
                     "border-stroke bg-white text-dark hover:border-primary/50 dark:border-dark-3 dark:bg-gray-dark dark:text-white",
-                  "cursor-not-allowed opacity-90",
+                  !isPreviewMode && "cursor-not-allowed opacity-90",
+                  isPreviewMode && "cursor-pointer",
                 )}
               >
                 {index + 1}. {title}
@@ -2337,7 +2351,7 @@ export default function ApprovalRequestStepper({
             <div className="flex items-center gap-2">
               {submitError && <span className="text-xs text-red-600 dark:text-red-400">{submitError}</span>}
               {saveMessage && <span className="text-xs text-body dark:text-dark-6">{saveMessage}</span>}
-              {!isViewMode && (
+              {!isViewMode && !isPreviewMode && (
                 <button
                   type="button"
                   onClick={handleSaveProgress}
@@ -2367,7 +2381,7 @@ export default function ApprovalRequestStepper({
                   >
                     Close
                   </button>
-                ) : (
+                ) : isPreviewMode ? null : (
                   <button
                     key="submit-application"
                     type="submit"
@@ -2382,6 +2396,15 @@ export default function ApprovalRequestStepper({
           </div>
         </form>
       </div>
+  );
+
+  if (isPageLayout) {
+    return stepperShell;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+      {stepperShell}
     </div>,
     document.body,
   );

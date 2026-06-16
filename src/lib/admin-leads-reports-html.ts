@@ -7,6 +7,13 @@
  * Download / print toolbar is embedded for iframe preview (postMessage to parent).
  */
 
+import {
+  daysBetween,
+  isDeanReviewOverdue,
+  isIrebReviewOverdue,
+  OVERDUE_THRESHOLD_DAYS,
+} from "@/lib/lead-overdue";
+
 export type LeadReportRow = {
   applicationId: string;
   name: string;
@@ -74,10 +81,6 @@ function formatDateTime(d: Date | string | null | undefined): { date: string; ti
     date: dt.toLocaleDateString(undefined, { dateStyle: "medium" }),
     time: dt.toLocaleTimeString(undefined, { timeStyle: "short" }),
   };
-}
-
-function daysBetween(start: Date, end: Date): number {
-  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86400000));
 }
 
 function getForm(ethics: unknown): Record<string, unknown> {
@@ -151,9 +154,17 @@ function irebDecisionShort(cs: string | undefined): string {
   return "Pending";
 }
 
-function parseDurationDays(duration: string): number | null {
-  const n = Number.parseInt(duration, 10);
-  return Number.isNaN(n) ? null : n;
+function toOverdueStatusLabel(cs: string | undefined, leadStatus: string): string {
+  switch (cs) {
+    case "submitted":
+    case "under_dean_review":
+      return "Under Review by Dean";
+    case "dean_approved":
+    case "under_ireb_review":
+      return "Under Review by IREB";
+    default:
+      return leadStatus;
+  }
 }
 
 function toValidDate(value: Date | string | null | undefined): Date | null {
@@ -582,25 +593,56 @@ export function buildApplicationStatusReportHtml(
     mapSubmissionStatus(cs) !== "—" ? mapSubmissionStatus(cs) : lead.currentStatus,
   );
 
-  const dur = parseDurationDays(lead.duration);
-  const overdueDean =
-    lead.stage === "dean" && dur != null && dur > 2 ? "Yes" : dur != null ? "No" : "—";
-  const overdueDeanDays =
-    lead.stage === "dean" && dur != null && dur > 2 ? String(dur - 2) : "—";
-
-  const pendingDeanDays =
-    cs === "under_dean_review" || cs === "submitted"
-      ? dur != null
-        ? String(dur)
-        : "—"
-      : "0";
-  const pendingIrebDays = cs === "under_ireb_review" ? (dur != null ? String(dur) : "—") : "0";
-
-  // Decision timestamps from approval_decisions (joined by getSubmissionDetailById)
   const deanDecisionAt = toValidDate(submission?.dean_decision_at);
   const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
   const deanDecisionDate = deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
   const irebDecisionDate = irebDecisionAt ? formatDateOnly(irebDecisionAt) : "—";
+
+  const overdueStatusLabel = toOverdueStatusLabel(cs, lead.currentStatus);
+  const submittedIso = validDate?.toISOString() ?? "";
+  const deanDecisionIso = deanDecisionAt?.toISOString() ?? null;
+
+  const deanOverdueYes = validDate
+    ? isDeanReviewOverdue({
+        currentStatus: overdueStatusLabel,
+        submittedAt: submittedIso,
+        now: generatedAt,
+      })
+    : false;
+  const overdueDean = validDate ? (deanOverdueYes ? "Yes" : "No") : "—";
+  const overdueDeanDays =
+    deanOverdueYes && validDate
+      ? String(daysBetween(validDate, generatedAt) - OVERDUE_THRESHOLD_DAYS)
+      : "—";
+
+  const pendingDeanDays =
+    cs === "under_dean_review" || cs === "submitted"
+      ? validDate
+        ? String(daysBetween(validDate, generatedAt))
+        : "—"
+      : "0";
+
+  const irebStageStart = deanDecisionAt ?? validDate;
+  const irebStageEnd =
+    irebDecisionAt ?? (cs === "under_ireb_review" ? generatedAt : null);
+  const irebElapsedDays =
+    irebStageStart && irebStageEnd ? daysBetween(irebStageStart, irebStageEnd) : null;
+  const pendingIrebDays =
+    cs === "under_ireb_review" && irebStageStart
+      ? String(daysBetween(irebStageStart, generatedAt))
+      : "0";
+
+  const irebOverdueYes = isIrebReviewOverdue({
+    currentStatus: overdueStatusLabel,
+    submittedAt: submittedIso,
+    deanDecisionAt: deanDecisionIso,
+    now: generatedAt,
+  });
+  const overdueIreb = irebElapsedDays == null ? "—" : irebOverdueYes ? "Yes" : "No";
+  const overdueIrebDays =
+    irebOverdueYes && irebElapsedDays != null
+      ? String(irebElapsedDays - OVERDUE_THRESHOLD_DAYS)
+      : "—";
 
   // The form "reaches IREB" the moment the dean approves it. A dean rejection
   // means it never reached IREB.
@@ -611,23 +653,6 @@ export function buildApplicationStatusReportHtml(
     cs === "rejected";
   const formReachedIrebDate =
     reachedIrebOnDean && deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
-
-  // IREB stage runs from dean approval (or submission, if dean was skipped)
-  // until the IREB decision is recorded, or until now while still pending.
-  const irebStageStart = deanDecisionAt ?? validDate;
-  const irebStageEnd =
-    irebDecisionAt ?? (cs === "under_ireb_review" ? generatedAt : null);
-  const irebElapsedDays =
-    irebStageStart && irebStageEnd
-      ? Math.max(
-          0,
-          Math.floor((irebStageEnd.getTime() - irebStageStart.getTime()) / 86400000),
-        )
-      : null;
-  const overdueIreb =
-    irebElapsedDays == null ? "—" : irebElapsedDays > 2 ? "Yes" : "No";
-  const overdueIrebDays =
-    irebElapsedDays != null && irebElapsedDays > 2 ? String(irebElapsedDays - 2) : "—";
 
   const rows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],

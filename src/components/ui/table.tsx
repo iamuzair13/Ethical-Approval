@@ -1,18 +1,24 @@
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
-export function Table({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLTableElement>) {
-  return (
-    <div className="relative w-full overflow-auto">
-      <table
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </div>
+type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+  /** Skip the inner overflow wrapper (use inside TableTopScrollArea). */
+  unwrapped?: boolean;
+};
+
+export function Table({ className, unwrapped = false, ...props }: TableProps) {
+  const table = (
+    <table
+      className={cn("w-full caption-bottom text-sm", className)}
+      {...props}
+    />
   );
+
+  if (unwrapped) {
+    return table;
+  }
+
+  return <div className="relative w-full overflow-auto">{table}</div>;
 }
 
 export function TableHeader({
