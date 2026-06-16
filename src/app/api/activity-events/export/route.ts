@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     if (format === "xlsx") {
       const buffer = activityEventsToXlsxBuffer(events);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           "Content-Type":
