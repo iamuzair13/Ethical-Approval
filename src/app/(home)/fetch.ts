@@ -642,20 +642,24 @@ export async function getOverviewTimelineBreakdown(
     return monthKeys.map((m) => buckets.get(m.key)!);
   }
 
-  // yearly
-  if (scopedRows.length === 0) return [];
+  // yearly – always return the last 10 calendar years (oldest → newest), filling missing buckets with 0.
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const yearRange: number[] = [];
+  for (let offset = 9; offset >= 0; offset--) {
+    yearRange.push(currentYear - offset);
+  }
 
-  const buckets = new Map<number, OverviewTimelineBreakdownPoint>();
+  const buckets = new Map<number, OverviewTimelineBreakdownPoint>(
+    yearRange.map((y) => [y, { label: y, ...mkEmpty(y) }]),
+  );
+
   for (const row of scopedRows) {
     const d = new Date(row.submitted_at);
     if (Number.isNaN(d.getTime())) continue;
     const year = d.getFullYear();
-    const bucket =
-      buckets.get(year) ?? (() => {
-        const init = { label: year, ...mkEmpty(year) };
-        buckets.set(year, init);
-        return init;
-      })();
+    const bucket = buckets.get(year);
+    if (!bucket) continue; // outside last 10 years
 
     const s = row.current_status;
     bucket.total += 1;
@@ -667,7 +671,7 @@ export async function getOverviewTimelineBreakdown(
     if (isRejectedIreb(s)) bucket.rejectedIreb += 1;
   }
 
-  return Array.from(buckets.values()).sort((a, b) => Number(a.label) - Number(b.label));
+  return yearRange.map((y) => buckets.get(y)!);
 }
 
 export async function getUsedDevicesData(session: Session) {
