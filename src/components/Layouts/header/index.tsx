@@ -54,7 +54,7 @@ export function Header() {
 
       <div className="max-xl:hidden">
         <h1 className="mb-0.5 text-heading-5 font-bold text-dark dark:text-white">
-          Institutional Review Ethical Board
+          Institute Research Ethics Board
         </h1>
         <p className="font-medium">{dashboardLabel}</p>
       </div>
