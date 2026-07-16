@@ -191,7 +191,7 @@ export function PaymentsOverviewViewToggle({ data }: { data: Series }) {
           >
             <PaymentsOverviewChart data={graphSeries} />
             {dataLength > WINDOW_SIZE && (
-              <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-gray-2/80 px-2.5 py-0.5 text-[10px] font-medium text-dark-5 dark:bg-dark-3/80 dark:text-dark-6">
+              <div className="pointer-events-none absolute bottom-[-2] left-1/2 -translate-x-1/2 rounded-full bg-gray-2/80 px-2.5 py-0.5 text-[10px] font-medium text-dark-5 dark:bg-dark-3/80 dark:text-dark-6">
                 Scroll to navigate
               </div>
             )}
