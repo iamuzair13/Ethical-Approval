@@ -144,7 +144,7 @@ function ScopeFields({
   const supervisorDepartments = useMemo(
     () =>
       typeof facultyId === "number"
-        ? departments.filter((dep) => dep.faculty_id === facultyId)
+        ? departments.filter((dep) => Number(dep.faculty_id) === facultyId)
         : [],
     [departments, facultyId],
   );
