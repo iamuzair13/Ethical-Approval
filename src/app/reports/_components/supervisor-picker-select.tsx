@@ -1,15 +1,15 @@
 "use client";
 
-type DeanOption = { id: string; name: string; email: string };
+type SupervisorOption = { id: string; name: string; email: string };
 
-export function DeanPickerSelect({
-  deans,
+export function SupervisorPickerSelect({
+  supervisors,
   value,
   onChange,
   disabled,
   loading,
 }: {
-  deans: DeanOption[];
+  supervisors: SupervisorOption[];
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
@@ -18,7 +18,7 @@ export function DeanPickerSelect({
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-        Dean
+        Supervisor
       </span>
       <select
         disabled={disabled || loading}
@@ -26,8 +26,8 @@ export function DeanPickerSelect({
         onChange={(e) => onChange(e.target.value)}
         className="w-full max-w-md rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-medium text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
       >
-        <option value="">{loading ? "Loading…" : "Select a dean…"}</option>
-        {deans.map((d) => (
+        <option value="">{loading ? "Loading…" : "Select a supervisor…"}</option>
+        {supervisors.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name} — {d.email}
           </option>

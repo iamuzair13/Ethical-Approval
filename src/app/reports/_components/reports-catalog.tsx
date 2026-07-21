@@ -1,7 +1,7 @@
 "use client";
 
 import { ReportCatalogCard } from "@/app/reports/_components/report-catalog-card";
-import { DeanPickerSelect } from "@/app/reports/_components/dean-picker-select";
+import { SupervisorPickerSelect } from "@/app/reports/_components/supervisor-picker-select";
 import {
   createDefaultReportDateRange,
   isReportDateRangeValid,
@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-type AdminRole = "administrator" | "dean" | "ireb";
+type AdminRole = "administrator" | "supervisor" | "ireb";
 
-type DeanRow = { id: string; name: string; email: string };
+type SupervisorRow = { id: string; name: string; email: string };
 
 type ReportSlug =
-  | "deans-report"
+  | "supervisors-report"
   | "total-efficiency"
   | "overall-research-specific"
   | "overall-student"
@@ -27,7 +27,7 @@ type ReportSlug =
   | "department-wise-research";
 
 const REPORT_SLUGS: ReportSlug[] = [
-  "deans-report",
+  "supervisors-report",
   "total-efficiency",
   "overall-research-specific",
   "overall-student",
@@ -53,9 +53,9 @@ function buildInitialDateRanges(): Record<ReportSlug, ReportDateRangeValue> {
 export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   const isAdministrator = adminRole === "administrator";
 
-  const [deans, setDeans] = useState<DeanRow[]>([]);
-  const [deansLoading, setDeansLoading] = useState(isAdministrator);
-  const [deanId, setDeanId] = useState("");
+  const [supervisors, setSupervisors] = useState<SupervisorRow[]>([]);
+  const [supervisorsLoading, setSupervisorsLoading] = useState(isAdministrator);
+  const [supervisorId, setSupervisorId] = useState("");
 
   const [dateRanges, setDateRanges] = useState(buildInitialDateRanges);
 
@@ -88,18 +88,18 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
   useEffect(() => {
     if (!isAdministrator) return;
     let cancelled = false;
-    setDeansLoading(true);
+    setSupervisorsLoading(true);
     void (async () => {
       try {
-        const res = await fetch("/api/admin/reports/deans", { cache: "no-store" });
-        const data = (await res.json()) as { ok?: boolean; deans?: DeanRow[] };
+        const res = await fetch("/api/admin/reports/supervisors", { cache: "no-store" });
+        const data = (await res.json()) as { ok?: boolean; supervisors?: SupervisorRow[] };
         if (cancelled) return;
-        if (res.ok && data.ok && data.deans) setDeans(data.deans);
-        else toast.error("Could not load dean list.");
+        if (res.ok && data.ok && data.supervisors) setSupervisors(data.supervisors);
+        else toast.error("Could not load supervisor list.");
       } catch {
-        if (!cancelled) toast.error("Could not load dean list.");
+        if (!cancelled) toast.error("Could not load supervisor list.");
       } finally {
-        if (!cancelled) setDeansLoading(false);
+        if (!cancelled) setSupervisorsLoading(false);
       }
     })();
     return () => {
@@ -172,14 +172,14 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
     setGenerating(slug);
     try {
       const body: Record<string, unknown> =
-        slug === "deans-report"
+        slug === "supervisors-report"
           ? isAdministrator
             ? {
-                deanId: deanId || undefined,
-                deanReportDateFrom: range.from,
-                deanReportDateTo: range.to,
+                supervisorId: supervisorId || undefined,
+                supervisorReportDateFrom: range.from,
+                supervisorReportDateTo: range.to,
               }
-            : { deanReportDateFrom: range.from, deanReportDateTo: range.to }
+            : { supervisorReportDateFrom: range.from, supervisorReportDateTo: range.to }
           : slug === "faculty-wise-research"
             ? {
                 reportDateFrom: range.from,
@@ -245,34 +245,34 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
       <div className="grid gap-6 md:grid-cols-2">
         {adminRole !== "ireb" ? (
           <ReportCatalogCard
-            title="Dean's Report"
-            description="Single-dean performance snapshot for submissions received in the selected date range: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions in that same range (faculty-scoped)."
+            title="Supervisor's Report"
+            description="Single-supervisor performance snapshot for submissions received in the selected date range: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions in that same range (faculty-scoped)."
             badge="Scope / Dates"
             controls={
               <div className="flex flex-col gap-3">
                 {isAdministrator ? (
-                  <DeanPickerSelect
-                    deans={deans}
-                    value={deanId}
-                    onChange={setDeanId}
-                    loading={deansLoading}
+                  <SupervisorPickerSelect
+                    supervisors={supervisors}
+                    value={supervisorId}
+                    onChange={setSupervisorId}
+                    loading={supervisorsLoading}
                   />
                 ) : (
                   <p className="text-xs text-body">
-                    This report uses your assigned dean faculty automatically.
+                    This report uses your assigned supervisor faculty automatically.
                   </p>
                 )}
                 <ReportDateRange
-                  idPrefix="deans-report"
-                  range={dateRanges["deans-report"]}
-                  onChange={(next) => setReportDateRange("deans-report", next)}
+                  idPrefix="supervisors-report"
+                  range={dateRanges["supervisors-report"]}
+                  onChange={(next) => setReportDateRange("supervisors-report", next)}
                 />
               </div>
             }
             action={primaryBtn(
-              "deans-report",
+              "supervisors-report",
               "Preview report",
-              Boolean((isAdministrator && !deanId.trim()) || dateRangeInvalid("deans-report")),
+              Boolean((isAdministrator && !supervisorId.trim()) || dateRangeInvalid("supervisors-report")),
             )}
           />
         ) : null}
@@ -325,7 +325,7 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
 
         <ReportCatalogCard
           title="Overall Faculty Report"
-          description="Faculty/staff research publications only (excludes @student.uol.edu.pk). One summary table: volume, faculty/department concentration, PhD share, medical vs other domain counts, approval/rejection rates, attempts, student dean-throughput by faculty snapshot, response times, processing days, and top SDGs."
+          description="Faculty/staff research publications only (excludes @student.uol.edu.pk). One summary table: volume, faculty/department concentration, PhD share, medical vs other domain counts, approval/rejection rates, attempts, student supervisor-throughput by faculty snapshot, response times, processing days, and top SDGs."
           badge="Date range"
           controls={
             <ReportDateRange

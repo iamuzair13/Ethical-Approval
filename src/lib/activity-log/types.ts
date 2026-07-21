@@ -1,10 +1,10 @@
-export type AdminRole = "administrator" | "dean" | "ireb";
+export type AdminRole = "administrator" | "supervisor" | "ireb";
 
 export type ImpersonationMode = "view_as" | "on_behalf";
 
 export type TargetType =
   | "application"
-  | "dean"
+  | "supervisor"
   | "ireb_member"
   | "administrator"
   | "faculty"
@@ -23,7 +23,7 @@ export type ActivityActionCode =
   | "admin.faculty.create"
   | "admin.faculty.update"
   | "admin.faculty.delete"
-  | "admin.faculty.assign_dean"
+  | "admin.faculty.assign_supervisor"
   | "admin.faculty.assign_ireb"
   | "admin.faculty.remove_ireb"
   | "admin.department.create"

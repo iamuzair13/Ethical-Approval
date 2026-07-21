@@ -12,7 +12,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type ViewAsRole = "dean" | "ireb";
+type ViewAsRole = "supervisor" | "ireb";
 
 export function ViewAsMenu() {
   const { data: session, update } = useSession();
@@ -124,10 +124,10 @@ export function ViewAsMenu() {
           <div className="w-48 py-1">
             <button
               type="button"
-              onClick={() => void loadUsers("dean")}
+              onClick={() => void loadUsers("supervisor")}
               className="block w-full px-4 py-2.5 text-left text-sm font-medium text-dark hover:bg-gray-2 dark:text-white dark:hover:bg-dark-3"
             >
-              Dean
+              Supervisor
             </button>
             <button
               type="button"
@@ -141,7 +141,7 @@ export function ViewAsMenu() {
           <SearchableUserSelect
             users={users}
             loading={loadingUsers || starting}
-            title={selectedRole === "dean" ? "Select Dean" : "Select IREB Member"}
+            title={selectedRole === "supervisor" ? "Select Supervisor" : "Select IREB Member"}
             onSelect={(user) => void handleSelectUser(user)}
             onCancel={resetFlow}
           />

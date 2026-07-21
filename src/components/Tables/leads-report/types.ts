@@ -1,8 +1,8 @@
 export type LeadStatus =
   | "Submitted"
-  | "Under Review by Dean"
-  | "Approved by Dean"
-  | "Rejected by Dean"
+  | "Under Review by Supervisor"
+  | "Approved by Supervisor"
+  | "Rejected by Supervisor"
   | "Under Review by IREB"
   | "Approved by IREB"
   | "Rejected by IREB";
@@ -19,9 +19,9 @@ export type Lead = {
   project: string;
   duration: string;
   currentStatus: LeadStatus;
-  stage: "dean" | "ireb" | "completed";
+  stage: "supervisor" | "ireb" | "completed";
   submittedAt: string;
-  deanDecisionAt: string | null;
+  supervisorDecisionAt: string | null;
   avatar: string | null;
   latestFeedbackComment?: string | null;
   latestAuditNote?: string | null;
@@ -32,6 +32,6 @@ export type CountEntry = { value: string; count: number };
 
 export type DecisionAction = "approved" | "rejected";
 
-export type AdminOption = { id: string; name: string; role: "dean" | "ireb" };
+export type AdminOption = { id: string; name: string; role: "supervisor" | "ireb" };
 
 export type SlotFileInfo = { displayName: string | null; hasStoredFile: boolean };

@@ -22,7 +22,7 @@ import type { Lead } from "./types";
 
 type RowActionsProps = {
   lead: Lead;
-  currentRole: "administrator" | "dean" | "ireb" | null;
+  currentRole: "administrator" | "supervisor" | "ireb" | null;
   busyLeadId: number | null;
   isMenuOpen: boolean;
   onMenuOpenChange: SetStateActionType<boolean>;

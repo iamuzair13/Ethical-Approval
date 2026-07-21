@@ -6,7 +6,7 @@ import {
 import { getToken } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth-secret";
 import {
-  listActiveDeansForReportPicker,
+  listActiveSupervisorsForReportPicker,
   listActiveIrebForViewAs,
 } from "@/lib/admin-repository";
 
@@ -22,16 +22,16 @@ export async function GET(request: NextRequest) {
   }
 
   const role = request.nextUrl.searchParams.get("role");
-  if (role !== "dean" && role !== "ireb") {
+  if (role !== "supervisor" && role !== "ireb") {
     return NextResponse.json(
-      { ok: false, error: "Invalid role. Use dean or ireb." },
+      { ok: false, error: "Invalid role. Use supervisor or ireb." },
       { status: 400 },
     );
   }
 
   const users =
-    role === "dean"
-      ? await listActiveDeansForReportPicker()
+    role === "supervisor"
+      ? await listActiveSupervisorsForReportPicker()
       : await listActiveIrebForViewAs();
 
   return NextResponse.json({ ok: true, users, role });

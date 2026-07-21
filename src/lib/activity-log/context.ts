@@ -25,7 +25,7 @@ async function resolveTimezone(sapId: string | null | undefined): Promise<string
 
 export type ResolveActivityContextOptions = {
   request?: NextRequest | Request;
-  /** When admin acts on behalf of dean/ireb without view-as session */
+  /** When admin acts on behalf of supervisor/ireb without view-as session */
   onBehalfOfAdminId?: string;
   actorTimezone?: string;
 };

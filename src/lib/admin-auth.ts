@@ -8,7 +8,7 @@ import { isViewAsActive } from "@/lib/view-as";
 
 export type AuthenticatedAdmin = {
   adminId: string;
-  role: "administrator" | "dean" | "ireb";
+  role: "administrator" | "supervisor" | "ireb";
   status: "active" | "inactive";
   scopeMode: "all" | "restricted";
   facultyIds: number[];
@@ -39,7 +39,7 @@ export function parseEffectiveAdmin(token: JWT | null): AuthenticatedAdmin | nul
 
   if (
     token.adminRole !== "administrator" &&
-    token.adminRole !== "dean" &&
+    token.adminRole !== "supervisor" &&
     token.adminRole !== "ireb"
   ) {
     return null;
@@ -72,7 +72,7 @@ export function parseActingAdmin(token: JWT | null): AuthenticatedAdmin | null {
 
   if (
     actingRole !== "administrator" &&
-    actingRole !== "dean" &&
+    actingRole !== "supervisor" &&
     actingRole !== "ireb"
   ) {
     return null;

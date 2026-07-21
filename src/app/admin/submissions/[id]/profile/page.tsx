@@ -31,22 +31,22 @@ function formatValue(value: unknown): string {
 function formatSubmissionStatus(
   status:
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected",
 ): string {
   switch (status) {
     case "submitted":
-    case "under_dean_review":
-      return "Under Review by Dean";
-    case "dean_approved":
+    case "under_supervisor_review":
+      return "Under Review by Supervisor";
+    case "supervisor_approved":
     case "under_ireb_review":
       return "Under Review by IREB";
-    case "dean_rejected":
-      return "Rejected by Dean";
+    case "supervisor_rejected":
+      return "Rejected by Supervisor";
     case "approved":
       return "Approved by IREB";
     case "rejected":

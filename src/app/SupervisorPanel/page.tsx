@@ -23,14 +23,14 @@ type PropsType = {
   }>;
 };
 
-const DEAN_CARDS_CONFIG: OverviewCardConfig[] = [
+const SUPERVISOR_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "views", label: "Total Ethical Requests" },
   { key: "profit", label: "Pending Approvals" },
   { key: "users", label: "Approved Requests" },
   { key: "customers", label: "Rejected Requests" },
 ];
 
-export default async function DeanPanel({ searchParams }: PropsType) {
+export default async function SupervisorPanel({ searchParams }: PropsType) {
   const { selected_time_frame } = await searchParams;
   const extractTimeFrame = createTimeFrameExtractor(selected_time_frame);
   const session = await getServerSession(authOptions);
@@ -41,7 +41,7 @@ export default async function DeanPanel({ searchParams }: PropsType) {
     getUsedDevicesData(session),
   ]);
 
-  const items = DEAN_CARDS_CONFIG.map(({ key, label, prefix }) => {
+  const items = SUPERVISOR_CARDS_CONFIG.map(({ key, label, prefix }) => {
     const metric = overviewData[key];
 
     return {
@@ -53,13 +53,13 @@ export default async function DeanPanel({ searchParams }: PropsType) {
     };
   });
 
-  const rejectedDean =
-    usedDevicesData.find((item) => item.name === "Rejected by Dean")?.amount ?? 0;
-  const deanItems = DEAN_CARDS_CONFIG.map(({ key, label, prefix }) => {
+  const rejectedSupervisor =
+    usedDevicesData.find((item) => item.name === "Rejected by Supervisor")?.amount ?? 0;
+  const supervisorItems = SUPERVISOR_CARDS_CONFIG.map(({ key, label, prefix }) => {
     const metric = overviewData[key];
     const value =
       key === "customers"
-        ? rejectedDean
+        ? rejectedSupervisor
         : typeof metric.value === "number"
           ? metric.value
           : Number(metric.value) || 0;
@@ -74,26 +74,26 @@ export default async function DeanPanel({ searchParams }: PropsType) {
 
   return (
     <>
-      <DashboardApiProbe tag="dean" />
+      <DashboardApiProbe tag="supervisor" />
       <DashboardLiveRefresh />
       <div className="grid gap-4 sm:gap-6 2xl:gap-7.5">
-        <OverviewCard items={deanItems} />
+        <OverviewCard items={supervisorItems} />
       </div>
 
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-9 2xl:gap-7.5">
         <PaymentsOverview
           className="col-span-12 xl:col-span-7"
-          key={extractTimeFrame("dean_payments_overview")}
-          timeFrame={extractTimeFrame("dean_payments_overview")?.split(":")[1]}
+          key={extractTimeFrame("supervisor_payments_overview")}
+          timeFrame={extractTimeFrame("supervisor_payments_overview")?.split(":")[1]}
           title="Approval Trends"
-          cardsConfig={DEAN_CARDS_CONFIG}
+          cardsConfig={SUPERVISOR_CARDS_CONFIG}
           overviewData={{
             ...overviewData,
             customers: {
-              value: rejectedDean,
+              value: rejectedSupervisor,
               growthRate:
                 overviewData.views.value > 0
-                  ? Math.round((rejectedDean / overviewData.views.value) * 100)
+                  ? Math.round((rejectedSupervisor / overviewData.views.value) * 100)
                   : 0,
             },
           }}
@@ -101,17 +101,17 @@ export default async function DeanPanel({ searchParams }: PropsType) {
 
         <UsedDevices
           className="col-span-12 xl:col-span-5"
-          key={extractTimeFrame("dean_used_devices")}
-          timeFrame={extractTimeFrame("dean_used_devices")?.split(":")[1]}
+          key={extractTimeFrame("supervisor_used_devices")}
+          timeFrame={extractTimeFrame("supervisor_used_devices")?.split(":")[1]}
           title="Decision Breakdown"
-          sectionKey="dean_used_devices"
+          sectionKey="supervisor_used_devices"
           data={usedDevicesData}
         />
 
         <LeadsReport
           title="Ethical Requests Requiring Decision"
           leads={leadsData}
-          currentRole="dean"
+          currentRole="supervisor"
         />
       </div>
     </>

@@ -8,19 +8,19 @@ CREATE TYPE applicant_role AS ENUM ('student', 'faculty');
 CREATE TYPE submission_status AS ENUM (
   'draft',
   'submitted',
-  'under_dean_review',
-  'dean_approved',
-  'dean_rejected',
+  'under_supervisor_review',
+  'supervisor_approved',
+  'supervisor_rejected',
   'under_ireb_review',
   'approved',
   'rejected'
 );
 
-CREATE TYPE review_stage AS ENUM ('dean', 'ireb');
+CREATE TYPE review_stage AS ENUM ('supervisor', 'ireb');
 CREATE TYPE review_decision AS ENUM ('approved', 'rejected');
 
-CREATE TYPE upload_stage AS ENUM ('submission', 'dean_review', 'ireb_review');
-CREATE TYPE uploader_role AS ENUM ('student', 'faculty', 'dean', 'ireb');
+CREATE TYPE upload_stage AS ENUM ('submission', 'supervisor_review', 'ireb_review');
+CREATE TYPE uploader_role AS ENUM ('student', 'faculty', 'supervisor', 'ireb');
 
 CREATE TYPE participant_role AS ENUM (
   'supervisor',
@@ -174,7 +174,7 @@ CREATE TABLE submission_attachments (
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Master faculty list for admin/dean/IREB assignment scopes
+-- Master faculty list for admin/supervisor/IREB assignment scopes
 CREATE TABLE IF NOT EXISTS faculties (
   id BIGSERIAL PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -195,13 +195,13 @@ CREATE TABLE IF NOT EXISTS departments (
   UNIQUE (faculty_id, name)
 );
 
--- Department-level admin scope (dean primary / ireb scope)
+-- Department-level admin scope (supervisor primary / ireb scope)
 CREATE TABLE IF NOT EXISTS admin_department_assignments (
   id BIGSERIAL PRIMARY KEY,
   admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
   faculty_id BIGINT NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
   department_id BIGINT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
-  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('dean_primary', 'ireb_scope')),
+  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('supervisor_primary', 'ireb_scope')),
   assigned_by UUID REFERENCES admin_users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ

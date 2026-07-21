@@ -29,8 +29,8 @@ export default async function Home({ searchParams }: PropsType) {
     getDashboardLeads(session),
   ]);
   const usedDevicesTitle =
-    session.user.adminRole === "dean"
-      ? "Dean Request Breakdown"
+    session.user.adminRole === "supervisor"
+      ? "Supervisor Request Breakdown"
       : session.user.adminRole === "ireb"
         ? "IREB Request Breakdown"
         : "Request Status Breakdown";

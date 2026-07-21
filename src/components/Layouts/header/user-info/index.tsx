@@ -330,7 +330,7 @@ export function UserInfo() {
   const roleLabel = (() => {
     const adminRole = session?.user?.adminRole;
     if (adminRole === "administrator") return "Administrator";
-    if (adminRole === "dean") return "Dean";
+    if (adminRole === "supervisor") return "Supervisor";
     if (adminRole === "ireb") return "IREB";
     return "User";
   })();

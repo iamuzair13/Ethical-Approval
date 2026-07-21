@@ -52,10 +52,10 @@ export async function fetchFacultyNamesForIds(facultyIds: number[]): Promise<str
 }
 
 /**
- * For dean-rejected applications: "Yes" only if every row has a non-empty comment
- * on the latest dean-stage rejection decision; "No" if any is missing; "N/A" if none.
+ * For supervisor-rejected applications: "Yes" only if every row has a non-empty comment
+ * on the latest supervisor-stage rejection decision; "No" if any is missing; "N/A" if none.
  */
-export async function classifyDeanRejectionReasonStated(
+export async function classifySupervisorRejectionReasonStated(
   applicationIds: string[],
 ): Promise<"Yes" | "No" | "N/A"> {
   if (applicationIds.length === 0) return "N/A";
@@ -68,7 +68,7 @@ export async function classifyDeanRejectionReasonStated(
             SELECT ad.comment
             FROM approval_decisions ad
             WHERE ad.submission_id = s.id
-              AND ad.stage = 'dean'
+              AND ad.stage = 'supervisor'
               AND ad.decision = 'rejected'
             ORDER BY ad.decided_at DESC
             LIMIT 1
@@ -77,7 +77,7 @@ export async function classifyDeanRejectionReasonStated(
         )) AS comment
       FROM submissions s
       WHERE s.application_id = ANY($1::varchar(6)[])
-        AND s.current_status = 'dean_rejected'
+        AND s.current_status = 'supervisor_rejected'
     `,
     [applicationIds],
   );

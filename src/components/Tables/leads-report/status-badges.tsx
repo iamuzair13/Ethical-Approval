@@ -22,9 +22,9 @@ export function ApplicationIdBadge({ id }: { id: string }) {
 
 export function StatusBadge({ status }: { status: LeadStatus }) {
   const isApproved =
-    status === "Approved by Dean" || status === "Approved by IREB";
+    status === "Approved by Supervisor" || status === "Approved by IREB";
   const isRejected =
-    status === "Rejected by Dean" || status === "Rejected by IREB";
+    status === "Rejected by Supervisor" || status === "Rejected by IREB";
 
   if (isApproved) {
     return (

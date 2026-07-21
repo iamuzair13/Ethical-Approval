@@ -42,9 +42,9 @@ type ProfileSubmissionApiRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -62,12 +62,12 @@ function mapStatusToStage(
     case "draft":
       return "Draft";
     case "submitted":
-    case "under_dean_review":
-      return "Under Review by Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
+    case "under_supervisor_review":
+      return "Under Review by Supervisor";
+    case "supervisor_approved":
+      return "Approved by Supervisor";
+    case "supervisor_rejected":
+      return "Rejected by Supervisor";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -75,7 +75,7 @@ function mapStatusToStage(
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Under Review by Dean";
+      return "Under Review by Supervisor";
   }
 }
 
@@ -469,7 +469,7 @@ export default function FullProfilePage() {
         email?: string;
         sapId?: string;
         applicantRole?: "student" | "faculty";
-        adminRole?: "administrator" | "dean" | "ireb";
+        adminRole?: "administrator" | "supervisor" | "ireb";
         facultyDepartment?: string;
         facultyDesignation?: string | null;
         studentRecord?: {
@@ -626,13 +626,13 @@ export default function FullProfilePage() {
       requests.reduce(
         (acc, request) => {
           const stage = request.currentStage;
-          if (stage === "Under Review by Dean") acc.inDean += 1;
+          if (stage === "Under Review by Supervisor") acc.inSupervisor += 1;
           else if (stage === "Under Review by IREB") acc.inEthical += 1;
           else if (stage.includes("Approved") || stage.includes("Rejected"))
             acc.completed += 1;
           return acc;
         },
-        { inDean: 0, inEthical: 0, completed: 0 }
+        { inSupervisor: 0, inEthical: 0, completed: 0 }
       ),
     [requests]
   );
@@ -854,10 +854,10 @@ export default function FullProfilePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="mb-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                        Under Review by Dean
+                        Under Review by Supervisor
                       </p>
                       <p className="text-4xl font-bold tabular-nums tracking-tighter text-slate-900 dark:text-white">
-                        <AnimatedCounter value={requestStats.inDean} />
+                        <AnimatedCounter value={requestStats.inSupervisor} />
                       </p>
                     </div>
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-500 dark:text-amber-400">

@@ -9,7 +9,7 @@ import {
 
 const DEFAULT_TARGET_TYPES = [
   "application",
-  "dean",
+  "supervisor",
   "ireb_member",
   "administrator",
   "faculty",
@@ -20,7 +20,7 @@ const DEFAULT_TARGET_TYPES = [
   "system",
 ];
 
-const DEFAULT_ACTOR_ROLES = ["administrator", "dean", "ireb"];
+const DEFAULT_ACTOR_ROLES = ["administrator", "supervisor", "ireb"];
 
 export async function GET(request: NextRequest) {
   const admin = await assertActiveAdmin(request);

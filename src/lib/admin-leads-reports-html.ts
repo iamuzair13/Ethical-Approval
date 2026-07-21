@@ -9,10 +9,11 @@
 
 import {
   daysBetween,
-  isDeanReviewOverdue,
+  isSupervisorReviewOverdue,
   isIrebReviewOverdue,
   OVERDUE_THRESHOLD_DAYS,
 } from "@/lib/lead-overdue";
+import { isStudentApplicantEmail } from "@/lib/applicant-email";
 
 export type LeadReportRow = {
   applicationId: string;
@@ -48,8 +49,8 @@ export type AdminReportSubmission = {
   applicant_attempt_number?: number;
   /** Total non-draft submissions made by this applicant. */
   applicant_total_submissions?: number;
-  /** Latest dean decision timestamp on this submission, if any. */
-  dean_decision_at?: string | Date | null;
+  /** Latest supervisor decision timestamp on this submission, if any. */
+  supervisor_decision_at?: string | Date | null;
   /** Latest IREB decision timestamp on this submission, if any. */
   ireb_decision_at?: string | Date | null;
   /** Count of files uploaded by the applicant at submission stage. */
@@ -122,12 +123,12 @@ function mapSubmissionStatus(cs: string | undefined): string {
   switch (cs) {
     case "submitted":
       return "Submitted";
-    case "under_dean_review":
-      return "Pending at Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
+    case "under_supervisor_review":
+      return "Pending at Supervisor";
+    case "supervisor_approved":
+      return "Approved by Supervisor";
+    case "supervisor_rejected":
+      return "Rejected by Supervisor";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":
@@ -139,10 +140,10 @@ function mapSubmissionStatus(cs: string | undefined): string {
   }
 }
 
-function deanDecisionShort(cs: string | undefined): string {
+function supervisorDecisionShort(cs: string | undefined): string {
   if (!cs) return "—";
-  if (cs === "dean_rejected") return "Rejected";
-  if (cs === "submitted" || cs === "under_dean_review") return "Pending";
+  if (cs === "supervisor_rejected") return "Rejected";
+  if (cs === "submitted" || cs === "under_supervisor_review") return "Pending";
   return "Approved";
 }
 
@@ -157,9 +158,9 @@ function irebDecisionShort(cs: string | undefined): string {
 function toOverdueStatusLabel(cs: string | undefined, leadStatus: string): string {
   switch (cs) {
     case "submitted":
-    case "under_dean_review":
-      return "Under Review by Dean";
-    case "dean_approved":
+    case "under_supervisor_review":
+      return "Under Review by Supervisor";
+    case "supervisor_approved":
     case "under_ireb_review":
       return "Under Review by IREB";
     default:
@@ -214,9 +215,9 @@ function statusPieSvg(lead: LeadReportRow, submissionStatus?: string): string {
   const cs = submissionStatus ?? "";
   let fill = "#5750f1";
   let label = lead.currentStatus;
-  if (cs === "under_dean_review" || cs === "submitted") {
+  if (cs === "under_supervisor_review" || cs === "submitted") {
     fill = "#f59e0b";
-    label = "Pending at Dean";
+    label = "Pending at Supervisor";
   } else if (cs === "under_ireb_review") {
     fill = "#0ea5e9";
     label = "Pending at IREB";
@@ -436,13 +437,13 @@ function buildIndividualAnalysisReportHtml(
         : "No"
       : "—";
 
-  const deanDecisionAt = toValidDate(submission?.dean_decision_at);
+  const supervisorDecisionAt = toValidDate(submission?.supervisor_decision_at);
   const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
-  const timeForDeanDecision = formatTimeBetween(validDate, deanDecisionAt);
-  // Time at IREB starts when the application leaves the dean's queue
-  // (fall back to submission time if the dean stage was skipped).
+  const timeForSupervisorDecision = formatTimeBetween(validDate, supervisorDecisionAt);
+  // Time at IREB starts when the application leaves the supervisor's queue
+  // (fall back to submission time if the supervisor stage was skipped).
   const timeForIrebDecision = formatTimeBetween(
-    deanDecisionAt ?? validDate,
+    supervisorDecisionAt ?? validDate,
     irebDecisionAt,
   );
 
@@ -480,7 +481,7 @@ function buildIndividualAnalysisReportHtml(
       statusPieSvg(lead, cs) + `<div style="margin-top:10px;font-size:12px;">${escapeHtml(mapSubmissionStatus(cs) || lead.currentStatus)}</div>`,
     ],
     ["Total Processing Days", escapeHtml(totalProcessingDays)],
-    ["Dean's Decision (Approved/Rejected)", escapeHtml(deanDecisionShort(cs))],
+    ["Supervisor's Decision (Approved/Rejected)", escapeHtml(supervisorDecisionShort(cs))],
     ["IREB Decision (Approved/Rejected)", escapeHtml(irebDecisionShort(cs))],
     ["Approved IREB Number (Ethical Approval Number)", "—"],
   ];
@@ -488,8 +489,8 @@ function buildIndividualAnalysisReportHtml(
   const timelineRows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],
     ["Form Submission Time", escapeHtml(subTime)],
-    ["Dean Decision", escapeHtml(deanDecisionShort(cs))],
-    ["Time for Dean's Decision", escapeHtml(timeForDeanDecision)],
+    ["Supervisor Decision", escapeHtml(supervisorDecisionShort(cs))],
+    ["Time for Supervisor's Decision", escapeHtml(timeForSupervisorDecision)],
     ["IREB Decision", escapeHtml(irebDecisionShort(cs))],
     ["Time for IREB's Decision", escapeHtml(timeForIrebDecision)],
     ["Resubmission (Yes/No)", escapeHtml(isResubmission)],
@@ -593,36 +594,36 @@ export function buildApplicationStatusReportHtml(
     mapSubmissionStatus(cs) !== "—" ? mapSubmissionStatus(cs) : lead.currentStatus,
   );
 
-  const deanDecisionAt = toValidDate(submission?.dean_decision_at);
+  const supervisorDecisionAt = toValidDate(submission?.supervisor_decision_at);
   const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
-  const deanDecisionDate = deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
+  const supervisorDecisionDate = supervisorDecisionAt ? formatDateOnly(supervisorDecisionAt) : "—";
   const irebDecisionDate = irebDecisionAt ? formatDateOnly(irebDecisionAt) : "—";
 
   const overdueStatusLabel = toOverdueStatusLabel(cs, lead.currentStatus);
   const submittedIso = validDate?.toISOString() ?? "";
-  const deanDecisionIso = deanDecisionAt?.toISOString() ?? null;
+  const supervisorDecisionIso = supervisorDecisionAt?.toISOString() ?? null;
 
-  const deanOverdueYes = validDate
-    ? isDeanReviewOverdue({
+  const supervisorOverdueYes = validDate
+    ? isSupervisorReviewOverdue({
         currentStatus: overdueStatusLabel,
         submittedAt: submittedIso,
         now: generatedAt,
       })
     : false;
-  const overdueDean = validDate ? (deanOverdueYes ? "Yes" : "No") : "—";
-  const overdueDeanDays =
-    deanOverdueYes && validDate
+  const overdueSupervisor = validDate ? (supervisorOverdueYes ? "Yes" : "No") : "—";
+  const overdueSupervisorDays =
+    supervisorOverdueYes && validDate
       ? String(daysBetween(validDate, generatedAt) - OVERDUE_THRESHOLD_DAYS)
       : "—";
 
-  const pendingDeanDays =
-    cs === "under_dean_review" || cs === "submitted"
+  const pendingSupervisorDays =
+    cs === "under_supervisor_review" || cs === "submitted"
       ? validDate
         ? String(daysBetween(validDate, generatedAt))
         : "—"
       : "0";
 
-  const irebStageStart = deanDecisionAt ?? validDate;
+  const irebStageStart = supervisorDecisionAt ?? validDate;
   const irebStageEnd =
     irebDecisionAt ?? (cs === "under_ireb_review" ? generatedAt : null);
   const irebElapsedDays =
@@ -635,7 +636,7 @@ export function buildApplicationStatusReportHtml(
   const irebOverdueYes = isIrebReviewOverdue({
     currentStatus: overdueStatusLabel,
     submittedAt: submittedIso,
-    deanDecisionAt: deanDecisionIso,
+    supervisorDecisionAt: supervisorDecisionIso,
     now: generatedAt,
   });
   const overdueIreb = irebElapsedDays == null ? "—" : irebOverdueYes ? "Yes" : "No";
@@ -644,31 +645,38 @@ export function buildApplicationStatusReportHtml(
       ? String(irebElapsedDays - OVERDUE_THRESHOLD_DAYS)
       : "—";
 
-  // The form "reaches IREB" the moment the dean approves it. A dean rejection
-  // means it never reached IREB.
-  const reachedIrebOnDean =
-    cs === "dean_approved" ||
-    cs === "under_ireb_review" ||
-    cs === "approved" ||
-    cs === "rejected";
+  // The form "reaches IREB" the moment the supervisor approves it (for students)
+  // or immediately after submission (for non-students who skip supervisor).
+  // A supervisor rejection means it never reached IREB.
+  const isStudent = isStudentApplicantEmail(lead.email);
+  const reachedIrebOnSupervisor = isStudent
+    ? cs === "supervisor_approved" ||
+      cs === "under_ireb_review" ||
+      cs === "approved" ||
+      cs === "rejected"
+    : cs === "under_ireb_review" ||
+      cs === "approved" ||
+      cs === "rejected";
   const formReachedIrebDate =
-    reachedIrebOnDean && deanDecisionAt ? formatDateOnly(deanDecisionAt) : "—";
+    reachedIrebOnSupervisor && (supervisorDecisionAt || (!isStudent && validDate))
+      ? formatDateOnly(isStudent ? supervisorDecisionAt! : validDate!)
+      : "—";
 
   const rows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],
     [
-      "Current Status (Approved/Rejected/Pending at Dean/Pending at IREB)",
+      "Current Status (Approved/Rejected/Pending at Supervisor/Pending at IREB)",
       escapeHtml(currentStatusPdf),
     ],
     ["Form Number", escapeHtml(submission?.application_id ?? lead.applicationId)],
     [
-      "Reached at Dean's Dashboard",
+      "Reached at Supervisor's Dashboard",
       escapeHtml(cs && cs !== "submitted" ? subDate : validDate ? subDate : "—"),
     ],
-    ["Request Pending at Dean (Days)", escapeHtml(pendingDeanDays)],
-    ["Rejected/Approved by Dean (Date)", escapeHtml(deanDecisionDate)],
-    ["Form Overdue by Dean (Yes/No)", escapeHtml(overdueDean)],
-    ["Overdue Days", escapeHtml(overdueDeanDays)],
+    ["Request Pending at Supervisor (Days)", escapeHtml(pendingSupervisorDays)],
+    ["Rejected/Approved by Supervisor (Date)", escapeHtml(supervisorDecisionDate)],
+    ["Form Overdue by Supervisor (Yes/No)", escapeHtml(overdueSupervisor)],
+    ["Overdue Days", escapeHtml(overdueSupervisorDays)],
     ["Approved Form Reached at IREB's Dashboard", escapeHtml(formReachedIrebDate)],
     ["Request Pending at IREB (Days)", escapeHtml(pendingIrebDays)],
     ["Form Overdue by IREB (Yes/No)", escapeHtml(overdueIreb)],

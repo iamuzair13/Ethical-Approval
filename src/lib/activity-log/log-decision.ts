@@ -15,7 +15,7 @@ export async function logApplicationDecisionActivity(input: {
   applicationId: string;
   applicantFaculty: string | null;
   decision: "approved" | "rejected";
-  stage: "dean" | "ireb";
+  stage: "supervisor" | "ireb";
   onBehalfOfAdminId?: string;
 }): Promise<void> {
   const token = await getToken({

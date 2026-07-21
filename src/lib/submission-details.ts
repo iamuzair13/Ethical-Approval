@@ -7,9 +7,9 @@ export type SubmissionDetail = {
   domain: "medical" | "non_medical";
   current_status:
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -31,8 +31,8 @@ export type SubmissionDetail = {
   applicant_attempt_number: number;
   /** Total non-draft submissions made by this applicant (including this one). */
   applicant_total_submissions: number;
-  /** Most recent dean decision timestamp on this submission, if any. */
-  dean_decision_at: Date | null;
+  /** Most recent supervisor decision timestamp on this submission, if any. */
+  supervisor_decision_at: Date | null;
   /** Most recent IREB decision timestamp on this submission, if any. */
   ireb_decision_at: Date | null;
   /** Count of files uploaded by the applicant at submission stage. */
@@ -87,8 +87,8 @@ export async function getSubmissionDetailById(submissionId: number) {
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad
           WHERE ad.submission_id = s.id
-            AND ad.stage = 'dean'
-        ) AS dean_decision_at,
+            AND ad.stage = 'supervisor'
+        ) AS supervisor_decision_at,
         (
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad

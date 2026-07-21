@@ -30,7 +30,7 @@ export async function POST(
   if (!admin) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
-  if (!canAccessSubmissionStage(admin, "dean")) {
+  if (!canAccessSubmissionStage(admin, "supervisor")) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
@@ -79,14 +79,14 @@ export async function POST(
   if (!(await canAccessFacultySnapshot(admin, submission.faculty))) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
-  if (submission.current_status !== "under_dean_review") {
+  if (submission.current_status !== "under_supervisor_review") {
     return NextResponse.json(
-      { ok: false, error: "Submission is not in dean review stage." },
+      { ok: false, error: "Submission is not in supervisor review stage." },
       { status: 409 },
     );
   }
 
-  const nextStatus = body.decision === "approved" ? "dean_approved" : "dean_rejected";
+  const nextStatus = body.decision === "approved" ? "supervisor_approved" : "supervisor_rejected";
   const commentForDb =
     body.decision === "rejected"
       ? formatRejectionDecisionComment(
@@ -123,7 +123,7 @@ export async function POST(
           comment,
           decided_by_sap_id,
           decided_by_name
-        ) VALUES ($1, 'dean', $2, $3, $4, $5)
+        ) VALUES ($1, 'supervisor', $2, $3, $4, $5)
       `,
       [
         submissionId,
@@ -145,7 +145,7 @@ export async function POST(
       `,
       [
         submissionId,
-        nextStatus === "dean_approved" ? "under_ireb_review" : "dean_rejected",
+        nextStatus === "supervisor_approved" ? "under_ireb_review" : "supervisor_rejected",
         decidedBySapId,
       ],
     );
@@ -163,7 +163,7 @@ export async function POST(
     applicationId: submission.application_id,
     applicantFaculty: submission.faculty,
     decision: body.decision,
-    stage: "dean",
+    stage: "supervisor",
   });
 
   return NextResponse.json({ ok: true });

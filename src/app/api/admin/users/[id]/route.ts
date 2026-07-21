@@ -3,8 +3,9 @@ import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { isAdminRole } from "@/lib/admin-rbac";
 import {
   applyIrebScope,
-  assignDeanFaculty,
+  assignSupervisorFaculty,
   clearAdminScopeAssignments,
+  deleteAdminUser,
   getAdminUserByEmailExcludingId,
   getAdminUserById,
   updateAdminUser,
@@ -56,10 +57,10 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
   }
 
-  if (body.role === "dean") {
+  if (body.role === "supervisor") {
     if (typeof body.facultyId !== "number" || typeof body.departmentId !== "number") {
       return NextResponse.json(
-        { ok: false, error: "Dean requires faculty and department selection." },
+        { ok: false, error: "Supervisor requires faculty and department selection." },
         { status: 400 },
       );
     }
@@ -100,8 +101,8 @@ export async function PATCH(
     await clearAdminScopeAssignments(id);
   }
 
-  if (updated.role === "dean") {
-    await assignDeanFaculty({
+  if (updated.role === "supervisor") {
+    await assignSupervisorFaculty({
       adminUserId: id,
       facultyId: body.facultyId!,
       departmentId: body.departmentId!,
@@ -117,8 +118,8 @@ export async function PATCH(
   }
 
   const targetType =
-    updated.role === "dean"
-      ? "dean"
+    updated.role === "supervisor"
+      ? "supervisor"
       : updated.role === "ireb"
         ? "ireb_member"
         : "administrator";
@@ -146,4 +147,54 @@ export async function PATCH(
       sapId: updated.sapId,
     },
   });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const actor = await assertActiveAdmin(request);
+  if (!actor || !isAdministrator(actor)) {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+
+  if (id === actor.adminId) {
+    return NextResponse.json(
+      { ok: false, error: "You cannot delete your own account." },
+      { status: 400 },
+    );
+  }
+
+  const existing = await getAdminUserById(id);
+  if (!existing) {
+    return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
+  }
+
+  const deleted = await deleteAdminUser(id);
+  if (!deleted) {
+    return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
+  }
+
+  const targetType =
+    existing.role === "supervisor"
+      ? "supervisor"
+      : existing.role === "ireb"
+        ? "ireb_member"
+        : "administrator";
+
+  void logActivityFromRequest(request, {
+    actionCode: "admin.user.delete",
+    targetType,
+    targetId: existing.id,
+    targetLabel: existing.name,
+    effective: {
+      adminId: existing.id,
+      name: existing.name,
+      role: existing.role,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
 }

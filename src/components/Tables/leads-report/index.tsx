@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   inferFormIdFromLegacyRequiredForm,
@@ -65,9 +65,9 @@ export type { Lead, LeadStatus } from "./types";
 
 const STATUS_ORDER: LeadStatus[] = [
   "Submitted",
-  "Under Review by Dean",
-  "Approved by Dean",
-  "Rejected by Dean",
+  "Under Review by Supervisor",
+  "Approved by Supervisor",
+  "Rejected by Supervisor",
   "Under Review by IREB",
   "Approved by IREB",
   "Rejected by IREB",
@@ -104,10 +104,10 @@ const LEADS: Lead[] = [
     department: "Computer Science",
     project: "12 Jan 2026 - 18 Jan 2026",
     duration: "6 days",
-    currentStatus: "Rejected by Dean",
+    currentStatus: "Rejected by Supervisor",
     stage: "completed",
     submittedAt: mockDaysAgoIso(6),
-    deanDecisionAt: mockDaysAgoIso(4),
+    supervisorDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-17.png",
   },
   {
@@ -124,7 +124,7 @@ const LEADS: Lead[] = [
     currentStatus: "Under Review by IREB",
     stage: "ireb",
     submittedAt: mockDaysAgoIso(10),
-    deanDecisionAt: mockDaysAgoIso(4),
+    supervisorDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-15.png",
   },
   {
@@ -141,7 +141,7 @@ const LEADS: Lead[] = [
     currentStatus: "Approved by IREB",
     stage: "completed",
     submittedAt: mockDaysAgoIso(14),
-    deanDecisionAt: mockDaysAgoIso(10),
+    supervisorDecisionAt: mockDaysAgoIso(10),
     avatar: "/images/user/user-19.png",
   },
   {
@@ -155,10 +155,10 @@ const LEADS: Lead[] = [
     department: "Pharmacy",
     project: "01 Apr 2026 - 04 Apr 2026",
     duration: "4 days",
-    currentStatus: "Under Review by Dean",
-    stage: "dean",
+    currentStatus: "Under Review by Supervisor",
+    stage: "supervisor",
     submittedAt: mockDaysAgoIso(4),
-    deanDecisionAt: null,
+    supervisorDecisionAt: null,
     avatar: "/images/user/user-14.png",
   },
   {
@@ -175,18 +175,18 @@ const LEADS: Lead[] = [
     currentStatus: "Rejected by IREB",
     stage: "completed",
     submittedAt: mockDaysAgoIso(12),
-    deanDecisionAt: mockDaysAgoIso(8),
+    supervisorDecisionAt: mockDaysAgoIso(8),
     avatar: "/images/user/user-21.png",
   },
 ];
 
 type PropsType = {
   className?: string;
-  deanOnly?: boolean;
+  supervisorOnly?: boolean;
   ethicalOnly?: boolean;
   title?: string;
   leads?: Lead[];
-  currentRole?: "administrator" | "dean" | "ireb" | null;
+  currentRole?: "administrator" | "supervisor" | "ireb" | null;
 };
 
 function parseAttachmentSlotMap(raw: unknown): Record<string, SlotFileInfo | null> {
@@ -269,7 +269,7 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
 
 export function LeadsReport({
   className,
-  deanOnly = false,
+  supervisorOnly = false,
   ethicalOnly = false,
   title = "Leads Report",
   leads: providedLeads,
@@ -285,9 +285,9 @@ export function LeadsReport({
   const [decisionComment, setDecisionComment] = useState("");
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [adminOptions, setAdminOptions] = useState<{
-    deanOption: AdminOption | null;
+    supervisorOption: AdminOption | null;
     irebOptions: AdminOption[];
-  }>({ deanOption: null, irebOptions: [] });
+  }>({ supervisorOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [facultyFilter, setFacultyFilter] = useState<string[]>([]);
@@ -325,10 +325,10 @@ export function LeadsReport({
   const sourceLeads = providedLeads ?? LEADS;
   const scopeFilteredLeads = useMemo(() => {
     if (providedLeads) return sourceLeads;
-    if (deanOnly) return sourceLeads.filter(({ stage }) => stage === "dean");
+    if (supervisorOnly) return sourceLeads.filter(({ stage }) => stage === "supervisor");
     if (ethicalOnly) return sourceLeads.filter(({ stage }) => stage === "ireb");
     return sourceLeads;
-  }, [providedLeads, deanOnly, ethicalOnly, sourceLeads]);
+  }, [providedLeads, supervisorOnly, ethicalOnly, sourceLeads]);
 
   const leads = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -365,7 +365,7 @@ export function LeadsReport({
     currentStatusFilter,
   ]);
 
-  // Live counts (entity + count) â€” derived from the scope (e.g. dean-only,
+  // Live counts (entity + count) â€” derived from the scope (e.g. supervisor-only,
   // ireb-only, or all). Always shows the maximum possible count regardless of
   // which other filter chips are active.
   const facultyCounts = useMemo(
@@ -416,14 +416,14 @@ export function LeadsReport({
   // Reset filters when the source data scope changes.
   useEffect(() => {
     clearAllFilters();
-  }, [deanOnly, ethicalOnly, providedLeads, clearAllFilters]);
+  }, [supervisorOnly, ethicalOnly, providedLeads, clearAllFilters]);
 
   const overdueLeads = useMemo(
     () =>
       leads.filter((lead) =>
-        isLeadOverdueForRole(lead, currentRole, { deanOnly, ethicalOnly }),
+        isLeadOverdueForRole(lead, currentRole, { supervisorOnly, ethicalOnly }),
       ),
-    [leads, currentRole, deanOnly, ethicalOnly],
+    [leads, currentRole, supervisorOnly, ethicalOnly],
   );
 
   useEffect(() => {
@@ -461,7 +461,7 @@ export function LeadsReport({
         facultyFilter,
         departmentFilter,
         currentStatusFilter,
-        deanOnly,
+        supervisorOnly,
         ethicalOnly,
         scopeDatasetSize: scopeFilteredLeads.length,
       });
@@ -474,7 +474,7 @@ export function LeadsReport({
   }, [
     activeTab,
     currentStatusFilter,
-    deanOnly,
+    supervisorOnly,
     departmentFilter,
     ethicalOnly,
     exportColState,
@@ -490,7 +490,7 @@ export function LeadsReport({
   }, [
     activeTab,
     searchQuery,
-    deanOnly,
+    supervisorOnly,
     ethicalOnly,
     providedLeads,
     facultyFilter,
@@ -519,16 +519,16 @@ export function LeadsReport({
         });
         const payload = (await response.json()) as {
           ok: boolean;
-          deanOption?: AdminOption | null;
+          supervisorOption?: AdminOption | null;
           irebOptions?: AdminOption[];
         };
         if (!response.ok || !payload.ok || cancelled) return;
         setAdminOptions({
-          deanOption: payload.deanOption ?? null,
+          supervisorOption: payload.supervisorOption ?? null,
           irebOptions: payload.irebOptions ?? [],
         });
-        if (decisionLead.stage === "dean" && payload.deanOption?.id) {
-          setSelectedOnBehalfOf(payload.deanOption.id);
+        if (decisionLead.stage === "supervisor" && payload.supervisorOption?.id) {
+          setSelectedOnBehalfOf(payload.supervisorOption.id);
         }
         if (decisionLead.stage === "ireb" && payload.irebOptions?.[0]?.id) {
           setSelectedOnBehalfOf(payload.irebOptions[0].id);
@@ -548,7 +548,7 @@ export function LeadsReport({
     setDecisionComment("");
     setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
-    setAdminOptions({ deanOption: null, irebOptions: [] });
+    setAdminOptions({ supervisorOption: null, irebOptions: [] });
   };
 
   const openDecisionModal = (lead: Lead, action: DecisionAction) => {
@@ -557,7 +557,7 @@ export function LeadsReport({
     setDecisionComment("");
     setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
-    setAdminOptions({ deanOption: null, irebOptions: [] });
+    setAdminOptions({ supervisorOption: null, irebOptions: [] });
     setDecisionLead(lead);
   };
 

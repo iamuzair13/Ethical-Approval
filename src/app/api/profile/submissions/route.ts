@@ -5,6 +5,7 @@ import { allocateUniqueApplicationId } from "@/lib/application-id";
 import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
 import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
+import { isStudentApplicantEmail } from "@/lib/applicant-email";
 import { db } from "@/lib/db";
 
 type ProfileSubmissionRow = {
@@ -14,9 +15,9 @@ type ProfileSubmissionRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -117,14 +118,24 @@ function parseDraftSubmissionIdFromEthics(ethics: Record<string, unknown> | unde
 
 function resolveResubmissionStatus(
   previousStatus: ProfileSubmissionRow["current_status"],
+  applicantEmail: string,
 ): ProfileSubmissionRow["current_status"] {
-  // If IREB asked for revisions, dean approval remains valid.
-  if (previousStatus === "rejected") {
+  const isStudent = isStudentApplicantEmail(applicantEmail);
+
+  // If IREB rejected a student submission, supervisor approval remains valid.
+  if (previousStatus === "rejected" && isStudent) {
     return "under_ireb_review";
   }
 
-  // If dean rejected (or anything else), restart from dean review.
-  return "submitted";
+  // If IREB rejected a non-student submission, return to applicant for resubmission.
+  // The applicant edits and resubmits; on resubmission it goes directly to IREB again.
+  if (previousStatus === "rejected" && !isStudent) {
+    return "under_ireb_review";
+  }
+
+  // If supervisor rejected (or anything else), restart from the beginning.
+  // For non-students there is no supervisor stage, so go directly to IREB.
+  return isStudent ? "submitted" : "under_ireb_review";
 }
 
 export async function POST(request: NextRequest) {
@@ -231,7 +242,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const nextStatus = resolveResubmissionStatus(existing.current_status);
+      const nextStatus = resolveResubmissionStatus(existing.current_status, applicantEmail);
 
       await client.query(
         `
@@ -360,17 +371,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const draftInitialStatus = isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review';
       await client.query(
         `
           UPDATE submissions
           SET
             type = $1::submission_type,
             domain = $2::submission_domain,
-            current_status = 'submitted',
+            current_status = $4,
             updated_at = NOW()
           WHERE id = $3
         `,
-        [type, domain, draftSubmissionId],
+        [type, domain, draftSubmissionId, draftInitialStatus],
       );
 
       await client.query(
@@ -434,7 +446,7 @@ export async function POST(request: NextRequest) {
         submission: {
           id: existingDraft.id,
           application_id: existingDraft.application_id,
-          current_status: "submitted" as const,
+          current_status: draftInitialStatus,
           submitted_at: existingDraft.submitted_at,
           title,
           objectives,
@@ -464,17 +476,18 @@ export async function POST(request: NextRequest) {
 
     const latestDraft = latestDraftResult.rows[0];
     if (latestDraft) {
+      const latestDraftInitialStatus = isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review';
       await client.query(
         `
           UPDATE submissions
           SET
             type = $1::submission_type,
             domain = $2::submission_domain,
-            current_status = 'submitted',
+            current_status = $4,
             updated_at = NOW()
           WHERE id = $3
         `,
-        [type, domain, latestDraft.id],
+        [type, domain, latestDraft.id, latestDraftInitialStatus],
       );
 
       await client.query(
@@ -538,7 +551,7 @@ export async function POST(request: NextRequest) {
         submission: {
           id: latestDraft.id,
           application_id: latestDraft.application_id,
-          current_status: "submitted" as const,
+          current_status: latestDraftInitialStatus,
           submitted_at: latestDraft.submitted_at,
           title,
           objectives,
@@ -556,10 +569,10 @@ export async function POST(request: NextRequest) {
     }>(
       `
         INSERT INTO submissions (type, domain, applicant_role, current_status, application_id)
-        VALUES ($1, $2, 'student', 'submitted', $3)
+        VALUES ($1, $2, 'student', $4, $3)
         RETURNING id, application_id, current_status, submitted_at
       `,
-      [type, domain, applicationId],
+      [type, domain, applicationId, isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review'],
     );
 
     const submission = submissionResult.rows[0];

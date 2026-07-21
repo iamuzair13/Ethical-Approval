@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
-import { listActiveDeansForReportPicker } from "@/lib/admin-repository";
+import { listActiveSupervisorsForReportPicker } from "@/lib/admin-repository";
 
 export async function GET(request: NextRequest) {
   const actor = await assertActiveAdmin(request);
@@ -8,6 +8,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  const deans = await listActiveDeansForReportPicker();
-  return NextResponse.json({ ok: true, deans });
+  const supervisors = await listActiveSupervisorsForReportPicker();
+  return NextResponse.json({ ok: true, supervisors });
 }

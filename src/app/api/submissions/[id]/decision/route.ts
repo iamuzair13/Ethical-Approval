@@ -3,7 +3,7 @@ import { assertActiveAdmin } from "@/lib/admin-auth";
 import { getAdminUserById, resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import {
-  scheduleDeanRejectionEmail,
+  scheduleSupervisorRejectionEmail,
   scheduleIrebApprovalEmail,
   scheduleIrebRejectionEmail,
 } from "@/lib/email";
@@ -24,9 +24,9 @@ type DecisionBody = {
   onBehalfOfAdminId?: string;
 };
 
-function getStageFromStatus(status: string): "dean" | "ireb" | "completed" {
-  if (status === "submitted" || status === "under_dean_review") return "dean";
-  if (status === "dean_approved" || status === "under_ireb_review") return "ireb";
+function getStageFromStatus(status: string): "supervisor" | "ireb" | "completed" {
+  if (status === "submitted" || status === "under_supervisor_review") return "supervisor";
+  if (status === "supervisor_approved" || status === "under_ireb_review") return "ireb";
   return "completed";
 }
 
@@ -131,7 +131,7 @@ export async function POST(
         { status: 404 },
       );
     }
-    if ((stage === "dean" && selectedAdmin.role !== "dean") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
+    if ((stage === "supervisor" && selectedAdmin.role !== "supervisor") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
       return NextResponse.json(
         { ok: false, error: "Selected admin cannot act for this stage." },
         { status: 400 },
@@ -151,10 +151,10 @@ export async function POST(
     : effectiveAdmin.name;
 
   const nextStatus =
-    stage === "dean"
+    stage === "supervisor"
       ? body.decision === "approved"
         ? "under_ireb_review"
-        : "dean_rejected"
+        : "supervisor_rejected"
       : body.decision === "approved"
         ? "approved"
         : "rejected";
@@ -209,12 +209,12 @@ export async function POST(
 
     await client.query("COMMIT");
 
-    if (body.decision === "rejected" && stage === "dean") {
-      scheduleDeanRejectionEmail({
+    if (body.decision === "rejected" && stage === "supervisor") {
+      scheduleSupervisorRejectionEmail({
         to: submission.applicant_email,
         applicantName: submission.applicant_name,
         facultyName: submission.applicant_faculty,
-        deanName: effectiveAdmin.name,
+        supervisorName: effectiveAdmin.name,
         comment: finalComment,
       });
     } else if (body.decision === "rejected" && stage === "ireb") {

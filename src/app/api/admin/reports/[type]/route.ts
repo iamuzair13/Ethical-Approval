@@ -6,7 +6,7 @@ import {
   buildTotalEfficiencyReportHtml,
   type AggregateReportContext,
 } from "@/lib/admin-aggregate-reports-html";
-import { buildDeanReportHtml } from "@/lib/admin-dean-report-html";
+import { buildSupervisorReportHtml } from "@/lib/admin-supervisor-report-html";
 import {
   buildDepartmentWiseResearchReportHtml,
   buildFacultyWiseResearchReportHtml,
@@ -20,16 +20,16 @@ import {
 } from "@/lib/admin-report-faculty-dept-filters";
 import { buildOverallStudentReportHtml, isStudentCohortRow } from "@/lib/admin-student-overall-report-html";
 import {
-  classifyDeanRejectionReasonStated,
+  classifySupervisorRejectionReasonStated,
   fetchFacultyNamesForIds,
   fetchInstitutionNonDraftSubmissionCount,
-} from "@/lib/admin-dean-report-queries";
+} from "@/lib/admin-supervisor-report-queries";
 import { getAdminUserById, getAdminScope, listFaculties } from "@/lib/admin-repository";
 import { fetchReportSubmissionRows, filterReportRowsByScope } from "@/lib/admin-report-queries";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
 const REPORT_TYPES = new Set([
-  "deans-report",
+  "supervisors-report",
   "total-efficiency",
   "overall-research-specific",
   "overall-student",
@@ -39,11 +39,11 @@ const REPORT_TYPES = new Set([
 ]);
 
 type Body = {
-  deanId?: string | null;
+  supervisorId?: string | null;
   /** ISO calendar date `YYYY-MM-DD` (local interpretation on server). */
-  deanReportDateFrom?: string | null;
-  deanReportDateTo?: string | null;
-  /** Date window for non-dean reports. */
+  supervisorReportDateFrom?: string | null;
+  supervisorReportDateTo?: string | null;
+  /** Date window for non-supervisor reports. */
   reportDateFrom?: string | null;
   reportDateTo?: string | null;
   facultyId?: number | null;
@@ -98,7 +98,7 @@ function ymdToLocalEndOfDay(ymd: string): Date {
 function scopeCheckAdmin(scope: { scopeMode: "all" | "restricted"; facultyIds: number[] }): AuthenticatedAdmin {
   return {
     adminId: "00000000-0000-0000-0000-000000000001",
-    role: "dean",
+    role: "supervisor",
     status: "active",
     scopeMode: scope.scopeMode,
     facultyIds: scope.facultyIds,
@@ -109,16 +109,16 @@ function scopeCheckAdmin(scope: { scopeMode: "all" | "restricted"; facultyIds: n
 function scopeDescriptionForCatalog(
   actor: AuthenticatedAdmin,
   institutionWide: boolean,
-  deanReport: boolean,
+  supervisorReport: boolean,
 ): string {
   if (institutionWide) {
     return "All faculties — institution-wide";
   }
-  if (deanReport) {
+  if (supervisorReport) {
     if (actor.scopeMode === "all" || actor.facultyIds.length === 0) {
-      return "Dean primary assignment (no faculty id resolved — verify assignments)";
+      return "Supervisor primary assignment (no faculty id resolved — verify assignments)";
     }
-    return `Dean primary faculty scope (${actor.facultyIds.length} id(s))`;
+    return `Supervisor primary faculty scope (${actor.facultyIds.length} id(s))`;
   }
   if (actor.scopeMode === "all") {
     return "All assigned faculties (broad scope)";
@@ -151,42 +151,42 @@ export async function POST(
     body = {};
   }
 
-  if (reportType === "deans-report" && actor.role === "ireb") {
+  if (reportType === "supervisors-report" && actor.role === "ireb") {
     return NextResponse.json(
       { ok: false, error: "This report is not available for IREB accounts." },
       { status: 403 },
     );
   }
 
-  const deanIdRaw = typeof body.deanId === "string" ? body.deanId.trim() : "";
-  if (deanIdRaw && reportType !== "deans-report") {
+  const supervisorIdRaw = typeof body.supervisorId === "string" ? body.supervisorId.trim() : "";
+  if (supervisorIdRaw && reportType !== "supervisors-report") {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
-  if (reportType === "deans-report" && isAdministrator(actor) && !deanIdRaw) {
+  if (reportType === "supervisors-report" && isAdministrator(actor) && !supervisorIdRaw) {
     return NextResponse.json(
-      { ok: false, error: "Select a dean to generate this report." },
+      { ok: false, error: "Select a supervisor to generate this report." },
       { status: 400 },
     );
   }
 
-  if (!isAdministrator(actor) && deanIdRaw && deanIdRaw !== actor.adminId) {
+  if (!isAdministrator(actor) && supervisorIdRaw && supervisorIdRaw !== actor.adminId) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  if (reportType !== "deans-report") {
-    const hasDeanFrom =
-      body.deanReportDateFrom != null && String(body.deanReportDateFrom).trim() !== "";
-    const hasDeanTo =
-      body.deanReportDateTo != null && String(body.deanReportDateTo).trim() !== "";
-    if (hasDeanFrom || hasDeanTo) {
+  if (reportType !== "supervisors-report") {
+    const hasSupervisorFrom =
+      body.supervisorReportDateFrom != null && String(body.supervisorReportDateFrom).trim() !== "";
+    const hasSupervisorTo =
+      body.supervisorReportDateTo != null && String(body.supervisorReportDateTo).trim() !== "";
+    if (hasSupervisorFrom || hasSupervisorTo) {
       return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
     }
   }
 
   let reportDateFromParsed: Date | null = null;
   let reportDateToParsed: Date | null = null;
-  if (reportType !== "deans-report") {
+  if (reportType !== "supervisors-report") {
     const hasReportFrom = body.reportDateFrom != null && String(body.reportDateFrom).trim() !== "";
     const hasReportTo = body.reportDateTo != null && String(body.reportDateTo).trim() !== "";
     if (!hasReportFrom || !hasReportTo) {
@@ -286,7 +286,7 @@ export async function POST(
   }
 
   const institutionWide =
-    !isAdministrator(actor) ? false : reportType !== "deans-report";
+    !isAdministrator(actor) ? false : reportType !== "supervisors-report";
 
   let scopeForFilter: AuthenticatedAdmin = actor;
   let skipFacultyFilter = institutionWide;
@@ -294,14 +294,14 @@ export async function POST(
   let periodLabelStr: string;
   let dateStart: Date | null;
   let dateEnd: Date | null;
-  let deanReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
+  let supervisorReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
 
-  if (reportType === "deans-report") {
-    const fromStr = parseYmdString(body.deanReportDateFrom);
-    const toStr = parseYmdString(body.deanReportDateTo);
+  if (reportType === "supervisors-report") {
+    const fromStr = parseYmdString(body.supervisorReportDateFrom);
+    const toStr = parseYmdString(body.supervisorReportDateTo);
     if (!fromStr || !toStr) {
       return NextResponse.json(
-        { ok: false, error: "Select a start and end date for the Dean's Report." },
+        { ok: false, error: "Select a start and end date for the Supervisor's Report." },
         { status: 400 },
       );
     }
@@ -324,16 +324,16 @@ export async function POST(
       dateStyle: "medium",
     })} – ${dateEnd.toLocaleDateString(undefined, { dateStyle: "medium" })}`;
 
-    const targetDeanId = isAdministrator(actor) ? deanIdRaw : actor.adminId;
-    const deanUser = await getAdminUserById(targetDeanId);
-    if (!deanUser || deanUser.role !== "dean" || deanUser.status !== "active") {
-      return NextResponse.json({ ok: false, error: "Dean not found." }, { status: 404 });
+    const targetSupervisorId = isAdministrator(actor) ? supervisorIdRaw : actor.adminId;
+    const supervisorUser = await getAdminUserById(targetSupervisorId);
+    if (!supervisorUser || supervisorUser.role !== "supervisor" || supervisorUser.status !== "active") {
+      return NextResponse.json({ ok: false, error: "Supervisor not found." }, { status: 404 });
     }
-    const deanScope = await getAdminScope(deanUser);
-    scopeForFilter = scopeCheckAdmin(deanScope);
+    const supervisorScope = await getAdminScope(supervisorUser);
+    scopeForFilter = scopeCheckAdmin(supervisorScope);
     skipFacultyFilter = false;
-    subjectLine = `${deanUser.name} (${deanUser.email})`;
-    deanReportPack = { user: deanUser, scope: deanScope };
+    subjectLine = `${supervisorUser.name} (${supervisorUser.email})`;
+    supervisorReportPack = { user: supervisorUser, scope: supervisorScope };
   } else {
     dateStart = reportDateFromParsed!;
     dateEnd = reportDateToParsed!;
@@ -357,7 +357,7 @@ export async function POST(
     scopeDescription: scopeDescriptionForCatalog(
       institutionWide ? actor : scopeForFilter,
       institutionWide,
-      reportType === "deans-report",
+      reportType === "supervisors-report",
     ),
     subjectLine,
   };
@@ -366,20 +366,20 @@ export async function POST(
   let title: string;
 
   switch (reportType) {
-    case "deans-report": {
-      if (!deanReportPack) {
-        return NextResponse.json({ ok: false, error: "Dean not found." }, { status: 404 });
+    case "supervisors-report": {
+      if (!supervisorReportPack) {
+        return NextResponse.json({ ok: false, error: "Supervisor not found." }, { status: 404 });
       }
-      const { user: deanUser, scope: deanScope } = deanReportPack;
+      const { user: supervisorUser, scope: supervisorScope } = supervisorReportPack;
       const institutionTotal = await fetchInstitutionNonDraftSubmissionCount(dateStart, dateEnd);
-      const facultyLabel = await fetchFacultyNamesForIds(deanScope.facultyIds);
+      const facultyLabel = await fetchFacultyNamesForIds(supervisorScope.facultyIds);
       const rejectedIds = [
-        ...new Set(rows.filter((r) => r.current_status === "dean_rejected").map((r) => r.application_id)),
+        ...new Set(rows.filter((r) => r.current_status === "supervisor_rejected").map((r) => r.application_id)),
       ];
-      const rejectionReasonStated = await classifyDeanRejectionReasonStated(rejectedIds);
-      html = buildDeanReportHtml(
+      const rejectionReasonStated = await classifySupervisorRejectionReasonStated(rejectedIds);
+      html = buildSupervisorReportHtml(
         {
-          dean: { name: deanUser.name, email: deanUser.email, sapId: deanUser.sapId },
+          supervisor: { name: supervisorUser.name, email: supervisorUser.email, sapId: supervisorUser.sapId },
           facultyLabel,
           rows,
           institutionTotalSubmissions: institutionTotal,
@@ -387,10 +387,10 @@ export async function POST(
         },
         {
           ...baseCtx,
-          reportTitle: "Dean's Report",
+          reportTitle: "Supervisor's Report",
         },
       );
-      title = `Dean's Report — ${subjectLine ?? "Dean"} — ${periodLabelStr}`;
+      title = `Supervisor's Report — ${subjectLine ?? "Supervisor"} — ${periodLabelStr}`;
       break;
     }
     case "total-efficiency":

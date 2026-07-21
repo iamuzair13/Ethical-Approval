@@ -8,7 +8,7 @@ import { getSubmissionDetailById } from "@/lib/submission-details";
 type AdminOption = {
   id: string;
   name: string;
-  role: "dean" | "ireb";
+  role: "supervisor" | "ireb";
 };
 
 export async function GET(
@@ -39,17 +39,17 @@ export async function GET(
 
   const facultyIds = await resolveFacultyIdsFromSnapshotValue(submission.applicant_faculty);
 
-  let deanOption: AdminOption | null = null;
+  let supervisorOption: AdminOption | null = null;
   if (facultyIds.length > 0) {
-    const deanResult = await db.query<AdminOption>(
+    const supervisorResult = await db.query<AdminOption>(
       `
         SELECT au.id, au.name, au.role
         FROM admin_users au
         INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
-        WHERE au.role = 'dean'
+        WHERE au.role = 'supervisor'
           AND au.status = 'active'
           AND au.deleted_at IS NULL
-          AND afa.assignment_type = 'dean_primary'
+          AND afa.assignment_type = 'supervisor_primary'
           AND afa.deleted_at IS NULL
           AND afa.faculty_id = ANY($1::bigint[])
         ORDER BY au.updated_at DESC
@@ -57,15 +57,15 @@ export async function GET(
       `,
       [facultyIds],
     );
-    deanOption = deanResult.rows[0] ?? null;
+    supervisorOption = supervisorResult.rows[0] ?? null;
   }
 
-  if (!deanOption) {
-    const fallbackDeanResult = await db.query<AdminOption>(
+  if (!supervisorOption) {
+    const fallbackSupervisorResult = await db.query<AdminOption>(
       `
         SELECT au.id, au.name, au.role
         FROM admin_users au
-        WHERE au.role = 'dean'
+        WHERE au.role = 'supervisor'
           AND au.status = 'active'
           AND au.deleted_at IS NULL
           AND au.faculty_id IS NOT NULL
@@ -73,14 +73,14 @@ export async function GET(
             SELECT 1
             FROM admin_faculty_assignments afa
             WHERE afa.admin_user_id = au.id
-              AND afa.assignment_type = 'dean_primary'
+              AND afa.assignment_type = 'supervisor_primary'
               AND afa.deleted_at IS NULL
           )
         ORDER BY au.updated_at DESC
         LIMIT 1
       `,
     );
-    deanOption = fallbackDeanResult.rows[0] ?? null;
+    supervisorOption = fallbackSupervisorResult.rows[0] ?? null;
   }
 
   const irebResult = await db.query<AdminOption>(
@@ -97,7 +97,7 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     currentStatus: submission.current_status,
-    deanOption,
+    supervisorOption,
     irebOptions: irebResult.rows,
   });
 }

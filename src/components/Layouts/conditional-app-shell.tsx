@@ -88,7 +88,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
         <Header />
         <ViewAsBanner />
 
-        <main className="mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
+        <main className="animate-page-load mx-auto w-full max-w-screen-2xl overflow-x-hidden p-4 md:p-6 2xl:p-10">
           {children}
         </main>
       </div>

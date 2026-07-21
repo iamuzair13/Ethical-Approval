@@ -19,8 +19,8 @@ export function Header() {
   const showAdminNotifications = Boolean(session?.user?.adminId);
 
   const dashboardLabel = (() => {
-    if (pathname.toLowerCase().includes("deanpanel")) {
-      return "Dean IREB Approvals";
+    if (pathname.toLowerCase().includes("supervisorpanel")) {
+      return "Supervisor IREB Approvals";
     }
 
     if (pathname.toLowerCase().includes("ethical")) {

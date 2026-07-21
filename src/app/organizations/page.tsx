@@ -300,7 +300,7 @@ export default function OrganizationsPage() {
         <StatCard
           label="Active Faculties"
           value={String(activeCount)}
-          helper="Available for dean and IREB assignment"
+          helper="Available for supervisor and IREB assignment"
         />
         <StatCard
           label="Inactive Faculties"

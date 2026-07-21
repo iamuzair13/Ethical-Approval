@@ -6,14 +6,14 @@ export type OverviewCardConfig = {
 
 export const OVERVIEW_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "views", label: "Total Requests" },
-  { key: "profit", label: "Pending Approvals(Dean)",  },
+  { key: "profit", label: "Pending Approvals(Supervisor)",  },
   {
     key: "products",
     label: "Pending Approvals(IREB)",
   },
-  { key: "users", label: "Approved (Dean)" },
+  { key: "users", label: "Approved (Supervisor)" },
   { key: "customers", label: "Approved (IREB)" },
-  { key: "deanRejected", label: "Rejected (Dean)" },
+  { key: "supervisorRejected", label: "Rejected (Supervisor)" },
   { key: "irebRejected", label: "Rejected (IREB)" },
 ] ;
 
@@ -23,7 +23,7 @@ export type OverviewMetricKey =
   | "products"
   | "users"
   | "customers"
-  | "deanPending"
-  | "deanApproved"
-  | "deanRejected"
+  | "supervisorPending"
+  | "supervisorApproved"
+  | "supervisorRejected"
   | "irebRejected";

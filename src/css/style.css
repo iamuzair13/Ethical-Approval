@@ -554,3 +554,77 @@ input[type="search"]::-webkit-search-cancel-button {
 .custom-gradient-1 {
   background-image: linear-gradient(145deg, #eef 0%, #fff8fc 100%);
 }
+
+/* ── Animation Utilities ── */
+
+.animate-page-load {
+  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-stagger-1 { animation-delay: 0.05s; }
+.animate-stagger-2 { animation-delay: 0.1s; }
+.animate-stagger-3 { animation-delay: 0.15s; }
+.animate-stagger-4 { animation-delay: 0.2s; }
+.animate-stagger-5 { animation-delay: 0.25s; }
+.animate-stagger-6 { animation-delay: 0.3s; }
+.animate-stagger-7 { animation-delay: 0.35s; }
+.animate-stagger-8 { animation-delay: 0.4s; }
+
+/* Button press micro-interaction */
+.btn-press {
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.2s ease,
+              background-color 0.2s ease,
+              opacity 0.2s ease;
+}
+.btn-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Tab content transition */
+.tab-content-enter {
+  animation: fade-in-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Smooth row hover */
+.row-hover {
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.row-hover:hover {
+  transform: translateX(2px);
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Modal backdrop + dialog */
+.modal-backdrop {
+  animation: backdrop-in 0.2s ease-out both;
+}
+.modal-dialog {
+  animation: scale-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dropdown menu entrance */
+.menu-enter {
+  animation: dropdown-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Input focus glow */
+.input-glow {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-glow:focus {
+  box-shadow: 0 0 0 3px rgba(87, 80, 241, 0.12);
+}
+
+/* Sidebar menu item slide-in */
+.nav-item-enter {
+  animation: slide-in-left 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

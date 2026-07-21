@@ -24,9 +24,9 @@ export type AggregateSubmissionInput = {
   applicant_role: "student" | "faculty";
   current_status:
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -35,7 +35,7 @@ export type AggregateSubmissionInput = {
   applicant_email: string;
   applicant_department: string;
   applicant_program: string | null;
-  dean_decision_at: Date | null;
+  supervisor_decision_at: Date | null;
   ireb_decision_at: Date | null;
   /** 1-based applicant submission sequence among non-draft rows (same logic as submission detail). */
   applicant_attempt_number: number;
@@ -326,25 +326,25 @@ export function coverBlock(ctx: AggregateReportContext): string {
   </div>`;
 }
 
-function collectDeanDecisionDays(rows: AggregateSubmissionInput[]): number[] {
+function collectSupervisorDecisionDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.dean_decision_at) continue;
-    out.push(daysBetween(r.submitted_at, r.dean_decision_at));
+    if (!r.supervisor_decision_at) continue;
+    out.push(daysBetween(r.submitted_at, r.supervisor_decision_at));
   }
   return out;
 }
 
-/** Submission → final recorded decision (IREB preferred; else dean), including dean-only rejections. */
+/** Submission → final recorded decision (IREB preferred; else supervisor), including supervisor-only rejections. */
 function collectTerminalCycleDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
     const terminal =
       r.current_status === "approved" ||
       r.current_status === "rejected" ||
-      r.current_status === "dean_rejected";
+      r.current_status === "supervisor_rejected";
     if (!terminal) continue;
-    const end = r.ireb_decision_at ?? r.dean_decision_at;
+    const end = r.ireb_decision_at ?? r.supervisor_decision_at;
     if (!end) continue;
     out.push(daysBetween(r.submitted_at, end));
   }
@@ -354,37 +354,37 @@ function collectTerminalCycleDays(rows: AggregateSubmissionInput[]): number[] {
 function collectIrebPhaseDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.dean_decision_at || !r.ireb_decision_at) continue;
-    out.push(daysBetween(r.dean_decision_at, r.ireb_decision_at));
+    if (!r.supervisor_decision_at || !r.ireb_decision_at) continue;
+    out.push(daysBetween(r.supervisor_decision_at, r.ireb_decision_at));
   }
   return out;
 }
 
-function deanIrebDelaySharePct(rows: AggregateSubmissionInput[]): { dean: number; ireb: number } | null {
-  let sumDean = 0;
+function supervisorIrebDelaySharePct(rows: AggregateSubmissionInput[]): { supervisor: number; ireb: number } | null {
+  let sumSupervisor = 0;
   let sumIreb = 0;
   for (const r of rows) {
-    if (!r.dean_decision_at || !r.ireb_decision_at) continue;
-    sumDean += daysBetween(r.submitted_at, r.dean_decision_at);
-    sumIreb += daysBetween(r.dean_decision_at, r.ireb_decision_at);
+    if (!r.supervisor_decision_at || !r.ireb_decision_at) continue;
+    sumSupervisor += daysBetween(r.submitted_at, r.supervisor_decision_at);
+    sumIreb += daysBetween(r.supervisor_decision_at, r.ireb_decision_at);
   }
-  const total = sumDean + sumIreb;
+  const total = sumSupervisor + sumIreb;
   if (total <= 0) return null;
-  return { dean: (sumDean / total) * 100, ireb: (sumIreb / total) * 100 };
+  return { supervisor: (sumSupervisor / total) * 100, ireb: (sumIreb / total) * 100 };
 }
 
 function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
   const n = rows.length;
   const approved = rows.filter((r) => r.current_status === "approved").length;
   const rejected =
-    rows.filter((r) => r.current_status === "rejected" || r.current_status === "dean_rejected")
+    rows.filter((r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected")
       .length;
   const resubmittedApprovals = rows.filter(
     (r) => r.current_status === "approved" && r.applicant_attempt_number > 1,
   ).length;
   const attemptNums = rows.map((r) => r.applicant_attempt_number).filter((x) => typeof x === "number" && x > 0);
   const avgAttempts = mean(attemptNums);
-  const dd = collectDeanDecisionDays(rows);
+  const dd = collectSupervisorDecisionDays(rows);
   const irebPhase = collectIrebPhaseDays(rows);
   const terminalCycle = collectTerminalCycleDays(rows);
   const approvedWithIrebEnd = rows.filter((r) => r.current_status === "approved" && r.ireb_decision_at);
@@ -395,15 +395,15 @@ function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
     const terminal =
       r.current_status === "approved" ||
       r.current_status === "rejected" ||
-      r.current_status === "dean_rejected";
+      r.current_status === "supervisor_rejected";
     if (!terminal) return false;
-    const end = r.ireb_decision_at ?? r.dean_decision_at;
+    const end = r.ireb_decision_at ?? r.supervisor_decision_at;
     if (!end) return false;
     return daysBetween(r.submitted_at, end) > 3;
   }).length;
-  const share = deanIrebDelaySharePct(rows);
+  const share = supervisorIrebDelaySharePct(rows);
   const avgProcDays = mean(terminalCycle);
-  const avgDeanDays = mean(dd);
+  const avgSupervisorDays = mean(dd);
   const avgIrebPhaseDays = mean(irebPhase);
   const rowsHtml: [string, string][] = [
     ["Total submissions", String(n)],
@@ -414,9 +414,9 @@ function efficiencyMetricsTable(rows: AggregateSubmissionInput[]): string {
     ["Avg. processing time", avgProcDays != null ? `${fmtDays(avgProcDays)} days` : "—"],
     ["Cases approved within 3 days", String(approvedWithin3)],
     ["Number of delayed cases (more than 3 days)", String(delayedOver3)],
-    ["Avg. delay caused by Dean", avgDeanDays != null ? `${fmtDays(avgDeanDays)} days` : "—"],
+    ["Avg. delay caused by Supervisor", avgSupervisorDays != null ? `${fmtDays(avgSupervisorDays)} days` : "—"],
     ["Avg. delay caused by IREB", avgIrebPhaseDays != null ? `${fmtDays(avgIrebPhaseDays)} days` : "—"],
-    ["Delay by Faculty (Dean)", share ? fmtPct(share.dean) : "—"],
+    ["Delay by Faculty (Supervisor)", share ? fmtPct(share.supervisor) : "—"],
     ["Delay by IREB member", share ? fmtPct(share.ireb) : "—"],
   ];
   const body = rowsHtml
@@ -527,7 +527,7 @@ function facultyAggregates(rows: AggregateSubmissionInput[]): Map<string, Facult
     const cur = m.get(fac) ?? { total: 0, approved: 0, rejected: 0 };
     cur.total += 1;
     if (r.current_status === "approved") cur.approved += 1;
-    if (r.current_status === "rejected" || r.current_status === "dean_rejected") cur.rejected += 1;
+    if (r.current_status === "rejected" || r.current_status === "supervisor_rejected") cur.rejected += 1;
     m.set(fac, cur);
   }
   return m;

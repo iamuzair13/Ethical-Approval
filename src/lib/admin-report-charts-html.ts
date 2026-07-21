@@ -9,6 +9,7 @@ import type { AggregateSubmissionInput } from "@/lib/admin-aggregate-reports-htm
 import {
   submissionStatusCountsByLabel,
 } from "@/lib/admin-submission-status";
+import { isStudentApplicantEmail } from "@/lib/applicant-email";
 
 function esc(s: string): string {
   return s
@@ -180,25 +181,26 @@ function svgVerticalGroup(
   return figureWrap(`${figCaption(caption)}${svg}`);
 }
 
-export function buildDeanReportChartsHtml(metrics: {
+export function buildSupervisorReportChartsHtml(metrics: {
   rows: AggregateSubmissionInput[];
   institutionTotalSubmissions: number;
 }): string {
   const { rows, institutionTotalSubmissions } = metrics;
   if (rows.length === 0 && institutionTotalSubmissions === 0) {
-    return reportChartsShell(figureWrap(`${figCaption("Dean scope")}${emptyChartsMessage()}`), 0);
+    return reportChartsShell(figureWrap(`${figCaption("Supervisor scope")}${emptyChartsMessage()}`), 0);
   }
 
-  const passedDean = rows.filter((r) =>
-    ["dean_approved", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
+  const passedSupervisor = rows.filter((r) =>
+    isStudentApplicantEmail(r.applicant_email) &&
+    ["supervisor_approved", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
   ).length;
-  const deanRejected = rows.filter((r) => r.current_status === "dean_rejected").length;
+  const supervisorRejected = rows.filter((r) => r.current_status === "supervisor_rejected").length;
 
   const fig1 =
     rows.length > 0
       ? stackedShareBar("Approved vs Rejected (scoped submissions)", [
-          { label: "Approved", value: passedDean, color: CHART_COLORS[0]! },
-          { label: "Rejected", value: deanRejected, color: CHART_COLORS[4]! },
+          { label: "Approved", value: passedSupervisor, color: CHART_COLORS[0]! },
+          { label: "Rejected", value: supervisorRejected, color: CHART_COLORS[4]! },
         ])
       : figureWrap(`${figCaption("Approved vs Rejected")}${emptyChartsMessage()}`);
 
@@ -207,8 +209,8 @@ export function buildDeanReportChartsHtml(metrics: {
   const rest = Math.max(0, inst - scoped);
   const fig2 =
     inst > 0
-      ? stackedShareBar("Institution submissions: this dean’s scope vs other", [
-          { label: "This dean’s scope", value: scoped, color: CHART_COLORS[0]! },
+      ? stackedShareBar("Institution submissions: this supervisor’s scope vs other", [
+          { label: "This supervisor’s scope", value: scoped, color: CHART_COLORS[0]! },
           { label: "Rest of institution", value: rest, color: CHART_COLORS[6]! },
         ])
       : figureWrap(`${figCaption("Institution submissions in range")}<p class="chart-empty">Institution total not available for chart.</p>`);
@@ -227,13 +229,13 @@ export function buildTotalEfficiencyChartsHtml(rows: AggregateSubmissionInput[])
     .map(([label, value], i) => ({ label, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
 
   const approved = rows.filter((r) => r.current_status === "approved").length;
-  const rejected = rows.filter((r) => r.current_status === "rejected" || r.current_status === "dean_rejected").length;
+  const rejected = rows.filter((r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected").length;
   const pending = rows.length - approved - rejected;
 
   const fig1 = svgHorizontalBars("Submissions by status", statusEntries, rows.length);
   const fig2 = stackedShareBar("Outcome-style split (approved vs rejected vs still pending)", [
     { label: "Approved (IREB)", value: approved, color: CHART_COLORS[2]! },
-    { label: "Rejected (IREB or dean)", value: rejected, color: CHART_COLORS[4]! },
+    { label: "Rejected (IREB or supervisor)", value: rejected, color: CHART_COLORS[4]! },
     { label: "Pending / in progress", value: Math.max(0, pending), color: CHART_COLORS[6]! },
   ]);
 
@@ -329,7 +331,7 @@ export function buildOverallStudentChartsHtml(studentRows: AggregateSubmissionIn
 
   const approved = studentRows.filter((r) => r.current_status === "approved").length;
   const rejected = studentRows.filter(
-    (r) => r.current_status === "rejected" || r.current_status === "dean_rejected",
+    (r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected",
   ).length;
   const pend = studentRows.length - approved - rejected;
   const fig4 = stackedShareBar("Approved vs rejected vs pending", [
@@ -363,7 +365,7 @@ export function buildOverallFacultyChartsHtml(facultyRows: AggregateSubmissionIn
 
   const approved = facultyRows.filter((r) => r.current_status === "approved").length;
   const rejected = facultyRows.filter(
-    (r) => r.current_status === "rejected" || r.current_status === "dean_rejected",
+    (r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected",
   ).length;
   const pend = n - approved - rejected;
   const fig3 = stackedShareBar("Approved vs rejected vs pending", [
@@ -379,9 +381,9 @@ function facultyDeptOutcomeCharts(rows: AggregateSubmissionInput[]): string {
   const thesis = rows.filter((r) => r.type === "thesis").length;
   const pub = rows.filter((r) => r.type === "publication").length;
   const approved = rows.filter((r) => r.current_status === "approved").length;
-  const rejected = rows.filter((r) => r.current_status === "rejected" || r.current_status === "dean_rejected").length;
+  const rejected = rows.filter((r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected").length;
   const pending = rows.filter(
-    (r) => r.current_status !== "approved" && r.current_status !== "rejected" && r.current_status !== "dean_rejected",
+    (r) => r.current_status !== "approved" && r.current_status !== "rejected" && r.current_status !== "supervisor_rejected",
   ).length;
 
   const fig1 = stackedShareBar("Thesis vs publication", [

@@ -59,7 +59,7 @@ function AdminLoginForm() {
             Ethical Approval Process
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-100 max-lg:mx-auto">
-            Admin portal access for administrators, deans, and IREB members.
+            Admin portal access for administrators, supervisors, and IREB .
             Sign in with your assigned email and password.
           </p>
         </div>

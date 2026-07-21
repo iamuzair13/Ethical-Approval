@@ -1,8 +1,8 @@
-import type { DeanRejectionInput, MailPayload } from "../types";
+import type { SupervisorRejectionInput, MailPayload } from "../types";
 import { escapeHtml, plainTextToHtmlParagraphs } from "../html-escape";
 
-export function buildDeanRejectionEmail(input: DeanRejectionInput): MailPayload {
-  const subject = "IERB Ethical Approval Application Rejected (Dean)";
+export function buildSupervisorRejectionEmail(input: SupervisorRejectionInput): MailPayload {
+  const subject = "IERB Ethical Approval Application Rejected (Supervisor)";
   const reasonsHtml = plainTextToHtmlParagraphs(input.rejectionReason);
   const loginLine = input.publicAppUrl
     ? `Please log in to your account on the <a href="${escapeHtml(input.publicAppUrl)}">Ethical Review Process website</a> and respond to the queries raised on your dashboard.`
@@ -13,7 +13,7 @@ export function buildDeanRejectionEmail(input: DeanRejectionInput): MailPayload 
 <html>
 <body style="font-family: Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 1.5; color: #111;">
 <p>Dear ${escapeHtml(input.applicantName)},</p>
-<p>We are writing to inform you that your Ethical Approval application has been returned. There were some discrepancies found in the data, due to which ${escapeHtml(input.facultyName)} Dean ${escapeHtml(input.deanName)} has rejected your application. The reason(s) for application rejection is as follow:</p>
+<p>We are writing to inform you that your Ethical Approval application has been returned. There were some discrepancies found in the data, due to which ${escapeHtml(input.facultyName)} Supervisor ${escapeHtml(input.supervisorName)} has rejected your application. The reason(s) for application rejection is as follow:</p>
 ${reasonsHtml}
 <p>${loginLine}</p>
 <p>Kindly resubmit the application with the required corrections and necessary information.</p>
@@ -27,7 +27,7 @@ The University of Lahore</p>
   const text = [
     `Dear ${input.applicantName},`,
     "",
-    `We are writing to inform you that your Ethical Approval application has been returned. There were some discrepancies found in the data, due to which ${input.facultyName} Dean ${input.deanName} has rejected your application. The reason(s) for application rejection is as follow:`,
+    `We are writing to inform you that your Ethical Approval application has been returned. There were some discrepancies found in the data, due to which ${input.facultyName} Supervisor ${input.supervisorName} has rejected your application. The reason(s) for application rejection is as follow:`,
     "",
     input.rejectionReason,
     "",

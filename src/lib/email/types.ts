@@ -11,10 +11,10 @@ export type SubmissionConfirmationInput = {
   publicAppUrl?: string;
 };
 
-export type DeanRejectionInput = {
+export type SupervisorRejectionInput = {
   applicantName: string;
   facultyName: string;
-  deanName: string;
+  supervisorName: string;
   rejectionReason: string;
   publicAppUrl?: string;
 };

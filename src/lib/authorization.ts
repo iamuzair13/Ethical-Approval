@@ -24,9 +24,9 @@ export type SubmissionRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -41,10 +41,10 @@ export type SubmissionRow = {
 
 export function canAccessSubmissionStage(
   admin: AuthenticatedAdmin,
-  expectedStage: "dean" | "ireb",
+  expectedStage: "supervisor" | "ireb",
 ): boolean {
   if (admin.role === "administrator") return true;
-  if (expectedStage === "dean") return admin.role === "dean";
+  if (expectedStage === "supervisor") return admin.role === "supervisor";
   return admin.role === "ireb";
 }
 

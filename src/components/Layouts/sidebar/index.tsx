@@ -131,7 +131,7 @@ export function Sidebar() {
           {/* Navigation */}
           <div className="custom-scrollbar mt-6 flex-1 overflow-y-auto pr-3 min-[850px]:mt-10">
             {visibleNavData.map((section) => (
-              <div key={section.label} className="mb-6">
+              <div key={section.label} className="nav-item-enter mb-6" style={{ animationDelay: `${0.05 + visibleNavData.indexOf(section) * 0.08}s` }}>
                 <h2 className="mb-5 text-sm font-medium text-dark-4 dark:text-dark-6">
                   {section.label}
                 </h2>

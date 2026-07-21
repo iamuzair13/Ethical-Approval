@@ -79,13 +79,13 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
     return { scopeMode: "all", facultyIds: [] };
   }
 
-  if (admin.role === "dean") {
+  if (admin.role === "supervisor") {
     const deptScoped = await db.query<{ faculty_id: number }>(
       `
         SELECT ada.faculty_id
         FROM admin_department_assignments ada
         WHERE ada.admin_user_id = $1
-          AND ada.assignment_type = 'dean_primary'
+          AND ada.assignment_type = 'supervisor_primary'
           AND ada.deleted_at IS NULL
         ORDER BY ada.id DESC
         LIMIT 1
@@ -97,7 +97,7 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
         SELECT afa.faculty_id
         FROM admin_faculty_assignments afa
         WHERE afa.admin_user_id = $1
-          AND afa.assignment_type = 'dean_primary'
+          AND afa.assignment_type = 'supervisor_primary'
           AND afa.deleted_at IS NULL
         ORDER BY afa.id DESC
         LIMIT 1
@@ -237,7 +237,7 @@ export async function setAdminStatus(adminId: string, status: "active" | "inacti
   return result.rows[0] ? mapAdminRow(result.rows[0]) : null;
 }
 
-export async function assignDeanFaculty(input: {
+export async function assignSupervisorFaculty(input: {
   adminUserId: string;
   facultyId: number;
   departmentId: number;
@@ -250,7 +250,7 @@ export async function assignDeanFaculty(input: {
         UPDATE admin_faculty_assignments
         SET deleted_at = NOW()
         WHERE admin_user_id = $1
-          AND assignment_type = 'dean_primary'
+          AND assignment_type = 'supervisor_primary'
           AND deleted_at IS NULL
       `,
       [input.adminUserId],
@@ -261,7 +261,7 @@ export async function assignDeanFaculty(input: {
         UPDATE admin_department_assignments
         SET deleted_at = NOW()
         WHERE admin_user_id = $1
-          AND assignment_type = 'dean_primary'
+          AND assignment_type = 'supervisor_primary'
           AND deleted_at IS NULL
       `,
       [input.adminUserId],
@@ -274,7 +274,7 @@ export async function assignDeanFaculty(input: {
           faculty_id,
           assignment_type,
           assigned_by
-        ) VALUES ($1, $2, 'dean_primary', $3)
+        ) VALUES ($1, $2, 'supervisor_primary', $3)
       `,
       [input.adminUserId, input.facultyId, input.assignedBy],
     );
@@ -287,7 +287,7 @@ export async function assignDeanFaculty(input: {
           department_id,
           assignment_type,
           assigned_by
-        ) VALUES ($1, $2, $3, 'dean_primary', $4)
+        ) VALUES ($1, $2, $3, 'supervisor_primary', $4)
       `,
       [input.adminUserId, input.facultyId, input.departmentId, input.assignedBy],
     );
@@ -614,7 +614,7 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
 
   const scopes = await db.query<{
     admin_user_id: string;
-    assignment_type: "dean_primary" | "ireb_scope";
+    assignment_type: "supervisor_primary" | "ireb_scope";
     faculty_id: number;
     faculty_name: string;
   }>(
@@ -634,7 +634,7 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
   const departmentScopes = await db.query<{
     admin_user_id: string;
     department_id: number;
-    assignment_type: "dean_primary" | "ireb_scope";
+    assignment_type: "supervisor_primary" | "ireb_scope";
     department_name: string;
   }>(
     `
@@ -653,8 +653,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
   const scopeMap = new Map<
     string,
     {
-      deanFaculty?: string;
-      deanFacultyId?: number;
+      supervisorFaculty?: string;
+      supervisorFacultyId?: number;
       irebFaculties: string[];
       irebFacultyIds: number[];
       departmentIds: number[];
@@ -664,16 +664,16 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
 
   for (const row of scopes.rows) {
     const current = scopeMap.get(row.admin_user_id) ?? {
-      deanFaculty: undefined,
-      deanFacultyId: undefined,
+      supervisorFaculty: undefined,
+      supervisorFacultyId: undefined,
       irebFaculties: [],
       irebFacultyIds: [],
       departmentIds: [],
       departmentNames: [],
     };
-    if (row.assignment_type === "dean_primary") {
-      current.deanFaculty = row.faculty_name;
-      current.deanFacultyId = row.faculty_id;
+    if (row.assignment_type === "supervisor_primary") {
+      current.supervisorFaculty = row.faculty_name;
+      current.supervisorFacultyId = row.faculty_id;
     } else if (!current.irebFacultyIds.includes(row.faculty_id)) {
       current.irebFacultyIds.push(row.faculty_id);
       current.irebFaculties.push(row.faculty_name);
@@ -682,10 +682,10 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
   }
 
   for (const row of departmentScopes.rows) {
-    if (row.assignment_type !== "dean_primary") continue;
+    if (row.assignment_type !== "supervisor_primary") continue;
     const current = scopeMap.get(row.admin_user_id) ?? {
-      deanFaculty: undefined,
-      deanFacultyId: undefined,
+      supervisorFaculty: undefined,
+      supervisorFacultyId: undefined,
       irebFaculties: [],
       irebFacultyIds: [],
       departmentIds: [],
@@ -704,11 +704,11 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
     (admin: Pick<AdminRow, "id" | "name" | "email" | "role" | "status" | "sap_id">) => {
     const scope = scopeMap.get(admin.id);
     let facultyScope = "All Faculties";
-    if (admin.role === "dean") {
-      if (scope?.deanFaculty && scope.departmentNames.length > 0) {
-        facultyScope = `${scope.deanFaculty} — ${scope.departmentNames.join(", ")}`;
+    if (admin.role === "supervisor") {
+      if (scope?.supervisorFaculty && scope.departmentNames.length > 0) {
+        facultyScope = `${scope.supervisorFaculty} — ${scope.departmentNames.join(", ")}`;
       } else {
-        facultyScope = scope?.deanFaculty ?? "Unassigned";
+        facultyScope = scope?.supervisorFaculty ?? "Unassigned";
       }
     } else if (admin.role === "ireb") {
       facultyScope =
@@ -728,10 +728,10 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       facultyIds:
         admin.role === "ireb"
           ? (scope?.irebFacultyIds ?? [])
-          : admin.role === "dean" && scope?.deanFacultyId != null
-            ? [scope.deanFacultyId]
+          : admin.role === "supervisor" && scope?.supervisorFacultyId != null
+            ? [scope.supervisorFacultyId]
             : [],
-      departmentIds: admin.role === "dean" ? (scope?.departmentIds ?? []) : [],
+      departmentIds: admin.role === "supervisor" ? (scope?.departmentIds ?? []) : [],
     };
     },
   );
@@ -789,21 +789,48 @@ export async function updateAdminUser(input: {
   return result.rows[0] ? mapAdminRow(result.rows[0]) : null;
 }
 
-export type DeanPickerRow = {
+export async function deleteAdminUser(adminId: string): Promise<boolean> {
+  await db.query("BEGIN");
+  try {
+    await db.query(
+      `UPDATE admin_audit_logs SET actor_admin_id = NULL WHERE actor_admin_id = $1`,
+      [adminId],
+    );
+    await db.query(
+      `UPDATE activity_events SET actor_admin_id = NULL WHERE actor_admin_id = $1`,
+      [adminId],
+    );
+    await db.query(
+      `UPDATE activity_events SET effective_admin_id = NULL WHERE effective_admin_id = $1`,
+      [adminId],
+    );
+    const result = await db.query(
+      `DELETE FROM admin_users WHERE id = $1 RETURNING id`,
+      [adminId],
+    );
+    await db.query("COMMIT");
+    return result.rows.length > 0;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  }
+}
+
+export type SupervisorPickerRow = {
   id: string;
   name: string;
   email: string;
 };
 
-/** Active dean accounts for administrator-only report picker. */
-export async function listActiveDeansForReportPicker(): Promise<DeanPickerRow[]> {
-  const result = await db.query<DeanPickerRow>(
+/** Active supervisor accounts for administrator-only report picker. */
+export async function listActiveSupervisorsForReportPicker(): Promise<SupervisorPickerRow[]> {
+  const result = await db.query<SupervisorPickerRow>(
     `
       SELECT id, name, email
       FROM admin_users
       WHERE deleted_at IS NULL
         AND status = 'active'
-        AND role = 'dean'
+        AND role = 'supervisor'
       ORDER BY LOWER(name) ASC, LOWER(email) ASC
     `,
   );
@@ -811,8 +838,8 @@ export async function listActiveDeansForReportPicker(): Promise<DeanPickerRow[]>
 }
 
 /** Active IREB accounts for administrator View As picker. */
-export async function listActiveIrebForViewAs(): Promise<DeanPickerRow[]> {
-  const result = await db.query<DeanPickerRow>(
+export async function listActiveIrebForViewAs(): Promise<SupervisorPickerRow[]> {
+  const result = await db.query<SupervisorPickerRow>(
     `
       SELECT id, name, email
       FROM admin_users

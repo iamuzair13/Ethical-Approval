@@ -8,14 +8,14 @@ import type { AdminOption, DecisionAction, Lead } from "../types";
 type DecisionModalProps = {
   lead: Lead;
   action: DecisionAction;
-  currentRole: "administrator" | "dean" | "ireb" | null;
+  currentRole: "administrator" | "supervisor" | "ireb" | null;
   comment: string;
   onCommentChange: (value: string) => void;
   selectedRejectionReasons: string[];
   onToggleRejectionReason: (id: string) => void;
   selectedOnBehalfOf: string;
   onOnBehalfOfChange: (value: string) => void;
-  adminOptions: { deanOption: AdminOption | null; irebOptions: AdminOption[] };
+  adminOptions: { supervisorOption: AdminOption | null; irebOptions: AdminOption[] };
   busy: boolean;
   onClose: () => void;
   onSubmit: () => void;
@@ -66,17 +66,17 @@ export function DecisionModal({
     >
       {currentRole === "administrator" && (
         <div className="mb-5 grid gap-4">
-          {lead.stage === "dean" && (
+          {lead.stage === "supervisor" && (
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">On behalf of dean</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">On behalf of supervisor</p>
               <select
                 value={selectedOnBehalfOf}
                 onChange={(e) => onOnBehalfOfChange(e.target.value)}
                 className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
               >
-                <option value="">Select dean</option>
-                {adminOptions.deanOption && (
-                  <option value={adminOptions.deanOption.id}>{adminOptions.deanOption.name}</option>
+                <option value="">Select supervisor</option>
+                {adminOptions.supervisorOption && (
+                  <option value={adminOptions.supervisorOption.id}>{adminOptions.supervisorOption.name}</option>
                 )}
               </select>
             </div>
@@ -106,7 +106,7 @@ export function DecisionModal({
       {action === "rejected" && (
         <div className="mb-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            Dean / IREB reasons for rejection (select all that apply)
+            Supervisor / IREB reasons for rejection (select all that apply)
             <span className="text-red-600"> *</span>
           </p>
           <ul className="mt-3 space-y-3">

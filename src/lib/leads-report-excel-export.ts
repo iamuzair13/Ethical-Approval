@@ -28,7 +28,7 @@ export type LeadsReportExcelMeta = {
   facultyFilter: string[];
   departmentFilter: string[];
   currentStatusFilter: string[];
-  deanOnly: boolean;
+  supervisorOnly: boolean;
   ethicalOnly: boolean;
   /** Rows in scope before search / dropdown filters (same base as filter counts). */
   scopeDatasetSize: number;
@@ -123,8 +123,8 @@ export function downloadLeadsReportExcel(
     throw new Error("Select at least one column.");
   }
 
-  const scopeLabel = meta.deanOnly
-    ? "Dean stage only"
+  const scopeLabel = meta.supervisorOnly
+    ? "Supervisor stage only"
     : meta.ethicalOnly
       ? "IREB stage only"
       : "Full list";

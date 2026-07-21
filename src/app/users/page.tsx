@@ -9,12 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-type AdminRole = "administrator" | "dean" | "ireb";
+type AdminRole = "administrator" | "supervisor" | "ireb";
 type AdminStatus = "active" | "inactive";
 
 type ManagedUser = {
@@ -82,7 +84,7 @@ function StatCard({
   helper: string;
 }) {
   return (
-    <div className="rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card">
+    <div className="card-lift animate-fade-in-up rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card">
       <p className="text-body-sm text-dark-5">{label}</p>
       <h3 className="mt-2 text-2xl font-bold text-dark dark:text-white">{value}</h3>
       <p className="mt-1 text-sm text-dark-5">{helper}</p>
@@ -139,7 +141,7 @@ function ScopeFields({
   onIrebScopeAllChange: (value: boolean) => void;
   idPrefix: string;
 }) {
-  const deanDepartments = useMemo(
+  const supervisorDepartments = useMemo(
     () =>
       typeof facultyId === "number"
         ? departments.filter((dep) => dep.faculty_id === facultyId)
@@ -163,7 +165,7 @@ function ScopeFields({
     );
   }
 
-  if (role === "dean") {
+  if (role === "supervisor") {
     return (
       <div className="grid gap-3 sm:col-span-2">
         <div>
@@ -199,17 +201,17 @@ function ScopeFields({
               onDepartmentIdChange(e.target.value ? Number(e.target.value) : "")
             }
             className={cn(fieldClass, "mt-1 w-full")}
-            disabled={deanDepartments.length === 0}
+            disabled={supervisorDepartments.length === 0}
             required
           >
             <option value="">
               {typeof facultyId !== "number"
                 ? "Select a faculty first"
-                : deanDepartments.length === 0
+                : supervisorDepartments.length === 0
                   ? "No departments in this faculty"
                   : "Select department"}
             </option>
-            {deanDepartments.map((department) => (
+            {supervisorDepartments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
               </option>
@@ -309,11 +311,16 @@ export default function UsersPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editingUser, setEditingUser] = useState<EditUserForm | null>(null);
   const editPanelRef = useRef<HTMLFormElement>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [activeTab, setActiveTab] = useState<"list" | "create">("list");
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     name: "",
     email: "",
     password: "",
-    role: "dean",
+    role: "supervisor",
     sapId: "",
     facultyId: "",
     facultyIds: [],
@@ -374,8 +381,27 @@ export default function UsersPage() {
     void fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-user-menu]")) {
+        setOpenMenuId(null);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [openMenuId]);
+
   const admins = users.filter((user) => user.role === "administrator");
-  const deans = users.filter((user) => user.role === "dean");
+  const supervisors = users.filter((user) => user.role === "supervisor");
   const irebMembers = users.filter((user) => user.role === "ireb");
 
   const resetCreateForm = () => {
@@ -383,7 +409,7 @@ export default function UsersPage() {
       name: "",
       email: "",
       password: "",
-      role: "dean",
+      role: "supervisor",
       sapId: "",
       facultyId: "",
       facultyIds: [],
@@ -408,9 +434,9 @@ export default function UsersPage() {
       sapId: user.sapId ?? "",
       password: "",
       facultyId:
-        user.role === "dean" && user.facultyIds[0] != null ? user.facultyIds[0] : "",
+        user.role === "supervisor" && user.facultyIds[0] != null ? user.facultyIds[0] : "",
       departmentId:
-        user.role === "dean" && user.departmentIds[0] != null
+        user.role === "supervisor" && user.departmentIds[0] != null
           ? user.departmentIds[0]
           : "",
       facultyIds: user.role === "ireb" ? [...user.facultyIds] : [],
@@ -429,9 +455,9 @@ export default function UsersPage() {
     });
   };
 
-  const validateDeanScope = (facultyId: number | "", departmentId: number | "") => {
+  const validateSupervisorScope = (facultyId: number | "", departmentId: number | "") => {
     if (typeof facultyId !== "number" || typeof departmentId !== "number") {
-      return "Dean accounts require a faculty and department.";
+      return "Supervisor accounts require a faculty and department.";
     }
     return null;
   };
@@ -450,8 +476,8 @@ export default function UsersPage() {
     event.preventDefault();
     setError(null);
 
-    if (createForm.role === "dean") {
-      const scopeError = validateDeanScope(createForm.facultyId, createForm.departmentId);
+    if (createForm.role === "supervisor") {
+      const scopeError = validateSupervisorScope(createForm.facultyId, createForm.departmentId);
       if (scopeError) {
         setError(scopeError);
         toast.error(scopeError);
@@ -476,11 +502,11 @@ export default function UsersPage() {
         role: createForm.role,
         sapId: createForm.sapId || null,
         facultyId:
-          createForm.role === "dean" && createForm.facultyId !== ""
+          createForm.role === "supervisor" && createForm.facultyId !== ""
             ? createForm.facultyId
             : null,
         departmentId:
-          createForm.role === "dean" && createForm.departmentId !== ""
+          createForm.role === "supervisor" && createForm.departmentId !== ""
             ? createForm.departmentId
             : null,
         ...(createForm.role === "ireb"
@@ -514,8 +540,8 @@ export default function UsersPage() {
     if (!editingUser) return;
     setError(null);
 
-    if (editingUser.role === "dean") {
-      const scopeError = validateDeanScope(editingUser.facultyId, editingUser.departmentId);
+    if (editingUser.role === "supervisor") {
+      const scopeError = validateSupervisorScope(editingUser.facultyId, editingUser.departmentId);
       if (scopeError) {
         setError(scopeError);
         toast.error(scopeError);
@@ -542,7 +568,7 @@ export default function UsersPage() {
       if (editingUser.password.trim()) {
         payload.password = editingUser.password;
       }
-      if (editingUser.role === "dean") {
+      if (editingUser.role === "supervisor") {
         payload.facultyId = editingUser.facultyId;
         payload.departmentId = editingUser.departmentId;
       }
@@ -576,6 +602,7 @@ export default function UsersPage() {
 
   const toggleStatus = async (user: ManagedUser) => {
     setBusyUserId(user.id);
+    setOpenMenuId(null);
     setError(null);
     try {
       const response = await fetch(`/api/admin/users/${user.id}/status`, {
@@ -599,34 +626,65 @@ export default function UsersPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeletingUser(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const body = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !body.ok) {
+        const message = body.error ?? "Unable to delete user.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+      await fetchData();
+      toast.success("User permanently deleted.");
+      setDeleteTarget(null);
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1200px]">
       <Breadcrumb pageName="Users" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Managed Users"
-          value={String(users.length)}
-          helper="All administrator, dean, and IREB accounts"
-        />
-        <StatCard
-          label="Administrators"
-          value={String(admins.length)}
-          helper="Full system owners"
-        />
-        <StatCard
-          label="Deans"
-          value={String(deans.length)}
-          helper="Faculty-scoped reviewers"
-        />
-        <StatCard
-          label="IREB Members"
-          value={String(irebMembers.length)}
-          helper="Central ethics review panel"
-        />
+        <div className="animate-stagger-1">
+          <StatCard
+            label="Total Managed Users"
+            value={String(users.length)}
+            helper="Administrator, Supervisor, and IREB accounts"
+          />
+        </div>
+        <div className="animate-stagger-2">
+          <StatCard
+            label="Administrators"
+            value={String(admins.length)}
+            helper="Full system owners"
+          />
+        </div>
+        <div className="animate-stagger-3">
+          <StatCard
+            label="Supervisors"
+            value={String(supervisors.length)}
+            helper="Faculty-scoped reviewers"
+          />
+        </div>
+        <div className="animate-stagger-4">
+          <StatCard
+            label="IREB"
+            value={String(irebMembers.length)}
+            helper="Central ethics review panel"
+          />
+        </div>
       </div>
 
-      <div className="mt-6 rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card sm:p-6">
+      <div className="animate-fade-in-scale mt-6 rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card sm:p-6">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-xl font-semibold text-dark dark:text-white">
@@ -640,21 +698,55 @@ export default function UsersPage() {
           <p className="text-sm text-dark-5">Administrator-only controls</p>
         </div>
 
-        {error && (
+               {error && (
           <div className="mb-4 rounded-md border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
             {error}
           </div>
         )}
 
+        <div className="mb-6 flex gap-1 border-b border-stroke dark:border-dark-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("list")}
+            className={cn(
+              "btn-press relative px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              activeTab === "list"
+                ? "text-primary"
+                : "text-dark-5 hover:text-dark dark:hover:text-white",
+            )}
+          >
+            Users List
+            {activeTab === "list" && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary transition-all duration-300" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("create")}
+            className={cn(
+              "btn-press relative px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              activeTab === "create"
+                ? "text-primary"
+                : "text-dark-5 hover:text-dark dark:hover:text-white",
+            )}
+          >
+            Create User
+            {activeTab === "create" && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary transition-all duration-300" />
+            )}
+          </button>
+        </div>
+
+        {activeTab === "create" && (
         <form
           onSubmit={onCreateUser}
-          className="mb-6 rounded-lg border border-stroke p-4 dark:border-dark-3"
+          className="tab-content-enter rounded-lg border border-stroke p-4 dark:border-dark-3"
         >
           <h4 className="mb-1 text-base font-semibold text-dark dark:text-white">
             Create User
           </h4>
           <p className="mb-4 text-xs text-dark-5">
-            Set role and faculty scope when creating dean or IREB accounts.
+            Set role and faculty scope when creating supervisor or IREB accounts.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -713,7 +805,7 @@ export default function UsersPage() {
                 className={cn(fieldClass, "mt-1 w-full")}
               >
                 <option value="administrator">Administrator</option>
-                <option value="dean">Dean</option>
+                <option value="supervisor">Supervisor</option>
                 <option value="ireb">IREB</option>
               </select>
             </div>
@@ -751,17 +843,20 @@ export default function UsersPage() {
           <button
             type="submit"
             disabled={submittingCreate}
-            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+            className="btn-press mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submittingCreate ? "Creating…" : "Create User"}
           </button>
         </form>
+        )}
 
-        {editingUser && (
+        {activeTab === "list" && (
+          <>
+            {editingUser && (
           <form
             ref={editPanelRef}
             onSubmit={onUpdateUser}
-            className="mb-6 rounded-lg border border-primary/30 bg-primary/[0.03] p-4 dark:border-primary/40 dark:bg-primary/[0.06]"
+            className="tab-content-enter mb-6 rounded-lg border border-primary/30 bg-primary/[0.03] p-4 dark:border-primary/40 dark:bg-primary/[0.06]"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -826,7 +921,7 @@ export default function UsersPage() {
                   className={cn(fieldClass, "mt-1 w-full")}
                 >
                   <option value="administrator">Administrator</option>
-                  <option value="dean">Dean</option>
+                  <option value="supervisor">Supervisor</option>
                   <option value="ireb">IREB</option>
                 </select>
               </div>
@@ -892,14 +987,15 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={submittingEdit}
-              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="btn-press mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submittingEdit ? "Saving…" : "Save Changes"}
             </button>
           </form>
         )}
 
-        <Table>
+        <div className="tab-content-enter">
+        <Table unwrapped>
           <TableHeader>
             <TableRow className="[&>th]:px-4">
               <TableHead>User</TableHead>
@@ -911,7 +1007,7 @@ export default function UsersPage() {
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id} className="[&>td]:px-4">
+              <TableRow key={user.id} className="row-hover [&>td]:px-4">
                 <TableCell>
                   <p className="font-medium text-dark dark:text-white">{user.name}</p>
                   <p className="text-sm text-dark-5">{user.email}</p>
@@ -921,15 +1017,15 @@ export default function UsersPage() {
                     variant={
                       user.role === "administrator"
                         ? "blue"
-                        : user.role === "dean"
+                        : user.role === "supervisor"
                           ? "amber"
                           : "green"
                     }
                   >
                     {user.role === "administrator"
                       ? "Administrator"
-                      : user.role === "dean"
-                        ? "Dean"
+                      : user.role === "supervisor"
+                        ? "Supervisor"
                         : "IREB"}
                   </Badge>
                 </TableCell>
@@ -940,31 +1036,81 @@ export default function UsersPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="relative inline-block" data-user-menu>
                     <button
                       type="button"
-                      onClick={() => beginEditUser(user)}
-                      className="rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                        setOpenMenuId(openMenuId === user.id ? null : user.id);
+                      }}
+                      className="btn-press rounded-md border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
                     >
-                      Edit
+                      Actions <span className="ml-1 inline-block text-[10px]">▾</span>
                     </button>
-                    {user.role !== "administrator" && (
+                    {openMenuId === user.id && createPortal(
+                      <div
+                        data-user-menu
+                        className="menu-enter fixed z-[9999] min-w-[10rem] rounded-lg border border-stroke bg-white py-1 shadow-md dark:border-dark-3 dark:bg-dark-2"
+                        style={{ top: menuPos.top, right: menuPos.right }}
+                      >
                       <button
                         type="button"
-                        onClick={() => beginEditUser(user, true)}
-                        className="rounded-md border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          beginEditUser(user);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
                       >
-                        Edit Scope
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6.18 17.556a.75.75 0 01-.92-.92l.356-1.505a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                        </svg>
+                        Edit
                       </button>
+                      {user.role !== "administrator" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            beginEditUser(user, true);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-dark transition hover:bg-gray-1 dark:text-white dark:hover:bg-dark-3"
+                        >
+                          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Edit Scope
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busyUserId === user.id}
+                        onClick={() => void toggleStatus(user)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-600 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-amber-500/10"
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        {user.status === "active" ? "Deactivate" : "Activate"}
+                      </button>
+                      <div className="my-1 border-t border-stroke dark:border-dark-3" />
+                      <button
+                        type="button"
+                        disabled={busyUserId === user.id}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setDeleteTarget(user);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red transition hover:bg-red/50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-red/500/10"
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                        Delete
+                      </button>
+                      </div>,
+                      document.body,
                     )}
-                    <button
-                      type="button"
-                      disabled={busyUserId === user.id}
-                      onClick={() => void toggleStatus(user)}
-                      className="rounded-md border border-red/40 px-3 py-1.5 text-xs font-medium text-red transition hover:bg-red/10 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {user.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -985,7 +1131,23 @@ export default function UsersPage() {
             )}
           </TableBody>
         </Table>
+        </div>
+          </>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Permanently delete user?"
+        description={`This will permanently remove ${deleteTarget?.name ?? ""} (${deleteTarget?.email ?? ""}) and all associated data. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        confirmVariant="danger"
+        isConfirming={deletingUser}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => {
+          if (!deletingUser) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

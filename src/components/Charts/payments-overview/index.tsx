@@ -39,24 +39,24 @@ export async function PaymentsOverview({
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.total)) })),
           },
           {
-            name: "Pending Approvals (Dean)",
-            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingDean)) })),
+            name: "Pending Approvals (Supervisor)",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingSupervisor)) })),
           },
           {
             name: "Pending Approvals (IREB)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.pendingIreb)) })),
           },
           {
-            name: "Approved (Dean)",
-            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedDean)) })),
+            name: "Approved (Supervisor)",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedSupervisor)) })),
           },
           {
             name: "Approved (IREB)",
             data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.approvedIreb)) })),
           },
           {
-            name: "Rejected (Dean)",
-            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedDean)) })),
+            name: "Rejected (Supervisor)",
+            data: timeline.map((p) => ({ x: p.label, y: Math.max(0, Math.round(p.rejectedSupervisor)) })),
           },
           {
             name: "Rejected (IREB)",

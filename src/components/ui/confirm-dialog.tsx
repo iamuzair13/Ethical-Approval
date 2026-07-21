@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 type ConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -26,8 +28,8 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
-      <div className="w-full max-w-md rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+    <div className="modal-backdrop fixed inset-0 z-[100000] flex items-center justify-center bg-dark/60 px-4 py-6 backdrop-blur-[2px]">
+      <div className="modal-dialog w-full max-w-md rounded-[12px] border border-stroke bg-white p-6 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
         <h3 className="text-heading-6 font-bold text-dark dark:text-white">{title}</h3>
         {description ? <p className="mt-2 text-body-sm">{description}</p> : null}
 
@@ -36,7 +38,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={isConfirming}
-            className="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+            className="btn-press rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-dark transition hover:bg-gray-1 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
           >
             {cancelLabel}
           </button>
@@ -44,11 +46,12 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={isConfirming}
-            className={
+            className={cn(
+              "btn-press rounded-md px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60",
               confirmVariant === "danger"
-                ? "rounded-md bg-red px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red/90 disabled:cursor-not-allowed disabled:opacity-60"
-                : "rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            }
+                ? "bg-red hover:bg-red/90"
+                : "bg-primary hover:bg-primary/90",
+            )}
           >
             {isConfirming ? "Please wait..." : confirmLabel}
           </button>

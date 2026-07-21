@@ -63,7 +63,7 @@ function Badge({
 
 function roleLabel(role: string): string {
   if (role === "administrator") return "Administrator";
-  if (role === "dean") return "Dean";
+  if (role === "supervisor") return "Supervisor";
   if (role === "ireb") return "IREB";
   return role;
 }

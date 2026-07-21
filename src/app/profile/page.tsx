@@ -53,7 +53,7 @@ interface RequestItem {
 }
 
 interface RequestStats {
-  inDean: number;
+  inSupervisor: number;
   inEthical: number;
   completed: number;
 }
@@ -65,9 +65,9 @@ type ProfileSubmissionApiRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -82,12 +82,12 @@ function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"]): st
     case "draft":
       return "Draft";
     case "submitted":
-    case "under_dean_review":
-      return "Under Review by Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
+    case "under_supervisor_review":
+      return "Under Review by Supervisor";
+    case "supervisor_approved":
+      return "Approved by Supervisor";
+    case "supervisor_rejected":
+      return "Rejected by Supervisor";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -95,7 +95,7 @@ function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"]): st
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Under Review by Dean";
+      return "Under Review by Supervisor";
   }
 }
 
@@ -503,9 +503,9 @@ export default function ProfileDashboard() {
     STAGES.length > 0
       ? STAGES
       : [
-          "Under Review by Dean",
-          "Approved by Dean",
-          "Rejected by Dean",
+          "Under Review by Supervisor",
+          "Approved by Supervisor",
+          "Rejected by Supervisor",
           "Under Review by IREB",
           "Rejected by IREB",
           "Approved by IREB",
@@ -530,12 +530,12 @@ export default function ProfileDashboard() {
   const computedRequestStats = localRequests.reduce(
     (acc, request) => {
       const stage = request.currentStage;
-      if (stage === "Under Review by Dean") acc.inDean += 1;
+      if (stage === "Under Review by Supervisor") acc.inSupervisor += 1;
       else if (stage === "Under Review by IREB") acc.inEthical += 1;
       else if (stage.includes("Approved") || stage.includes("Rejected")) acc.completed += 1;
       return acc;
     },
-    { inDean: 0, inEthical: 0, completed: 0 } as RequestStats,
+    { inSupervisor: 0, inEthical: 0, completed: 0 } as RequestStats,
   );
   const effectiveRequestStats = computedRequestStats;
   const facultyPublicationForm: RequiredForm = isMedicalPublicationFaculty(
@@ -1047,16 +1047,16 @@ export default function ProfileDashboard() {
             variants={itemVariants}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            {/* Card 1: Dean Review - Large Span */}
+            {/* Card 1: Supervisor Review - Large Span */}
             <SpotlightCard 
               className="lg:col-span-2 p-6 group" 
               glowColor="rgba(245,158,11,0.08)"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by Dean</p>
+                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by Supervisor</p>
                   <p className="text-4xl font-bold tracking-tighter tabular-nums text-dark dark:text-white">
-                    <AnimatedCounter value={effectiveRequestStats.inDean} />
+                    <AnimatedCounter value={effectiveRequestStats.inSupervisor} />
                   </p>
                 </div>
                 <motion.div
@@ -1073,7 +1073,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.inDean / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.inSupervisor / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
@@ -1082,7 +1082,7 @@ export default function ProfileDashboard() {
                 </motion.div>
               </div>
               <p className="mt-3 text-xs text-dark-6 dark:text-slate-500">
-                {Math.round((effectiveRequestStats.inDean / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100)}% of total workflow
+                {Math.round((effectiveRequestStats.inSupervisor / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100)}% of total workflow
               </p>
             </SpotlightCard>
 
@@ -1112,7 +1112,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.inEthical / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.inEthical / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full"
@@ -1163,7 +1163,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.completed / Math.max(effectiveRequestStats.inDean + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.completed / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"

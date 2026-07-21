@@ -1,4 +1,4 @@
-export const ADMIN_ROLES = ["administrator", "dean", "ireb"] as const;
+export const ADMIN_ROLES = ["administrator", "supervisor", "ireb"] as const;
 export type AdminRole = (typeof ADMIN_ROLES)[number];
 
 export const ADMIN_STATUSES = ["active", "inactive"] as const;

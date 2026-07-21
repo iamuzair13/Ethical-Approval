@@ -2,9 +2,9 @@
 
 export type ReportSubmissionStatus =
   | "submitted"
-  | "under_dean_review"
-  | "dean_approved"
-  | "dean_rejected"
+  | "under_supervisor_review"
+  | "supervisor_approved"
+  | "supervisor_rejected"
   | "under_ireb_review"
   | "approved"
   | "rejected";
@@ -13,12 +13,12 @@ export function submissionStatusLabel(cs: ReportSubmissionStatus): string {
   switch (cs) {
     case "submitted":
       return "Submitted";
-    case "under_dean_review":
-      return "Pending at Dean";
-    case "dean_approved":
-      return "Approved by Dean";
-    case "dean_rejected":
-      return "Rejected by Dean";
+    case "under_supervisor_review":
+      return "Pending at Supervisor";
+    case "supervisor_approved":
+      return "Approved by Supervisor";
+    case "supervisor_rejected":
+      return "Rejected by Supervisor";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
   applyIrebScope,
-  assignDeanFaculty,
+  assignSupervisorFaculty,
   createAdminUser,
   getAdminUserByEmail,
 } from "@/lib/admin-repository";
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
   if (!isAdminRole(body.role)) {
     return NextResponse.json({ ok: false, error: "Invalid role." }, { status: 400 });
   }
-  if (body.role === "dean" && (typeof body.facultyId !== "number" || typeof body.departmentId !== "number")) {
+  if (body.role === "supervisor" && (typeof body.facultyId !== "number" || typeof body.departmentId !== "number")) {
     return NextResponse.json(
-      { ok: false, error: "Dean requires faculty and department selection." },
+      { ok: false, error: "Supervisor requires faculty and department selection." },
       { status: 400 },
     );
   }
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
     createdBy: actor.adminId,
   });
 
-  if (created.role === "dean" && body.facultyId && body.departmentId) {
-    await assignDeanFaculty({
+  if (created.role === "supervisor" && body.facultyId && body.departmentId) {
+    await assignSupervisorFaculty({
       adminUserId: created.id,
       facultyId: body.facultyId,
       departmentId: body.departmentId,
@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
   }
 
   const targetType =
-    created.role === "dean"
-      ? "dean"
+    created.role === "supervisor"
+      ? "supervisor"
       : created.role === "ireb"
         ? "ireb_member"
         : "administrator";

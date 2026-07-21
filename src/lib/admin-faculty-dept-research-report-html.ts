@@ -24,7 +24,7 @@ function isApproved(r: AggregateSubmissionInput): boolean {
 }
 
 function isRejected(r: AggregateSubmissionInput): boolean {
-  return r.current_status === "rejected" || r.current_status === "dean_rejected";
+  return r.current_status === "rejected" || r.current_status === "supervisor_rejected";
 }
 
 function isPending(r: AggregateSubmissionInput): boolean {

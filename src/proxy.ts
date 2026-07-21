@@ -60,8 +60,8 @@ export async function proxy(request: NextRequest) {
     }
 
     if (pathname === "/admin") {
-      if (adminRole === "dean") {
-        return NextResponse.redirect(new URL("/DeanPanel", request.url));
+      if (adminRole === "supervisor") {
+        return NextResponse.redirect(new URL("/SupervisorPanel", request.url));
       }
       if (adminRole === "ireb") {
         return NextResponse.redirect(new URL("/EthicalCommiteePanel", request.url));
@@ -73,9 +73,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     if (
-      pathname.startsWith("/admin/dean") &&
+      pathname.startsWith("/admin/supervisor") &&
       adminRole !== "administrator" &&
-      adminRole !== "dean"
+      adminRole !== "supervisor"
     ) {
       return NextResponse.redirect(new URL("/", request.url));
     }

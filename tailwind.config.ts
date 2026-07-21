@@ -356,6 +356,42 @@ const config: Config = {
           "0%, 100%": { transform: "translateY(100%)" },
           "50%": { transform: "translateY(0)" },
         },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-down": {
+          "0%": { opacity: "0", transform: "translateY(-12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-scale": {
+          "0%": { opacity: "0", transform: "scale(0.96)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-in-right": {
+          "0%": { opacity: "0", transform: "translateX(16px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-16px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.92)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "backdrop-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "dropdown-in": {
+          "0%": { opacity: "0", transform: "scale(0.95) translateY(-4px)" },
+          "100%": { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
       },
       animation: {
         linspin: "linspin 1568.2353ms linear infinite",
@@ -374,6 +410,15 @@ const config: Config = {
         line1: "line 10s infinite linear",
         line2: "line-revert 8s infinite linear",
         line3: "line 7s infinite linear",
+        "fade-in": "fade-in 0.3s ease-out both",
+        "fade-in-up": "fade-in-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "fade-in-down": "fade-in-down 0.4s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "fade-in-scale": "fade-in-scale 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "slide-in-right": "slide-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "slide-in-left": "slide-in-left 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "scale-in": "scale-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "backdrop-in": "backdrop-in 0.2s ease-out both",
+        "dropdown-in": "dropdown-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

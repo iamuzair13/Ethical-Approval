@@ -53,7 +53,7 @@ type SessionUser = {
   email?: string;
   sapId?: string;
   applicantRole?: "student" | "faculty";
-  adminRole?: "administrator" | "dean" | "ireb";
+  adminRole?: "administrator" | "supervisor" | "ireb";
   facultyDepartment?: string;
   facultyDesignation?: string | null;
   studentRecord?: {

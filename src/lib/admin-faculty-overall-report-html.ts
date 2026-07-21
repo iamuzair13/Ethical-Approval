@@ -42,11 +42,11 @@ function fmtPct(n: number | null): string {
   return `${(Math.round(n * 10) / 10).toFixed(1)}%`;
 }
 
-function collectDeanResponseDays(rows: AggregateSubmissionInput[]): number[] {
+function collectSupervisorResponseDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.dean_decision_at) continue;
-    out.push(daysBetween(r.submitted_at, r.dean_decision_at));
+    if (!r.supervisor_decision_at) continue;
+    out.push(daysBetween(r.submitted_at, r.supervisor_decision_at));
   }
   return out;
 }
@@ -54,8 +54,8 @@ function collectDeanResponseDays(rows: AggregateSubmissionInput[]): number[] {
 function collectIrebPhaseDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.dean_decision_at || !r.ireb_decision_at) continue;
-    out.push(daysBetween(r.dean_decision_at, r.ireb_decision_at));
+    if (!r.supervisor_decision_at || !r.ireb_decision_at) continue;
+    out.push(daysBetween(r.supervisor_decision_at, r.ireb_decision_at));
   }
   return out;
 }
@@ -66,9 +66,9 @@ function collectTerminalCycleDays(rows: AggregateSubmissionInput[]): number[] {
     const terminal =
       r.current_status === "approved" ||
       r.current_status === "rejected" ||
-      r.current_status === "dean_rejected";
+      r.current_status === "supervisor_rejected";
     if (!terminal) continue;
-    const end = r.ireb_decision_at ?? r.dean_decision_at;
+    const end = r.ireb_decision_at ?? r.supervisor_decision_at;
     if (!end) continue;
     out.push(daysBetween(r.submitted_at, end));
   }
@@ -123,8 +123,8 @@ function isPhdProgram(program: string | null): boolean {
   return p.includes("phd") || p.includes("ph.d") || p.includes("doctor of philosophy");
 }
 
-function passedDeanStage(cs: AggregateSubmissionInput["current_status"]): boolean {
-  return ["dean_approved", "under_ireb_review", "approved", "rejected"].includes(cs);
+function passedSupervisorStage(cs: AggregateSubmissionInput["current_status"]): boolean {
+  return ["supervisor_approved", "under_ireb_review", "approved", "rejected"].includes(cs);
 }
 
 function countByKey(rows: AggregateSubmissionInput[], keyFn: (r: AggregateSubmissionInput) => string): Map<string, number> {
@@ -175,15 +175,15 @@ function isStudentApplicantRow(r: AggregateSubmissionInput): boolean {
   return isStudentUolEmail(r.applicant_email) || r.applicant_role === "student";
 }
 
-function highestStudentDeanApprovedByFaculty(scopedRows: AggregateSubmissionInput[]): string {
+function highestStudentSupervisorApprovedByFaculty(scopedRows: AggregateSubmissionInput[]): string {
   const students = scopedRows.filter(isStudentApplicantRow);
-  const deanOk = students.filter((r) => passedDeanStage(r.current_status));
-  if (deanOk.length === 0) return "—";
-  const byFac = countByKey(deanOk, (r) => r.faculty);
-  const ex = extremalShare(byFac, deanOk.length, "max");
+  const supervisorOk = students.filter((r) => passedSupervisorStage(r.current_status));
+  if (supervisorOk.length === 0) return "—";
+  const byFac = countByKey(supervisorOk, (r) => r.faculty);
+  const ex = extremalShare(byFac, supervisorOk.length, "max");
   if (!ex) return "—";
-  const total = deanOk.length;
-  return `${ex.label} (${ex.count} of ${total} student requests past dean; ${fmtPct((ex.count / total) * 100)})`;
+  const total = supervisorOk.length;
+  return `${ex.label} (${ex.count} of ${total} student requests past supervisor; ${fmtPct((ex.count / total) * 100)})`;
 }
 
 function buildMetricsTableRows(
@@ -203,8 +203,8 @@ function buildMetricsTableRows(
       ["Approval rate", "—"],
       ["Rejection rate", "—"],
       ["Average attempts", "—"],
-      ["Highest students requests approved by dean (faculty)", highestStudentDeanApprovedByFaculty(scopedAllRows)],
-      ["Dean(s) average response days", "—"],
+      ["Highest students requests approved by supervisor (faculty)", highestStudentSupervisorApprovedByFaculty(scopedAllRows)],
+      ["Supervisor(s) average response days", "—"],
       ["IREB average response days", "—"],
       ["Average processing days (overall)", "—"],
       ["Common SDGs (top 5)", "—"],
@@ -223,16 +223,16 @@ function buildMetricsTableRows(
 
   const approved = facultyRows.filter((r) => r.current_status === "approved").length;
   const rejected = facultyRows.filter(
-    (r) => r.current_status === "rejected" || r.current_status === "dean_rejected",
+    (r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected",
   ).length;
   const attemptMean = mean(facultyRows.map((r) => r.applicant_attempt_number));
 
-  const deanDays = collectDeanResponseDays(facultyRows);
+  const supervisorDays = collectSupervisorResponseDays(facultyRows);
   const irebDays = collectIrebPhaseDays(facultyRows);
   const cycleDays = collectTerminalCycleDays(facultyRows);
 
   const sdgs = topSdgsSummary(facultyRows, 5);
-  const studentDeanLine = highestStudentDeanApprovedByFaculty(scopedAllRows);
+  const studentSupervisorLine = highestStudentSupervisorApprovedByFaculty(scopedAllRows);
 
   return [
     ["Total faculty/staff requests", String(n)],
@@ -248,8 +248,8 @@ function buildMetricsTableRows(
       "Average attempts",
       attemptMean != null ? (Math.round(attemptMean * 100) / 100).toFixed(2) : "—",
     ],
-    ["Highest students requests approved by dean (faculty)", studentDeanLine],
-    ["Dean(s) average response days", deanDays.length ? `${fmtDays(mean(deanDays))} days` : "—"],
+    ["Highest students requests approved by supervisor (faculty)", studentSupervisorLine],
+    ["Supervisor(s) average response days", supervisorDays.length ? `${fmtDays(mean(supervisorDays))} days` : "—"],
     ["IREB average response days", irebDays.length ? `${fmtDays(mean(irebDays))} days` : "—"],
     ["Average processing days (overall)", cycleDays.length ? `${fmtDays(mean(cycleDays))} days` : "—"],
     ["Common SDGs (top 5)", sdgs],
@@ -258,7 +258,7 @@ function buildMetricsTableRows(
 
 /**
  * @param facultyRows — publication + non–student.uol.edu.pk, same scope as catalog
- * @param scopedAllRows — all submission types/roles in scope (for student vs dean faculty metric)
+ * @param scopedAllRows — all submission types/roles in scope (for student vs supervisor faculty metric)
  */
 export function buildOverallFacultyReportHtml(
   facultyRows: AggregateSubmissionInput[],
@@ -279,9 +279,9 @@ export function buildOverallFacultyReportHtml(
     <code>${escapeHtml(STUDENT_UOL_EMAIL_SUFFIX)}</code> (faculty/staff and other non-student accounts in the same period and scope).
     Medical vs other faculties uses submission domain (<em>medical</em> / <em>non-medical</em>).
     PhD share uses the applicant program snapshot when it mentions PhD / Ph.D / Doctor of Philosophy.
-    Student dean metric uses student email suffix or applicant role &ldquo;student&rdquo; within the same report scope and period.
-    Dean response days: submission to latest dean-stage decision. IREB segment: latest dean decision to latest IREB decision when both exist.
-    Overall processing: submission to final outcome (IREB decision, else dean-only rejection).
+    Student supervisor metric uses student email suffix or applicant role &ldquo;student&rdquo; within the same report scope and period.
+    Supervisor response days: submission to latest supervisor-stage decision. IREB segment: latest supervisor decision to latest IREB decision when both exist.
+    Overall processing: submission to final outcome (IREB decision, else supervisor-only rejection).
   </p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
 }

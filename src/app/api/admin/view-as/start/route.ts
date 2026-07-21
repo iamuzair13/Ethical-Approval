@@ -8,7 +8,7 @@ import { actorFromAdminUser } from "@/lib/activity-log/descriptions";
 
 type StartBody = {
   targetAdminId?: string;
-  role?: "dean" | "ireb";
+  role?: "supervisor" | "ireb";
 };
 
 export async function POST(request: NextRequest) {
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  if (role !== "dean" && role !== "ireb") {
+  if (role !== "supervisor" && role !== "ireb") {
     return NextResponse.json(
-      { ok: false, error: "Invalid role. Use dean or ireb." },
+      { ok: false, error: "Invalid role. Use supervisor or ireb." },
       { status: 400 },
     );
   }
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   void logActivityFromRequest(request, {
     actionCode: "admin.view_as.start",
-    targetType: validation.target.role === "dean" ? "dean" : "ireb_member",
+    targetType: validation.target.role === "supervisor" ? "supervisor" : "ireb_member",
     targetId: validation.target.id,
     targetLabel: validation.target.name,
     effective: actorFromAdminUser(validation.target),

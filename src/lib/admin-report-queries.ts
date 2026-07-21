@@ -10,9 +10,9 @@ export type ReportSubmissionRow = {
   applicant_role: "student" | "faculty";
   current_status:
     | "submitted"
-    | "under_dean_review"
-    | "dean_approved"
-    | "dean_rejected"
+    | "under_supervisor_review"
+    | "supervisor_approved"
+    | "supervisor_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -21,7 +21,7 @@ export type ReportSubmissionRow = {
   applicant_email: string;
   applicant_department: string;
   applicant_program: string | null;
-  dean_decision_at: Date | null;
+  supervisor_decision_at: Date | null;
   ireb_decision_at: Date | null;
   /** 1-based count of non-draft submissions by this applicant up to and including this row. */
   applicant_attempt_number: number;
@@ -72,8 +72,8 @@ export async function fetchReportSubmissionRows(
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad
           WHERE ad.submission_id = s.id
-            AND ad.stage = 'dean'
-        ) AS dean_decision_at,
+            AND ad.stage = 'supervisor'
+        ) AS supervisor_decision_at,
         (
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad
