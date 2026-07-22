@@ -304,13 +304,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
           </FieldRow>
 
           {form.preApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection
-              form={form}
-              setForm={setForm}
-              onFieldChange={onFieldChange}
-              projectTitleDefault={form.publicationTitle}
-              conductedByDefault={form.scholarName}
-            />
+            <InformedConsentDocumentSection />
           )}
 
           <FieldRow>

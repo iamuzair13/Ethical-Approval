@@ -30,10 +30,14 @@ type TableToolbarProps = {
   onDepartmentChange: (values: string[]) => void;
   onStatusChange: (values: LeadStatus[]) => void;
   onExport: () => void;
-  activeTab: "all" | "overdue";
-  onTabChange: (tab: "all" | "overdue") => void;
+  activeTab: "all" | "overdue" | "approved" | "pending" | "rejected";
+  onTabChange: (tab: "all" | "overdue" | "approved" | "pending" | "rejected") => void;
   allRequestsCount: number;
   overdueCount: number;
+  approvedCount?: number;
+  pendingCount?: number;
+  rejectedCount?: number;
+  showApprovedTab?: boolean;
   overdueBannerDismissed: boolean;
   onDismissOverdueBanner: () => void;
   onRefresh: () => void;
@@ -65,6 +69,10 @@ export function TableToolbar({
   onTabChange,
   allRequestsCount,
   overdueCount,
+  approvedCount,
+  pendingCount,
+  rejectedCount,
+  showApprovedTab,
   overdueBannerDismissed,
   onDismissOverdueBanner,
   onRefresh,
@@ -175,6 +183,18 @@ export function TableToolbar({
         <button
           type="button"
           className={cn(
+            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500/30 active:scale-[0.98]",
+            activeTab === "pending"
+              ? "bg-amber-500 text-white shadow-sm"
+              : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50",
+          )}
+          onClick={() => onTabChange("pending")}
+        >
+          Pending Requests ({pendingCount ?? 0})
+        </button>
+        <button
+          type="button"
+          className={cn(
             "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98]",
             activeTab === "all"
               ? "bg-blue-600 text-white shadow-sm"
@@ -196,6 +216,34 @@ export function TableToolbar({
         >
           Over Due Approval ({overdueCount})
         </button>
+        {showApprovedTab && (
+          <button
+            type="button"
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500/30 active:scale-[0.98]",
+              activeTab === "approved"
+                ? "bg-green-600 text-white shadow-sm"
+                : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-400 dark:hover:bg-green-950/50",
+            )}
+            onClick={() => onTabChange("approved")}
+          >
+            Approved Requests ({approvedCount ?? 0})
+          </button>
+        )}
+        {showApprovedTab && (
+          <button
+            type="button"
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]",
+              activeTab === "rejected"
+                ? "bg-red-600 text-white shadow-sm"
+                : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50",
+            )}
+            onClick={() => onTabChange("rejected")}
+          >
+            Rejected Requests ({rejectedCount ?? 0})
+          </button>
+        )}
       </div>
 
       {/* Overdue banner */}

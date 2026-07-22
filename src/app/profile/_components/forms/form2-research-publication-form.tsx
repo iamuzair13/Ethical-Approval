@@ -402,13 +402,7 @@ export function Form2ResearchPublicationForm({
           </FieldRow>
 
           {form.preApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection
-              form={form}
-              setForm={setForm}
-              onFieldChange={onFieldChange}
-              projectTitleDefault={form.publicationTitle}
-              conductedByDefault={form.scholarName}
-            />
+            <InformedConsentDocumentSection />
           )}
         </FormSection>
       </section>

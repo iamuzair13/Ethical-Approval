@@ -106,9 +106,24 @@ export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope>
     );
     const facultyId =
       deptScoped.rows[0]?.faculty_id ?? result.rows[0]?.faculty_id ?? admin.facultyId;
+
+    const programResult = await db.query<{ program_id: number }>(
+      `
+        SELECT apa.program_id
+        FROM admin_program_assignments apa
+        WHERE apa.admin_user_id = $1
+          AND apa.assignment_type = 'supervisor_primary'
+          AND apa.deleted_at IS NULL
+        ORDER BY apa.id DESC
+      `,
+      [admin.id],
+    );
+    const programIds = programResult.rows.map((row) => row.program_id);
+
     return {
       scopeMode: "restricted",
       facultyIds: facultyId ? [facultyId] : [],
+      programIds,
     };
   }
 
@@ -241,6 +256,7 @@ export async function assignSupervisorFaculty(input: {
   adminUserId: string;
   facultyId: number;
   departmentId: number;
+  programId?: number;
   assignedBy: string;
 }) {
   await db.query("BEGIN");
@@ -259,6 +275,17 @@ export async function assignSupervisorFaculty(input: {
     await db.query(
       `
         UPDATE admin_department_assignments
+        SET deleted_at = NOW()
+        WHERE admin_user_id = $1
+          AND assignment_type = 'supervisor_primary'
+          AND deleted_at IS NULL
+      `,
+      [input.adminUserId],
+    );
+
+    await db.query(
+      `
+        UPDATE admin_program_assignments
         SET deleted_at = NOW()
         WHERE admin_user_id = $1
           AND assignment_type = 'supervisor_primary'
@@ -291,6 +318,22 @@ export async function assignSupervisorFaculty(input: {
       `,
       [input.adminUserId, input.facultyId, input.departmentId, input.assignedBy],
     );
+
+    if (typeof input.programId === "number") {
+      await db.query(
+        `
+          INSERT INTO admin_program_assignments (
+            admin_user_id,
+            faculty_id,
+            department_id,
+            program_id,
+            assignment_type,
+            assigned_by
+          ) VALUES ($1, $2, $3, $4, 'supervisor_primary', $5)
+        `,
+        [input.adminUserId, input.facultyId, input.departmentId, input.programId, input.assignedBy],
+      );
+    }
 
     await db.query(
       `
@@ -407,6 +450,15 @@ export async function clearAdminScopeAssignments(adminUserId: string) {
     );
     await db.query(
       `
+        UPDATE admin_program_assignments
+        SET deleted_at = NOW()
+        WHERE admin_user_id = $1
+          AND deleted_at IS NULL
+      `,
+      [adminUserId],
+    );
+    await db.query(
+      `
         UPDATE admin_users
         SET faculty_id = NULL,
             updated_at = NOW(),
@@ -432,6 +484,7 @@ export async function buildAdminClaims(
     status: admin.status,
     scopeMode: scope.scopeMode,
     facultyIds: scope.facultyIds,
+    programIds: scope.programIds,
     tokenVersion: admin.tokenVersion,
   };
 }
@@ -446,6 +499,7 @@ export type AdminManagementUser = {
   facultyScope: string;
   facultyIds: number[];
   departmentIds: number[];
+  programIds: number[];
 };
 
 type FacultyRow = {
@@ -458,6 +512,13 @@ type FacultyRow = {
 type DepartmentRow = {
   id: number;
   faculty_id: number;
+  name: string;
+  is_active: boolean;
+};
+
+type ProgramRow = {
+  id: number;
+  department_id: number;
   name: string;
   is_active: boolean;
 };
@@ -567,6 +628,82 @@ export async function deleteDepartment(id: number) {
   return result.rows[0] ?? null;
 }
 
+export async function listPrograms(options?: {
+  includeInactive?: boolean;
+  departmentId?: number;
+  departmentIds?: number[];
+}) {
+  const includeInactive = options?.includeInactive ?? false;
+  const departmentId = options?.departmentId;
+  const departmentIds = options?.departmentIds;
+  const bySingle = typeof departmentId === "number";
+  const byMany = Array.isArray(departmentIds) && departmentIds.length > 0;
+
+  const result = await db.query<ProgramRow & { department_name: string; faculty_name: string }>(
+    `
+      SELECT p.id, p.department_id, p.name, p.is_active,
+             d.name AS department_name, f.name AS faculty_name
+      FROM programs p
+      INNER JOIN departments d ON d.id = p.department_id
+      INNER JOIN faculties f ON f.id = d.faculty_id
+      WHERE ($1::boolean OR p.is_active = TRUE)
+        AND (NOT $2::boolean OR p.department_id = $3::bigint)
+        AND (NOT $4::boolean OR p.department_id = ANY($5::bigint[]))
+      ORDER BY f.name ASC, d.name ASC, p.name ASC
+    `,
+    [includeInactive, bySingle, departmentId ?? null, byMany, byMany ? departmentIds : []],
+  );
+  return result.rows;
+}
+
+export async function createProgram(input: {
+  departmentId: number;
+  name: string;
+}) {
+  const result = await db.query<ProgramRow>(
+    `
+      INSERT INTO programs (department_id, name, is_active)
+      VALUES ($1, $2, TRUE)
+      RETURNING id, department_id, name, is_active
+    `,
+    [input.departmentId, input.name.trim()],
+  );
+  return result.rows[0];
+}
+
+export async function updateProgram(input: {
+  id: number;
+  departmentId: number;
+  name: string;
+  isActive: boolean;
+}) {
+  const result = await db.query<ProgramRow>(
+    `
+      UPDATE programs
+      SET department_id = $2,
+          name = $3,
+          is_active = $4,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, department_id, name, is_active
+    `,
+    [input.id, input.departmentId, input.name.trim(), input.isActive],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function deleteProgram(id: number) {
+  const result = await db.query<{ id: number }>(
+    `
+      DELETE FROM programs
+      WHERE id = $1
+      RETURNING id
+    `,
+    [id],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function updateFaculty(input: {
   id: number;
   code: string;
@@ -650,6 +787,25 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
     `,
   );
 
+  const programScopes = await db.query<{
+    admin_user_id: string;
+    program_id: number;
+    assignment_type: "supervisor_primary" | "ireb_scope";
+    program_name: string;
+  }>(
+    `
+      SELECT
+        apa.admin_user_id,
+        apa.program_id,
+        apa.assignment_type,
+        p.name AS program_name
+      FROM admin_program_assignments apa
+      INNER JOIN programs p ON p.id = apa.program_id
+      WHERE apa.deleted_at IS NULL
+      ORDER BY apa.admin_user_id, p.name ASC
+    `,
+  );
+
   const scopeMap = new Map<
     string,
     {
@@ -659,6 +815,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       irebFacultyIds: number[];
       departmentIds: number[];
       departmentNames: string[];
+      programIds: number[];
+      programNames: string[];
     }
   >();
 
@@ -670,6 +828,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       irebFacultyIds: [],
       departmentIds: [],
       departmentNames: [],
+      programIds: [],
+      programNames: [],
     };
     if (row.assignment_type === "supervisor_primary") {
       current.supervisorFaculty = row.faculty_name;
@@ -690,6 +850,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
       irebFacultyIds: [],
       departmentIds: [],
       departmentNames: [],
+      programIds: [],
+      programNames: [],
     };
     if (!current.departmentIds.includes(row.department_id)) {
       current.departmentIds.push(row.department_id);
@@ -700,12 +862,35 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
     scopeMap.set(row.admin_user_id, current);
   }
 
+  for (const row of programScopes.rows) {
+    if (row.assignment_type !== "supervisor_primary") continue;
+    const current = scopeMap.get(row.admin_user_id) ?? {
+      supervisorFaculty: undefined,
+      supervisorFacultyId: undefined,
+      irebFaculties: [],
+      irebFacultyIds: [],
+      departmentIds: [],
+      departmentNames: [],
+      programIds: [],
+      programNames: [],
+    };
+    if (!current.programIds.includes(row.program_id)) {
+      current.programIds.push(row.program_id);
+    }
+    if (!current.programNames.includes(row.program_name)) {
+      current.programNames.push(row.program_name);
+    }
+    scopeMap.set(row.admin_user_id, current);
+  }
+
   return admins.rows.map(
     (admin: Pick<AdminRow, "id" | "name" | "email" | "role" | "status" | "sap_id">) => {
     const scope = scopeMap.get(admin.id);
     let facultyScope = "All Faculties";
     if (admin.role === "supervisor") {
-      if (scope?.supervisorFaculty && scope.departmentNames.length > 0) {
+      if (scope?.supervisorFaculty && scope.programNames.length > 0) {
+        facultyScope = `${scope.supervisorFaculty} — ${scope.departmentNames.join(", ")} — ${scope.programNames.join(", ")}`;
+      } else if (scope?.supervisorFaculty && scope.departmentNames.length > 0) {
         facultyScope = `${scope.supervisorFaculty} — ${scope.departmentNames.join(", ")}`;
       } else {
         facultyScope = scope?.supervisorFaculty ?? "Unassigned";
@@ -732,6 +917,7 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
             ? [scope.supervisorFacultyId]
             : [],
       departmentIds: admin.role === "supervisor" ? (scope?.departmentIds ?? []) : [],
+      programIds: admin.role === "supervisor" ? (scope?.programIds ?? []) : [],
     };
     },
   );

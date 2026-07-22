@@ -22,9 +22,6 @@ type PropsType = {
 
 const ETHICAL_CARDS_CONFIG: OverviewCardConfig[] = [
   { key: "views", label: "Total Requests" },
-  { key: "supervisorPending", label: "Pending Approvals (Supervisor)" },
-  { key: "supervisorApproved", label: "Approved (Supervisor)" },
-  { key: "supervisorRejected", label: "Rejected (Supervisor)" },
   { key: "products", label: "Pending Approvals (IREB)" },
   { key: "users", label: "Approved (IREB)" },
   { key: "profit", label: "Rejected (IREB)" },

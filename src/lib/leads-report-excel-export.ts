@@ -23,7 +23,7 @@ export type LeadsReportExcelLead = {
 export type LeadsReportExcelMeta = {
   reportTitle: string;
   generatedAt: Date;
-  activeTab: "all" | "overdue";
+  activeTab: "all" | "overdue" | "approved" | "pending" | "rejected";
   searchQuery: string;
   facultyFilter: string[];
   departmentFilter: string[];

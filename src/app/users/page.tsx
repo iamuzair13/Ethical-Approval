@@ -29,6 +29,7 @@ type ManagedUser = {
   status: AdminStatus;
   facultyIds: number[];
   departmentIds: number[];
+  programIds: number[];
 };
 
 type Faculty = {
@@ -44,6 +45,14 @@ type Department = {
   faculty_name?: string;
 };
 
+type Program = {
+  id: number;
+  department_id: number;
+  name: string;
+  department_name?: string;
+  faculty_name?: string;
+};
+
 type CreateUserForm = {
   name: string;
   email: string;
@@ -53,6 +62,7 @@ type CreateUserForm = {
   facultyId: number | "";
   facultyIds: number[];
   departmentId: number | "";
+  programId: number | "";
   irebScopeAll: boolean;
 };
 
@@ -65,6 +75,7 @@ type EditUserForm = {
   password: string;
   facultyId: number | "";
   departmentId: number | "";
+  programId: number | "";
   facultyIds: number[];
   irebScopeAll: boolean;
 };
@@ -118,12 +129,15 @@ function ScopeFields({
   role,
   faculties,
   departments,
+  programs,
   facultyId,
   departmentId,
+  programId,
   facultyIds,
   irebScopeAll,
   onFacultyIdChange,
   onDepartmentIdChange,
+  onProgramIdChange,
   onFacultyIdsChange,
   onIrebScopeAllChange,
   idPrefix,
@@ -131,12 +145,15 @@ function ScopeFields({
   role: AdminRole;
   faculties: Faculty[];
   departments: Department[];
+  programs: Program[];
   facultyId: number | "";
   departmentId: number | "";
+  programId: number | "";
   facultyIds: number[];
   irebScopeAll: boolean;
   onFacultyIdChange: (value: number | "") => void;
   onDepartmentIdChange: (value: number | "") => void;
+  onProgramIdChange: (value: number | "") => void;
   onFacultyIdsChange: (values: number[]) => void;
   onIrebScopeAllChange: (value: boolean) => void;
   idPrefix: string;
@@ -147,6 +164,14 @@ function ScopeFields({
         ? departments.filter((dep) => Number(dep.faculty_id) === facultyId)
         : [],
     [departments, facultyId],
+  );
+
+  const supervisorPrograms = useMemo(
+    () =>
+      typeof departmentId === "number"
+        ? programs.filter((prog) => Number(prog.department_id) === departmentId)
+        : [],
+    [programs, departmentId],
   );
 
   const toggleIrebFaculty = (facultyIdToToggle: number, checked: boolean) => {
@@ -178,6 +203,7 @@ function ScopeFields({
             onChange={(e) => {
               onFacultyIdChange(e.target.value ? Number(e.target.value) : "");
               onDepartmentIdChange("");
+              onProgramIdChange("");
             }}
             className={cn(fieldClass, "mt-1 w-full")}
             required
@@ -197,9 +223,10 @@ function ScopeFields({
           <select
             id={`${idPrefix}-department`}
             value={departmentId}
-            onChange={(e) =>
-              onDepartmentIdChange(e.target.value ? Number(e.target.value) : "")
-            }
+            onChange={(e) => {
+              onDepartmentIdChange(e.target.value ? Number(e.target.value) : "");
+              onProgramIdChange("");
+            }}
             className={cn(fieldClass, "mt-1 w-full")}
             disabled={supervisorDepartments.length === 0}
             required
@@ -214,6 +241,34 @@ function ScopeFields({
             {supervisorDepartments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor={`${idPrefix}-program`} className={labelClass}>
+            Program <span className="text-red">*</span>
+          </label>
+          <select
+            id={`${idPrefix}-program`}
+            value={programId}
+            onChange={(e) =>
+              onProgramIdChange(e.target.value ? Number(e.target.value) : "")
+            }
+            className={cn(fieldClass, "mt-1 w-full")}
+            disabled={supervisorPrograms.length === 0}
+            required
+          >
+            <option value="">
+              {typeof departmentId !== "number"
+                ? "Select a department first"
+                : supervisorPrograms.length === 0
+                  ? "No programs in this department"
+                  : "Select program"}
+            </option>
+            {supervisorPrograms.map((program) => (
+              <option key={program.id} value={program.id}>
+                {program.name}
               </option>
             ))}
           </select>
@@ -302,6 +357,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -325,6 +381,7 @@ export default function UsersPage() {
     facultyId: "",
     facultyIds: [],
     departmentId: "",
+    programId: "",
     irebScopeAll: true,
   });
 
@@ -332,11 +389,18 @@ export default function UsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const [usersRes, facultiesRes, departmentsRes] = await Promise.all([
+      const [usersRes, facultiesRes, departmentsRes, programsRes] = await Promise.all([
         fetch("/api/admin/users", { cache: "no-store" }),
         fetch("/api/admin/faculties", { cache: "no-store" }),
         fetch("/api/admin/departments?all=1", { cache: "no-store" }),
+        fetch("/api/admin/programs?all=1", { cache: "no-store" }),
       ]);
+
+      const programsBody = (await programsRes.json()) as {
+        ok: boolean;
+        programs?: Program[];
+        error?: string;
+      };
 
       const usersBody = (await usersRes.json()) as {
         ok: boolean;
@@ -363,10 +427,14 @@ export default function UsersPage() {
       if (!departmentsRes.ok || !departmentsBody.ok) {
         throw new Error(departmentsBody.error ?? "Unable to load departments.");
       }
+      if (!programsRes.ok || !programsBody.ok) {
+        throw new Error(programsBody.error ?? "Unable to load programs.");
+      }
 
       setUsers(usersBody.users ?? []);
       setFaculties(facultiesBody.faculties ?? []);
       setDepartments(departmentsBody.departments ?? []);
+      setPrograms(programsBody.programs ?? []);
     } catch (fetchError) {
       const message =
         fetchError instanceof Error ? fetchError.message : "Failed to load data.";
@@ -414,6 +482,7 @@ export default function UsersPage() {
       facultyId: "",
       facultyIds: [],
       departmentId: "",
+      programId: "",
       irebScopeAll: true,
     });
   };
@@ -421,6 +490,7 @@ export default function UsersPage() {
   const emptyScope = () => ({
     facultyId: "" as const,
     departmentId: "" as const,
+    programId: "" as const,
     facultyIds: [] as number[],
     irebScopeAll: true,
   });
@@ -439,6 +509,10 @@ export default function UsersPage() {
         user.role === "supervisor" && user.departmentIds[0] != null
           ? user.departmentIds[0]
           : "",
+      programId:
+        user.role === "supervisor" && user.programIds[0] != null
+          ? user.programIds[0]
+          : "",
       facultyIds: user.role === "ireb" ? [...user.facultyIds] : [],
       irebScopeAll: user.role === "ireb" && user.facultyIds.length === 0,
     });
@@ -455,9 +529,12 @@ export default function UsersPage() {
     });
   };
 
-  const validateSupervisorScope = (facultyId: number | "", departmentId: number | "") => {
+  const validateSupervisorScope = (facultyId: number | "", departmentId: number | "", programId: number | "") => {
     if (typeof facultyId !== "number" || typeof departmentId !== "number") {
       return "Supervisor accounts require a faculty and department.";
+    }
+    if (typeof programId !== "number") {
+      return "Supervisor accounts require a program selection.";
     }
     return null;
   };
@@ -477,7 +554,7 @@ export default function UsersPage() {
     setError(null);
 
     if (createForm.role === "supervisor") {
-      const scopeError = validateSupervisorScope(createForm.facultyId, createForm.departmentId);
+      const scopeError = validateSupervisorScope(createForm.facultyId, createForm.departmentId, createForm.programId);
       if (scopeError) {
         setError(scopeError);
         toast.error(scopeError);
@@ -508,6 +585,10 @@ export default function UsersPage() {
         departmentId:
           createForm.role === "supervisor" && createForm.departmentId !== ""
             ? createForm.departmentId
+            : null,
+        programId:
+          createForm.role === "supervisor" && createForm.programId !== ""
+            ? createForm.programId
             : null,
         ...(createForm.role === "ireb"
           ? irebScopePayload(createForm.irebScopeAll, createForm.facultyIds)
@@ -541,7 +622,7 @@ export default function UsersPage() {
     setError(null);
 
     if (editingUser.role === "supervisor") {
-      const scopeError = validateSupervisorScope(editingUser.facultyId, editingUser.departmentId);
+      const scopeError = validateSupervisorScope(editingUser.facultyId, editingUser.departmentId, editingUser.programId);
       if (scopeError) {
         setError(scopeError);
         toast.error(scopeError);
@@ -571,6 +652,7 @@ export default function UsersPage() {
       if (editingUser.role === "supervisor") {
         payload.facultyId = editingUser.facultyId;
         payload.departmentId = editingUser.departmentId;
+        payload.programId = editingUser.programId;
       }
       if (editingUser.role === "ireb") {
         Object.assign(
@@ -821,16 +903,21 @@ export default function UsersPage() {
               role={createForm.role}
               faculties={faculties}
               departments={departments}
+              programs={programs}
               facultyId={createForm.facultyId}
               departmentId={createForm.departmentId}
+              programId={createForm.programId}
               facultyIds={createForm.facultyIds}
               irebScopeAll={createForm.irebScopeAll}
               idPrefix="create"
               onFacultyIdChange={(facultyId) =>
-                setCreateForm((prev) => ({ ...prev, facultyId, departmentId: "" }))
+                setCreateForm((prev) => ({ ...prev, facultyId, departmentId: "", programId: "" }))
               }
               onDepartmentIdChange={(departmentId) =>
-                setCreateForm((prev) => ({ ...prev, departmentId }))
+                setCreateForm((prev) => ({ ...prev, departmentId, programId: "" }))
+              }
+              onProgramIdChange={(programId) =>
+                setCreateForm((prev) => ({ ...prev, programId }))
               }
               onFacultyIdsChange={(facultyIds) =>
                 setCreateForm((prev) => ({ ...prev, facultyIds }))
@@ -961,18 +1048,23 @@ export default function UsersPage() {
                   role={editingUser.role}
                   faculties={faculties}
                   departments={departments}
+                  programs={programs}
                   facultyId={editingUser.facultyId}
                   departmentId={editingUser.departmentId}
+                  programId={editingUser.programId}
                   facultyIds={editingUser.facultyIds}
                   irebScopeAll={editingUser.irebScopeAll}
                   idPrefix="edit"
                   onFacultyIdChange={(facultyId) =>
                     setEditingUser((prev) =>
-                      prev ? { ...prev, facultyId, departmentId: "" } : prev,
+                      prev ? { ...prev, facultyId, departmentId: "", programId: "" } : prev,
                     )
                   }
                   onDepartmentIdChange={(departmentId) =>
-                    setEditingUser((prev) => (prev ? { ...prev, departmentId } : prev))
+                    setEditingUser((prev) => (prev ? { ...prev, departmentId, programId: "" } : prev))
+                  }
+                  onProgramIdChange={(programId) =>
+                    setEditingUser((prev) => (prev ? { ...prev, programId } : prev))
                   }
                   onFacultyIdsChange={(facultyIds) =>
                     setEditingUser((prev) => (prev ? { ...prev, facultyIds } : prev))

@@ -592,13 +592,7 @@ export function Form3ThesisMedicalForm({
          
      
           {form.preApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection
-              form={form}
-              setForm={setForm}
-              onFieldChange={onFieldChange}
-              projectTitleDefault={form.thesisTitle}
-              conductedByDefault={form.supervisorName}
-            />
+            <InformedConsentDocumentSection />
           )}
         </FormSection>
 

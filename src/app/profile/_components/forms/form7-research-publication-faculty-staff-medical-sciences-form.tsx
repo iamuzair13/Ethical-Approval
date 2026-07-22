@@ -305,17 +305,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           </Required>
 
           {form.publicationPreApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection
-              form={form}
-              setForm={setForm}
-              onFieldChange={onFieldChange}
-              projectTitleDefault={form.publicationTitle}
-              conductedByDefault={
-                form.publicationAuthor1UolName.trim() ||
-                form.publicationAuthor1ExternalName.trim() ||
-                form.scholarName
-              }
-            />
+            <InformedConsentDocumentSection />
           )}
         </FormSection>
 

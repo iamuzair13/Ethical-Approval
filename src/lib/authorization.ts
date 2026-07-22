@@ -63,7 +63,39 @@ export async function canAccessFacultySnapshot(
   return snapshotFacultyIds.some((id) => adminFacultyIds.includes(id));
 }
 
+const SUPERVISOR_VISIBLE_STATUSES = [
+  "submitted",
+  "under_supervisor_review",
+  "supervisor_rejected",
+  "under_ireb_review",
+  "approved",
+  "rejected",
+];
+
+const IREB_VISIBLE_STATUSES = [
+  "under_ireb_review",
+  "approved",
+  "rejected",
+];
+
 export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
+  const roleStatuses =
+    admin.role === "supervisor"
+      ? SUPERVISOR_VISIBLE_STATUSES
+      : admin.role === "ireb"
+        ? IREB_VISIBLE_STATUSES
+        : null;
+
+  const statusFilter =
+    roleStatuses && roleStatuses.length > 0
+      ? `AND s.current_status::text = ANY($1::text[])`
+      : "";
+
+  const params: unknown[] = [];
+  if (roleStatuses && roleStatuses.length > 0) {
+    params.push(roleStatuses);
+  }
+
   const result = await db.query<SubmissionRow>(
     `
       SELECT
@@ -84,9 +116,11 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       LEFT JOIN submission_research_core src ON src.submission_id = s.id
       LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
-      WHERE s.current_status <> 'draft'
+      WHERE s.current_status::text <> 'draft'
+      ${statusFilter}
       ORDER BY s.submitted_at DESC
     `,
+    params,
   );
 
   if (admin.role === "administrator" || admin.scopeMode === "all") {

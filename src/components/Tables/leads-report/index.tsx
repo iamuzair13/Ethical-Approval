@@ -276,7 +276,7 @@ export function LeadsReport({
   currentRole = null,
 }: PropsType) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"all" | "overdue">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "overdue" | "approved" | "pending" | "rejected">("pending");
   const [busyLeadId, setBusyLeadId] = useState<number | null>(null);
   const [actionMenuLeadId, setActionMenuLeadId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -430,7 +430,44 @@ export function LeadsReport({
     setOverdueBannerDismissed(false);
   }, [overdueLeads.length]);
 
-  const visibleLeads = activeTab === "overdue" ? overdueLeads : leads;
+  const approvedLeads = useMemo(
+    () =>
+      currentRole === "supervisor"
+        ? leads.filter((lead) => lead.stage === "ireb" || lead.stage === "completed")
+        : leads.filter((lead) => lead.currentStatus === "Approved by IREB"),
+    [leads, currentRole],
+  );
+
+  const pendingLeads = useMemo(
+    () =>
+      currentRole === "supervisor"
+        ? leads.filter((lead) => lead.stage === "supervisor")
+        : currentRole === "ireb"
+          ? leads.filter((lead) => lead.stage === "ireb")
+          : leads.filter((lead) => lead.stage === "supervisor" || lead.stage === "ireb"),
+    [leads, currentRole],
+  );
+
+  const rejectedLeads = useMemo(
+    () =>
+      currentRole === "supervisor"
+        ? leads.filter((lead) => lead.currentStatus === "Rejected by Supervisor" || lead.currentStatus === "Rejected by IREB")
+        : leads.filter((lead) => lead.currentStatus === "Rejected by IREB"),
+    [leads, currentRole],
+  );
+
+  const showApprovedTab = currentRole !== null;
+
+  const visibleLeads =
+    activeTab === "overdue"
+      ? overdueLeads
+      : activeTab === "approved"
+        ? approvedLeads
+        : activeTab === "pending"
+          ? pendingLeads
+          : activeTab === "rejected"
+            ? rejectedLeads
+            : leads;
   const totalPages = Math.max(1, Math.ceil(visibleLeads.length / pageSize));
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -890,6 +927,10 @@ export function LeadsReport({
           onTabChange={setActiveTab}
           allRequestsCount={leads.length}
           overdueCount={overdueLeads.length}
+          approvedCount={approvedLeads.length}
+          pendingCount={pendingLeads.length}
+          rejectedCount={rejectedLeads.length}
+          showApprovedTab={showApprovedTab}
           overdueBannerDismissed={overdueBannerDismissed}
           onDismissOverdueBanner={() => setOverdueBannerDismissed(true)}
           onRefresh={() => router.refresh()}
@@ -1041,7 +1082,19 @@ export function LeadsReport({
               {visibleLeads.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={9} className="p-0">
-                    <EmptyState message="No approval requests found for this tab." />
+                    <EmptyState
+                      message={
+                        activeTab === "pending"
+                          ? "No Pending Requests"
+                          : activeTab === "approved"
+                            ? "No Approved Requests"
+                            : activeTab === "rejected"
+                              ? "No Rejected Requests"
+                              : activeTab === "overdue"
+                                ? "No Overdue Requests"
+                                : "No approval requests found."
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               )}

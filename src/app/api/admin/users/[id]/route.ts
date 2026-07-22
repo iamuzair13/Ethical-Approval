@@ -23,6 +23,7 @@ type UpdateAdminBody = {
   departmentId?: number | null;
   facultyIds?: number[];
   departmentIds?: number[];
+  programId?: number | null;
 };
 
 export async function PATCH(
@@ -106,6 +107,7 @@ export async function PATCH(
       adminUserId: id,
       facultyId: body.facultyId!,
       departmentId: body.departmentId!,
+      programId: typeof body.programId === "number" ? body.programId : undefined,
       assignedBy: actor.adminId,
     });
   } else if (updated.role === "ireb") {

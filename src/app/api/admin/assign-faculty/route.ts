@@ -14,6 +14,7 @@ type AssignFacultyBody = {
   facultyIds?: number[];
   departmentId?: number;
   departmentIds?: number[];
+  programId?: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       adminUserId: body.adminUserId,
       facultyId: body.facultyId,
       departmentId: body.departmentId,
+      programId: typeof body.programId === "number" ? body.programId : undefined,
       assignedBy: actor.adminId,
     });
     void logActivityFromRequest(request, {

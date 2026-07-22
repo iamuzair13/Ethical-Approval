@@ -9,6 +9,7 @@ export type ScopeMode = "all" | "restricted";
 export type AdminScope = {
   scopeMode: ScopeMode;
   facultyIds: number[];
+  programIds?: number[];
 };
 
 export type AdminAuthClaims = {
@@ -17,6 +18,7 @@ export type AdminAuthClaims = {
   status: AdminStatus;
   scopeMode: ScopeMode;
   facultyIds: number[];
+  programIds?: number[];
   tokenVersion: number;
 };
 

@@ -79,7 +79,7 @@ export function StepHeader({
    Section / SubSection
    ============================================================ */
 
-type FormSectionProps = HTMLAttributes<HTMLDivElement> & {
+type FormSectionProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   title?: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;

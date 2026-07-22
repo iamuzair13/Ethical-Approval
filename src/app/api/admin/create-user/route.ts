@@ -20,6 +20,7 @@ type CreateAdminBody = {
   facultyIds?: number[];
   departmentId?: number | null;
   departmentIds?: number[];
+  programId?: number | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
       adminUserId: created.id,
       facultyId: body.facultyId,
       departmentId: body.departmentId,
+      programId: typeof body.programId === "number" ? body.programId : undefined,
       assignedBy: actor.adminId,
     });
   }
