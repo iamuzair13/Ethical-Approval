@@ -19,6 +19,7 @@ export type Lead = {
   project: string;
   duration: string;
   currentStatus: LeadStatus;
+  supervisorName?: string | null;
   stage: "supervisor" | "ireb" | "completed";
   submittedAt: string;
   supervisorDecisionAt: string | null;

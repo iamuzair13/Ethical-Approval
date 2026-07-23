@@ -20,17 +20,24 @@ export function ApplicationIdBadge({ id }: { id: string }) {
   );
 }
 
-export function StatusBadge({ status }: { status: LeadStatus }) {
+export function StatusBadge({ status, supervisorName }: { status: LeadStatus; supervisorName?: string | null }) {
   const isApproved =
     status === "Approved by Supervisor" || status === "Approved by IREB";
   const isRejected =
     status === "Rejected by Supervisor" || status === "Rejected by IREB";
+  const isSupervisorReview = status === "Under Review by Supervisor";
+
+  const displayText = isSupervisorReview
+    ? supervisorName
+      ? `Under Review by ${supervisorName}`
+      : "Supervisor not Assigned"
+    : status;
 
   if (isApproved) {
     return (
       <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
         <StatusDot className="bg-emerald-600 dark:bg-emerald-400" />
-        {status}
+        {displayText}
       </span>
     );
   }
@@ -39,7 +46,7 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
     return (
       <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
         <StatusDot className="bg-red-600 dark:bg-red-400" />
-        {status}
+        {displayText}
       </span>
     );
   }
@@ -47,7 +54,7 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
       <StatusDot className="bg-amber-600 dark:bg-amber-400" />
-      {status}
+      {displayText}
     </span>
   );
 }

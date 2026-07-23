@@ -6,6 +6,7 @@ import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
 import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
 import { isStudentApplicantEmail } from "@/lib/applicant-email";
+import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { db } from "@/lib/db";
 
 type ProfileSubmissionRow = {
@@ -26,6 +27,7 @@ type ProfileSubmissionRow = {
   objectives: string | null;
   ethics_json: unknown;
   latest_feedback_comment: string | null;
+  faculty: string;
 };
 
 export async function GET() {
@@ -47,6 +49,7 @@ export async function GET() {
         src.title,
         src.objectives,
         sep.ethics_json,
+        sas.faculty,
         afd.latest_feedback_comment
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
@@ -67,9 +70,38 @@ export async function GET() {
     [sapId],
   );
 
+  // Batch-resolve supervisor names by faculty
+  const facultyValues = Array.from(new Set(result.rows.map((r) => r.faculty).filter(Boolean)));
+  const supervisorMap = new Map<string, string | null>();
+  for (const facultyValue of facultyValues) {
+    const facultyIds = await resolveFacultyIdsFromSnapshotValue(facultyValue);
+    if (facultyIds.length === 0) {
+      supervisorMap.set(facultyValue, null);
+      continue;
+    }
+    const supervisorResult = await db.query<{ name: string }>(
+      `
+        SELECT au.name
+        FROM admin_users au
+        INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
+        WHERE au.role = 'supervisor'
+          AND au.status = 'active'
+          AND au.deleted_at IS NULL
+          AND afa.assignment_type = 'supervisor_primary'
+          AND afa.deleted_at IS NULL
+          AND afa.faculty_id = ANY($1::bigint[])
+        ORDER BY au.updated_at DESC
+        LIMIT 1
+      `,
+      [facultyIds],
+    );
+    supervisorMap.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
+  }
+
   const submissions = result.rows.map((row) => ({
     ...row,
     latest_feedback_comment: stripAdminAuditNote(row.latest_feedback_comment),
+    supervisor_name: supervisorMap.get(row.faculty) ?? null,
   }));
 
   return NextResponse.json({ ok: true, submissions });

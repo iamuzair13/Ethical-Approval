@@ -75,15 +75,18 @@ type ProfileSubmissionApiRow = {
   title: string | null;
   objectives: string | null;
   latest_feedback_comment?: string | null;
+  supervisor_name?: string | null;
 };
 
-function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"]): string {
+function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"], supervisorName?: string | null): string {
   switch (status) {
     case "draft":
       return "Draft";
     case "submitted":
     case "under_supervisor_review":
-      return "Under Review by Supervisor";
+      return supervisorName
+        ? `Under Review by ${supervisorName}`
+        : "Supervisor not Assigned";
     case "supervisor_approved":
       return "Approved by Supervisor";
     case "supervisor_rejected":
@@ -95,7 +98,7 @@ function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"]): st
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Under Review by Supervisor";
+      return "Supervisor not Assigned";
   }
 }
 
@@ -107,7 +110,7 @@ function mapSubmissionsToRequests(rows: ProfileSubmissionApiRow[]): RequestItem[
     title: row.title?.trim() || "Untitled submission",
     description: row.objectives?.trim() || "No objectives provided.",
     submittedOn: new Date(row.submitted_at).toLocaleDateString(),
-    currentStage: mapStatusToStage(row.current_status),
+    currentStage: mapStatusToStage(row.current_status, row.supervisor_name),
     isDraft: row.current_status === "draft",
     submissionType: (row.type === "publication" ? "publication" : "thesis") as "thesis" | "publication",
     latestFeedbackComment: row.latest_feedback_comment ?? null,
@@ -518,10 +521,17 @@ export default function ProfileDashboard() {
     if (fromProps !== "pending") {
       return fromProps;
     }
-    const currentIndex = effectiveStages.indexOf(current);
+    // Map dynamic supervisor review status to the static stage label for comparison
+    const normalizedCurrent =
+      current.startsWith("Under Review by") && !current.includes("IREB")
+        ? "Under Review by Supervisor"
+        : current === "Supervisor not Assigned"
+          ? "Under Review by Supervisor"
+          : current;
+    const currentIndex = effectiveStages.indexOf(normalizedCurrent);
     const stageIndex = effectiveStages.indexOf(stage);
     if (currentIndex === -1 || stageIndex === -1) {
-      return stage === current ? "active" : "pending";
+      return stage === current || stage === normalizedCurrent ? "active" : "pending";
     }
     if (stageIndex < currentIndex) return "done";
     if (stageIndex === currentIndex) return "active";
@@ -530,7 +540,7 @@ export default function ProfileDashboard() {
   const computedRequestStats = localRequests.reduce(
     (acc, request) => {
       const stage = request.currentStage;
-      if (stage === "Under Review by Supervisor") acc.inSupervisor += 1;
+      if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inSupervisor += 1;
       else if (stage === "Under Review by IREB") acc.inEthical += 1;
       else if (stage.includes("Approved") || stage.includes("Rejected")) acc.completed += 1;
       return acc;

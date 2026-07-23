@@ -183,18 +183,6 @@ export function TableToolbar({
         <button
           type="button"
           className={cn(
-            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500/30 active:scale-[0.98]",
-            activeTab === "pending"
-              ? "bg-amber-500 text-white shadow-sm"
-              : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50",
-          )}
-          onClick={() => onTabChange("pending")}
-        >
-          Pending Requests ({pendingCount ?? 0})
-        </button>
-        <button
-          type="button"
-          className={cn(
             "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98]",
             activeTab === "all"
               ? "bg-blue-600 text-white shadow-sm"
@@ -207,14 +195,14 @@ export function TableToolbar({
         <button
           type="button"
           className={cn(
-            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]",
-            activeTab === "overdue"
-              ? "bg-red-600 text-white shadow-sm"
-              : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50",
+            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500/30 active:scale-[0.98]",
+            activeTab === "pending"
+              ? "bg-amber-500 text-white shadow-sm"
+              : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50",
           )}
-          onClick={() => onTabChange("overdue")}
+          onClick={() => onTabChange("pending")}
         >
-          Over Due Approval ({overdueCount})
+          Pending Requests ({pendingCount ?? 0})
         </button>
         {showApprovedTab && (
           <button
@@ -230,6 +218,20 @@ export function TableToolbar({
             Approved Requests ({approvedCount ?? 0})
           </button>
         )}
+        
+        <button
+          type="button"
+          className={cn(
+            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]",
+            activeTab === "overdue"
+              ? "bg-red-600 text-white shadow-sm"
+              : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50",
+          )}
+          onClick={() => onTabChange("overdue")}
+        >
+          Over Due Approval ({overdueCount})
+        </button>
+        
         {showApprovedTab && (
           <button
             type="button"

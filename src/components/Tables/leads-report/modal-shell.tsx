@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 type ModalShellProps = {
   open: boolean;
@@ -49,10 +49,33 @@ export function ModalShell({
 }: ModalShellProps) {
   if (!open) return null;
 
+  return <ModalShellInner {...{ open, onClose, title, titleId, description, children, footer, maxWidth, zIndex, accentBorder, className }} />;
+}
+
+function ModalShellInner({
+  onClose,
+  title,
+  titleId,
+  description,
+  children,
+  footer,
+  maxWidth = "lg",
+  zIndex = "default",
+  accentBorder = "none",
+  className,
+}: Omit<ModalShellProps, "open">) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       className={cn(
-        "fixed inset-0 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm",
+        "fixed inset-0 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-6 backdrop-blur-sm",
         zIndexClasses[zIndex],
       )}
       onClick={(e) => {
@@ -61,7 +84,7 @@ export function ModalShell({
     >
       <div
         className={cn(
-          "flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800",
+          "my-auto flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800",
           maxWidthClasses[maxWidth],
           accentBorder === "approve" && "border-l-4 border-l-emerald-500",
           accentBorder === "reject" && "border-l-4 border-l-red-500",

@@ -26,7 +26,15 @@ function normalizeLeadAvatarSrc(raw: string | null | undefined): string | null {
   return v;
 }
 
-export function LeadTableAvatar({ name, avatar }: { name: string; avatar: string | null }) {
+export function LeadTableAvatar({
+  name,
+  avatar,
+  onView,
+}: {
+  name: string;
+  avatar: string | null;
+  onView?: () => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const src = normalizeLeadAvatarSrc(avatar);
 
@@ -37,7 +45,32 @@ export function LeadTableAvatar({ name, avatar }: { name: string; avatar: string
   const showImage = Boolean(src && !imageFailed);
 
   return (
-    <figure className="flex items-center gap-3">
+    <figure className="flex items-center gap-2">
+      {onView && (
+        <button
+          type="button"
+          onClick={onView}
+          aria-label={`View profile for ${name}`}
+          title="View applicant profile"
+          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={18}
+            height={18}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      )}
       {showImage ? (
         <Image
           src={src!}

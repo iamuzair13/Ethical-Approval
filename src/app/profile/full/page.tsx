@@ -51,19 +51,23 @@ type ProfileSubmissionApiRow = {
   submitted_at: string;
   title: string | null;
   objectives: string | null;
+  supervisor_name?: string | null;
 };
 
 /* ──────────────────────────── Utilities ──────────────────────────── */
 
 function mapStatusToStage(
-  status: ProfileSubmissionApiRow["current_status"]
+  status: ProfileSubmissionApiRow["current_status"],
+  supervisorName?: string | null,
 ): string {
   switch (status) {
     case "draft":
       return "Draft";
     case "submitted":
     case "under_supervisor_review":
-      return "Under Review by Supervisor";
+      return supervisorName
+        ? `Under Review by ${supervisorName}`
+        : "Supervisor not Assigned";
     case "supervisor_approved":
       return "Approved by Supervisor";
     case "supervisor_rejected":
@@ -75,7 +79,7 @@ function mapStatusToStage(
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Under Review by Supervisor";
+      return "Supervisor not Assigned";
   }
 }
 
@@ -597,7 +601,7 @@ export default function FullProfilePage() {
           title: row.title?.trim() || "Untitled submission",
           description: row.objectives?.trim() || "No objectives provided.",
           submittedOn: new Date(row.submitted_at).toLocaleDateString(),
-          currentStage: mapStatusToStage(row.current_status),
+          currentStage: mapStatusToStage(row.current_status, row.supervisor_name),
           isDraft: row.current_status === "draft",
         }));
 
@@ -626,7 +630,7 @@ export default function FullProfilePage() {
       requests.reduce(
         (acc, request) => {
           const stage = request.currentStage;
-          if (stage === "Under Review by Supervisor") acc.inSupervisor += 1;
+          if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inSupervisor += 1;
           else if (stage === "Under Review by IREB") acc.inEthical += 1;
           else if (stage.includes("Approved") || stage.includes("Rejected"))
             acc.completed += 1;

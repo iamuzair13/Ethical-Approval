@@ -39,6 +39,7 @@ import {
   AdminReportPreview,
   AdminReportsPicker,
 } from "./modals/admin-reports-modal";
+import { ApplicantProfileModal } from "./modals/applicant-profile-modal";
 import { AttachmentModal } from "./modals/attachment-modal";
 import { AttachmentViewModal } from "./modals/attachment-view-modal";
 import { DecisionModal } from "./modals/decision-modal";
@@ -307,6 +308,7 @@ export function LeadsReport({
   } | null>(null);
   const [feedbackModalLead, setFeedbackModalLead] = useState<Lead | null>(null);
   const [actionTraceModalLead, setActionTraceModalLead] = useState<Lead | null>(null);
+  const [profileModalLead, setProfileModalLead] = useState<Lead | null>(null);
   const [adminReports, setAdminReports] = useState<
     | null
     | { phase: "pick"; lead: Lead }
@@ -616,6 +618,10 @@ export function LeadsReport({
   };
   const closeActionTraceModal = () => {
     setActionTraceModalLead(null);
+  };
+
+  const closeProfileModal = () => {
+    setProfileModalLead(null);
   };
 
   const closeAdminReports = () => {
@@ -1001,10 +1007,38 @@ export function LeadsReport({
                     )}
                   >
                     <TableCell className="whitespace-nowrap">
-                      <ApplicationIdBadge id={lead.applicationId} />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProfileModalLead(lead)}
+                          aria-label={`View profile for ${lead.name}`}
+                          title="View applicant profile"
+                          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width={16}
+                            height={16}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                        <ApplicationIdBadge id={lead.applicationId} />
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <LeadTableAvatar name={lead.name} avatar={lead.avatar} />
+                      <LeadTableAvatar
+                        name={lead.name}
+                        avatar={lead.avatar}
+                      />
                     </TableCell>
                     <TableCell>
                       <a
@@ -1015,7 +1049,7 @@ export function LeadsReport({
                       </a>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={lead.currentStatus} />
+                      <StatusBadge status={lead.currentStatus} supervisorName={lead.supervisorName} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <ApplicationTypeBadge type={lead.applicationType} />
@@ -1200,6 +1234,10 @@ export function LeadsReport({
 
       {actionTraceModalLead && (
         <ActionTraceModal lead={actionTraceModalLead} onClose={closeActionTraceModal} />
+      )}
+
+      {profileModalLead && (
+        <ApplicantProfileModal lead={profileModalLead} onClose={closeProfileModal} />
       )}
 
       {portalMounted && adminReports?.phase === "pick" && (

@@ -4,8 +4,10 @@ import { ViewDocumentsButton } from "@/app/admin/submissions/[id]/profile/_compo
 import { authOptions } from "@/lib/auth-options";
 import { normalizeFacultyIds, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
+import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { listSubmissionDocuments } from "@/lib/list-submission-documents";
 import { getSubmissionDetailById } from "@/lib/submission-details";
+import { db } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
@@ -37,11 +39,14 @@ function formatSubmissionStatus(
     | "under_ireb_review"
     | "approved"
     | "rejected",
+  supervisorName?: string | null,
 ): string {
   switch (status) {
     case "submitted":
     case "under_supervisor_review":
-      return "Under Review by Supervisor";
+      return supervisorName
+        ? `Under Review by ${supervisorName}`
+        : "Supervisor not Assigned";
     case "supervisor_approved":
     case "under_ireb_review":
       return "Under Review by IREB";
@@ -160,7 +165,31 @@ export default async function AdminSubmissionProfilePage({
   const applicationType = formatSubmissionApplicationType(submission.type);
   const researchTitle =
     submission.title?.trim() || formStr(formData, "thesisTitle") || "—";
-  const statusLabel = formatSubmissionStatus(submission.current_status);
+
+  // Resolve supervisor name for the submission's faculty
+  let supervisorName: string | null = null;
+  const facultyIds = await resolveFacultyIdsFromSnapshotValue(submission.applicant_faculty);
+  if (facultyIds.length > 0) {
+    const supervisorResult = await db.query<{ name: string }>(
+      `
+        SELECT au.name
+        FROM admin_users au
+        INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
+        WHERE au.role = 'supervisor'
+          AND au.status = 'active'
+          AND au.deleted_at IS NULL
+          AND afa.assignment_type = 'supervisor_primary'
+          AND afa.deleted_at IS NULL
+          AND afa.faculty_id = ANY($1::bigint[])
+        ORDER BY au.updated_at DESC
+        LIMIT 1
+      `,
+      [facultyIds],
+    );
+    supervisorName = supervisorResult.rows[0]?.name ?? null;
+  }
+
+  const statusLabel = formatSubmissionStatus(submission.current_status, supervisorName);
   const documents = listSubmissionDocuments(submissionId, ethics);
 
   return (

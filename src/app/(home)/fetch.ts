@@ -2,6 +2,7 @@ import type { Session } from "next-auth";
 import { db } from "@/lib/db";
 import { adminFromSession, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { getScopedSubmissions } from "@/lib/authorization";
+import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { getStagePendingDays } from "@/lib/lead-overdue";
 import { isStudentApplicantEmail } from "@/lib/applicant-email";
 
@@ -58,6 +59,7 @@ export type DashboardLead = {
   project: string;
   duration: string;
   currentStatus: LeadStatus;
+  supervisorName: string | null;
   stage: "supervisor" | "ireb" | "completed";
   submittedAt: string;
   supervisorDecisionAt: string | null;
@@ -95,6 +97,7 @@ type SubmissionScopeRow = {
   applicant_avatar_url: string | null;
   submission_type: "thesis" | "publication";
   research_title: string | null;
+  supervisor_name: string | null;
 };
 
 /** Same rules as profile API: strip `?...` from local avatar paths for next/image. */
@@ -291,6 +294,39 @@ function toAdminScope(session: Session): AuthenticatedAdmin | null {
   return adminFromSession(session);
 }
 
+async function batchResolveSupervisorNames(
+  facultyValues: string[],
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  const uniqueValues = Array.from(new Set(facultyValues.filter(Boolean)));
+
+  for (const facultyValue of uniqueValues) {
+    const facultyIds = await resolveFacultyIdsFromSnapshotValue(facultyValue);
+    if (facultyIds.length === 0) {
+      result.set(facultyValue, null);
+      continue;
+    }
+    const supervisorResult = await db.query<{ name: string }>(
+      `
+        SELECT au.name
+        FROM admin_users au
+        INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
+        WHERE au.role = 'supervisor'
+          AND au.status = 'active'
+          AND au.deleted_at IS NULL
+          AND afa.assignment_type = 'supervisor_primary'
+          AND afa.deleted_at IS NULL
+          AND afa.faculty_id = ANY($1::bigint[])
+        ORDER BY au.updated_at DESC
+        LIMIT 1
+      `,
+      [facultyIds],
+    );
+    result.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
+  }
+  return result;
+}
+
 async function getScopedSubmissionRows(session?: Session): Promise<SubmissionScopeRow[]> {
   if (!session) {
     const result = await db.query<SubmissionScopeRow>(
@@ -357,7 +393,11 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
         ORDER BY s.submitted_at DESC
       `,
     );
-    return result.rows;
+    const supervisorMap = await batchResolveSupervisorNames(result.rows.map((r) => r.faculty));
+    return result.rows.map((row) => ({
+      ...row,
+      supervisor_name: supervisorMap.get(row.faculty) ?? null,
+    }));
   }
 
   const admin = toAdminScope(session);
@@ -366,6 +406,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
     const feedbackMap = await getLatestFeedbackBySubmissionIds(rows.map((row) => row.id));
     const decisionMap = await getLatestDecisionBySubmissionIds(rows.map((row) => row.id));
     const supervisorDecisionMap = await getSupervisorDecisionAtBySubmissionIds(rows.map((row) => row.id));
+    const supervisorMap = await batchResolveSupervisorNames(rows.map((row) => row.faculty));
     return rows.map((row) => ({
       id: row.id,
       application_id: row.application_id,
@@ -385,6 +426,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       latest_decision_stage: decisionMap.get(row.id)?.latestDecisionStage ?? null,
       latest_decided_by_name: decisionMap.get(row.id)?.latestDecidedByName ?? null,
       applicant_avatar_url: row.applicant_avatar_url ?? null,
+      supervisor_name: supervisorMap.get(row.faculty) ?? null,
     }));
   }
 
@@ -454,7 +496,11 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       `,
       [session.user.sapId],
     );
-    return ownRows.rows;
+    const studentSupervisorMap = await batchResolveSupervisorNames(ownRows.rows.map((r) => r.faculty));
+    return ownRows.rows.map((row) => ({
+      ...row,
+      supervisor_name: studentSupervisorMap.get(row.faculty) ?? null,
+    }));
   }
 
   return [];
@@ -831,6 +877,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       project,
       duration: `${days} days`,
       currentStatus,
+      supervisorName: row.supervisor_name,
       stage,
       submittedAt,
       supervisorDecisionAt,
