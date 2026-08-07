@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:migrate:008": "node scripts/run-sql-migration.mjs migrations/008_activity_events.sql",
     "db:migrate:009": "node scripts/run-sql-migration.mjs migrations/009_backfill_activity_from_approval_decisions.sql",
-    "db:migrate:010": "node scripts/run-sql-migration.mjs migrations/010_activity_notification_reads.sql"
+    "db:migrate:010": "node scripts/run-sql-migration.mjs migrations/010_activity_notification_reads.sql",
+    "db:migrate:014": "node scripts/run-sql-migration.mjs migrations/014_faculty_member_roles_and_participant_schema.sql"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

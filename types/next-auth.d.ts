@@ -7,9 +7,11 @@ declare module "next-auth" {
     sapId?: string;
     studentRecord?: Record<string, unknown>;
     facultyMemberId?: string;
+    userType?: "student" | "faculty";
     applicantRole?: "student" | "faculty";
     facultyDepartment?: string;
     facultyDesignation?: string | null;
+    facultyMemberRoles?: string[];
     adminId?: string;
     adminRole?: "administrator" | "supervisor" | "ireb";
     adminStatus?: "active" | "inactive";
@@ -24,9 +26,11 @@ declare module "next-auth" {
       sapId?: string;
       studentRecord?: Record<string, unknown>;
       facultyMemberId?: string;
+      userType?: "student" | "faculty";
       applicantRole?: "student" | "faculty";
       facultyDepartment?: string;
       facultyDesignation?: string | null;
+      facultyMemberRoles?: string[];
       adminId?: string;
       adminRole?: "administrator" | "supervisor" | "ireb";
       adminStatus?: "active" | "inactive";
@@ -45,9 +49,11 @@ declare module "next-auth/jwt" {
     sapId?: string;
     studentRecord?: Record<string, unknown>;
     facultyMemberId?: string;
+    userType?: "student" | "faculty";
     applicantRole?: "student" | "faculty";
     facultyDepartment?: string;
     facultyDesignation?: string | null;
+    facultyMemberRoles?: string[];
     adminId?: string;
     adminRole?: "administrator" | "supervisor" | "ireb";
     adminStatus?: "active" | "inactive";

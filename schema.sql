@@ -29,7 +29,7 @@ CREATE TYPE participant_role AS ENUM (
   'external_researcher'
 );
 
-CREATE TYPE participant_source AS ENUM ('internal_erp', 'external');
+CREATE TYPE participant_source AS ENUM ('internal_erp', 'internal_faculty', 'external');
 
 -- =========================
 -- CORE SUBMISSION
@@ -124,6 +124,9 @@ CREATE TABLE submission_participants (
   internal_faculty VARCHAR(255),
   internal_department VARCHAR(255),
 
+  -- Internal faculty member (canonical, future supervisor/co-supervisor linkage)
+  faculty_member_id UUID REFERENCES faculty_members(id) ON DELETE SET NULL,
+
   -- External person fields
   external_name VARCHAR(255),
   external_email VARCHAR(255),
@@ -135,7 +138,9 @@ CREATE TABLE submission_participants (
   CHECK (
     (source = 'internal_erp' AND sap_id IS NOT NULL AND external_name IS NULL)
     OR
-    (source = 'external' AND external_name IS NOT NULL AND sap_id IS NULL)
+    (source = 'internal_faculty' AND faculty_member_id IS NOT NULL AND external_name IS NULL)
+    OR
+    (source = 'external' AND external_name IS NOT NULL AND sap_id IS NULL AND faculty_member_id IS NULL)
   )
 );
 
@@ -258,6 +263,10 @@ CREATE UNIQUE INDEX uq_submission_internal_participant_role
 ON submission_participants(submission_id, participant_role, sap_id)
 WHERE source = 'internal_erp';
 
+CREATE INDEX IF NOT EXISTS idx_submission_participants_faculty_member
+  ON submission_participants(faculty_member_id)
+  WHERE faculty_member_id IS NOT NULL;
+
 
 
 -- Faculty members master + Google SSO linkage
@@ -275,13 +284,18 @@ $$;
 CREATE TABLE IF NOT EXISTS faculty_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sap_id VARCHAR(50) NOT NULL UNIQUE,
+  employee_id VARCHAR(50),
   name VARCHAR(255) NOT NULL,
-  department VARCHAR(255) NOT NULL,
-  designation VARCHAR(255),
   email VARCHAR(255) NOT NULL,
+  faculty VARCHAR(255),
+  department VARCHAR(255) NOT NULL,
+  program VARCHAR(255),
+  designation VARCHAR(255),
+  employee_type VARCHAR(100),
   status faculty_member_status NOT NULL DEFAULT 'active',
   is_google_sso_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at TIMESTAMPTZ,
+  last_synced_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
@@ -298,6 +312,27 @@ CREATE INDEX IF NOT EXISTS idx_faculty_members_department
 
 CREATE INDEX IF NOT EXISTS idx_faculty_members_status
   ON faculty_members(status)
+  WHERE deleted_at IS NULL;
+
+-- Faculty member role assignments (e.g., supervisor). Extensible for future roles and scopes.
+CREATE TABLE IF NOT EXISTS faculty_member_roles (
+  id BIGSERIAL PRIMARY KEY,
+  faculty_member_id UUID NOT NULL REFERENCES faculty_members(id) ON DELETE CASCADE,
+  role VARCHAR(30) NOT NULL CHECK (role IN ('supervisor')),
+  assigned_by UUID REFERENCES admin_users(id),
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_member_roles_member
+  ON faculty_member_roles(faculty_member_id)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_faculty_member_roles_status
+  ON faculty_member_roles(status)
   WHERE deleted_at IS NULL;
 
 -- External auth identities for faculty login (Google SSO first).

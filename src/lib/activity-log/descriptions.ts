@@ -17,6 +17,7 @@ function actionLabel(actionCode: string): string {
     "admin.faculty.create": "Create Faculty",
     "admin.faculty.update": "Update Faculty",
     "admin.faculty.delete": "Delete Faculty",
+    "admin.faculty.sync": "Sync Faculty from SAP",
     "admin.faculty.assign_supervisor": "Assign Supervisor",
     "admin.faculty.assign_ireb": "Assign IREB Member",
     "admin.faculty.remove_ireb": "Remove IREB Assignment",

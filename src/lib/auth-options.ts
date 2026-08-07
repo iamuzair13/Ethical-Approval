@@ -3,6 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { verifyEmployeeByEmail } from "@/lib/sap-employee";
 import { verifyStudentByEmail } from "@/lib/sap-student";
+import {
+  getFacultyMemberWithRoles,
+  upsertFacultyMemberFromSap,
+} from "@/lib/faculty-members";
 import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
 import { verifyPassword } from "@/lib/password";
 import {
@@ -40,14 +44,31 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Ensure the faculty member exists in our internal database before
+          // issuing a session. This makes faculty members first-class system
+          // entities and prepares for future supervisor role assignments.
+          const faculty = await upsertFacultyMemberFromSap({
+            sapId: empResult.sapId,
+            name: empResult.employeeName ?? empResult.email,
+            email: empResult.email,
+            department: empResult.department ?? "Unknown Department",
+            designation: empResult.designation,
+            employeeType: null,
+          });
+
+          const facultyWithRoles = await getFacultyMemberWithRoles(faculty.id);
+
           return {
             id: empResult.sapId,
-            email: empResult.email,
-            name: empResult.employeeName ?? empResult.email,
+            email: faculty.email,
+            name: faculty.name,
             sapId: empResult.sapId,
-            facultyDepartment: empResult.department ?? undefined,
-            facultyDesignation: empResult.designation,
-            applicantRole: "faculty",
+            facultyMemberId: faculty.id,
+            userType: "faculty" as const,
+            applicantRole: "faculty" as const,
+            facultyDepartment: faculty.department ?? undefined,
+            facultyDesignation: faculty.designation ?? undefined,
+            facultyMemberRoles: facultyWithRoles?.roles.map((r) => r.role) ?? [],
           };
         }
 
@@ -62,7 +83,8 @@ export const authOptions: NextAuthOptions = {
           name: result.studentName ?? result.email,
           sapId: result.sapId,
           studentRecord: result.studentRecord,
-          applicantRole: "student",
+          userType: "student" as const,
+          applicantRole: "student" as const,
         };
       },
     }),
@@ -133,9 +155,11 @@ export const authOptions: NextAuthOptions = {
         token.adminFacultyIds = user.adminFacultyIds;
         token.adminTokenVersion = user.adminTokenVersion;
         token.facultyMemberId = user.facultyMemberId;
+        token.userType = user.userType;
         token.applicantRole = user.applicantRole;
         token.facultyDepartment = (user as { facultyDepartment?: string }).facultyDepartment;
         token.facultyDesignation = (user as { facultyDesignation?: string | null }).facultyDesignation;
+        token.facultyMemberRoles = user.facultyMemberRoles;
         token.name = user.name;
         token.email = user.email;
 
@@ -183,6 +207,7 @@ export const authOptions: NextAuthOptions = {
         session.user.adminScopeMode = token.adminScopeMode;
         session.user.adminFacultyIds = token.adminFacultyIds;
         session.user.facultyMemberId = token.facultyMemberId;
+        session.user.userType = token.userType;
         session.user.applicantRole = token.applicantRole;
         session.user.actingAdminId = token.actingAdminId;
         session.user.actingAdminRole = token.actingAdminRole;
@@ -191,6 +216,8 @@ export const authOptions: NextAuthOptions = {
         (session.user as { facultyDepartment?: string }).facultyDepartment = token.facultyDepartment;
         (session.user as { facultyDesignation?: string | null }).facultyDesignation =
           token.facultyDesignation;
+        (session.user as { facultyMemberRoles?: string[] }).facultyMemberRoles =
+          Array.isArray(token.facultyMemberRoles) ? token.facultyMemberRoles : undefined;
 
         if (typeof token.name === "string") {
           session.user.name = token.name;

@@ -184,6 +184,110 @@ async function fetchEmployeeByKey(
   }
 }
 
+export type SapEmployeeRecord = {
+  sapId: string;
+  employeeId: string | null;
+  email: string | null;
+  employeeName: string | null;
+  department: string | null;
+  designation: string | null;
+  employeeRecord: Record<string, unknown>;
+};
+
+export type SapEmployeeListSuccess = {
+  ok: true;
+  employees: SapEmployeeRecord[];
+};
+
+export type SapEmployeeListFailure = {
+  ok: false;
+  errorCode: SapEmployeeVerifyErrorCode;
+};
+
+export type SapEmployeeListResult = SapEmployeeListSuccess | SapEmployeeListFailure;
+
+function normalizeSapEmployeeRecord(
+  d: Record<string, unknown>,
+): SapEmployeeRecord | null {
+  const sapId = extractSapId(d);
+  if (!sapId) return null;
+
+  const record = d as Record<string, unknown> & { __metadata?: unknown };
+  const { __metadata: _omit, ...rest } = record;
+
+  return {
+    sapId,
+    employeeId: getStringField(rest, ["EmployeeId", "EmpId", "PersonnelNumber"]),
+    email: getStringField(rest, ["Email", "EmailId", "E-mail", "email"]),
+    employeeName: extractEmployeeName(rest),
+    department: getStringField(rest, ["Department", "DeptName", "Dept"]),
+    designation: getStringField(rest, ["Designation", "Position", "JobTitle"]),
+    employeeRecord: rest,
+  };
+}
+
+/**
+ * Fetches all employee records from SAP empinfoSet as a single collection.
+ * SAP may paginate; this implementation returns the first page it receives.
+ */
+export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
+  const authHeader = buildSapEmpAuthHeader();
+  if (!authHeader) {
+    return { ok: false, errorCode: "SAP_ERROR" };
+  }
+
+  const url = `${SAP_EMP_BASE}?$format=json`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        Authorization: authHeader,
+      },
+      signal: controller.signal,
+    });
+
+    const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
+    if (!contentType.includes("application/json")) {
+      return { ok: false, errorCode: "SAP_ERROR" };
+    }
+
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      return { ok: false, errorCode: "SAP_ERROR" };
+    }
+
+    if (!res.ok) {
+      return { ok: false, errorCode: "SAP_ERROR" };
+    }
+
+    const body = json as { d?: { results?: unknown[] } };
+    const results = body.d?.results;
+    if (!Array.isArray(results)) {
+      return { ok: false, errorCode: "SAP_ERROR" };
+    }
+
+    const employees: SapEmployeeRecord[] = [];
+    for (const item of results) {
+      if (typeof item !== "object" || item == null) continue;
+      const d = item as Record<string, unknown>;
+      const record = normalizeSapEmployeeRecord(d);
+      if (record) employees.push(record);
+    }
+
+    return { ok: true, employees };
+  } catch {
+    return { ok: false, errorCode: "SAP_ERROR" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Validates faculty/staff against SAP using full email as empinfoSet key.
  * Tries uppercase key first, then lowercase fallback.

@@ -23,6 +23,7 @@ export type ActivityActionCode =
   | "admin.faculty.create"
   | "admin.faculty.update"
   | "admin.faculty.delete"
+  | "admin.faculty.sync"
   | "admin.faculty.assign_supervisor"
   | "admin.faculty.assign_ireb"
   | "admin.faculty.remove_ireb"
