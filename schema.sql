@@ -283,8 +283,10 @@ $$;
 
 CREATE TABLE IF NOT EXISTS faculty_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
   sap_id VARCHAR(50) NOT NULL UNIQUE,
   employee_id VARCHAR(50),
+  employee_code VARCHAR(50),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
   faculty VARCHAR(255),
@@ -292,7 +294,12 @@ CREATE TABLE IF NOT EXISTS faculty_members (
   program VARCHAR(255),
   designation VARCHAR(255),
   employee_type VARCHAR(100),
+  employee_status VARCHAR(50),
+  faculty_id BIGINT REFERENCES faculties(id) ON DELETE SET NULL,
+  department_id BIGINT REFERENCES departments(id) ON DELETE SET NULL,
+  program_id BIGINT REFERENCES programs(id) ON DELETE SET NULL,
   status faculty_member_status NOT NULL DEFAULT 'active',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   is_google_sso_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at TIMESTAMPTZ,
   last_synced_at TIMESTAMPTZ,
@@ -314,26 +321,67 @@ CREATE INDEX IF NOT EXISTS idx_faculty_members_status
   ON faculty_members(status)
   WHERE deleted_at IS NULL;
 
--- Faculty member role assignments (e.g., supervisor). Extensible for future roles and scopes.
-CREATE TABLE IF NOT EXISTS faculty_member_roles (
+CREATE INDEX IF NOT EXISTS idx_faculty_members_faculty_id
+  ON faculty_members(faculty_id)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_faculty_members_department_id
+  ON faculty_members(department_id)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_faculty_members_is_active
+  ON faculty_members(is_active)
+  WHERE deleted_at IS NULL;
+
+-- One faculty profile per user (users without faculty profile have no row here).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_faculty_members_user_id
+  ON faculty_members(user_id)
+  WHERE deleted_at IS NULL AND user_id IS NOT NULL;
+
+-- Configurable designation allow/deny list for SAP faculty filtering.
+CREATE TABLE IF NOT EXISTS faculty_designation_rules (
   id BIGSERIAL PRIMARY KEY,
-  faculty_member_id UUID NOT NULL REFERENCES faculty_members(id) ON DELETE CASCADE,
-  role VARCHAR(30) NOT NULL CHECK (role IN ('supervisor')),
-  assigned_by UUID REFERENCES admin_users(id),
-  assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  designation VARCHAR(255) NOT NULL,
+  is_allowed BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
+  UNIQUE (designation)
 );
 
-CREATE INDEX IF NOT EXISTS idx_faculty_member_roles_member
-  ON faculty_member_roles(faculty_member_id)
-  WHERE deleted_at IS NULL;
+-- Tracks each SAP faculty sync run.
+CREATE TABLE IF NOT EXISTS faculty_sync_history (
+  id BIGSERIAL PRIMARY KEY,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  total_records INTEGER NOT NULL DEFAULT 0,
+  inserted_count INTEGER NOT NULL DEFAULT 0,
+  updated_count INTEGER NOT NULL DEFAULT 0,
+  skipped_count INTEGER NOT NULL DEFAULT 0,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed'))
+);
 
-CREATE INDEX IF NOT EXISTS idx_faculty_member_roles_status
-  ON faculty_member_roles(status)
-  WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_faculty_sync_history_started_at
+  ON faculty_sync_history(started_at DESC);
+
+-- Per-record error/skip logging for SAP faculty sync.
+CREATE TABLE IF NOT EXISTS faculty_sync_errors (
+  id BIGSERIAL PRIMARY KEY,
+  sync_history_id BIGINT REFERENCES faculty_sync_history(id) ON DELETE CASCADE,
+  sap_id VARCHAR(50),
+  reason VARCHAR(255) NOT NULL,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_sync_errors_sync_history
+  ON faculty_sync_errors(sync_history_id);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_sync_errors_reason
+  ON faculty_sync_errors(reason);
+
+-- NOTE: faculty_member_roles table has been removed in migration 018.
+-- Roles now come from admin_users.role (single source of truth for RBAC).
 
 -- External auth identities for faculty login (Google SSO first).
 CREATE TABLE IF NOT EXISTS faculty_auth_accounts (

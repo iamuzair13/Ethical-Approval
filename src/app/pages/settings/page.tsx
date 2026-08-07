@@ -14,7 +14,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import BreadcrumbBase from "@/components/Breadcrumbs/Breadcrumb";
 import {
   MagneticButton,
   SpotlightCard,
@@ -415,7 +414,6 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <BreadcrumbBase pageName="Settings" />
         </motion.div>
 
         <motion.div

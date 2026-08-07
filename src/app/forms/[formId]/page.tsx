@@ -1,5 +1,4 @@
 import { authOptions } from "@/lib/auth-options";
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import { getAdminFormById } from "@/app/profile/_components/forms/form-registry";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
@@ -17,7 +16,7 @@ export async function generateMetadata({ params }: FormPreviewPageProps) {
 
 export default async function FormPreviewPage({ params }: FormPreviewPageProps) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.adminRole !== "administrator") {
+  if (session?.user?.adminRole !== "administrator" && session?.user?.adminRole !== "ireb") {
     redirect("/auth/sign-in?callbackUrl=/forms");
   }
 
@@ -29,7 +28,6 @@ export default async function FormPreviewPage({ params }: FormPreviewPageProps) 
 
   return (
     <>
-      <Breadcrumb pageName={requiredForm.label} />
       <EthicsFormPreview requiredForm={requiredForm} />
     </>
   );

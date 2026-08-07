@@ -45,8 +45,9 @@ export function isViewAsActive(token: JWT | null): boolean {
 
 export async function buildViewAsTokenFields(
   target: AdminUserRecord,
-): Promise<Partial<JWT>> {
+): Promise<Partial<JWT> | null> {
   const claims = await buildAdminClaims(target);
+  if (!claims) return null;
   return {
     adminId: claims.adminId,
     adminRole: claims.role,
@@ -70,6 +71,7 @@ export async function buildAdministratorRestoreTokenFields(
     return null;
   }
   const claims = await buildAdminClaims(admin);
+  if (!claims) return null;
   return {
     adminId: claims.adminId,
     adminRole: claims.role,

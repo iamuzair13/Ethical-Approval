@@ -1,4 +1,3 @@
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import { InvoiceTable } from "@/components/Tables/invoice-table";
 import { TopChannels } from "@/components/Tables/top-channels";
 import { TopChannelsSkeleton } from "@/components/Tables/top-channels/skeleton";
@@ -15,7 +14,6 @@ export const metadata: Metadata = {
 const TablesPage = () => {
   return (
     <>
-      <Breadcrumb pageName="Tables" />
 
       <div className="space-y-10">
         <Suspense fallback={<TopChannelsSkeleton />}>

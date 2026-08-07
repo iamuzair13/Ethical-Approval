@@ -1,4 +1,4 @@
-export type AdminRole = "administrator" | "supervisor" | "ireb";
+export type AdminRole = "administrator" | "supervisor" | "ireb" | "faculty";
 
 export type ImpersonationMode = "view_as" | "on_behalf";
 

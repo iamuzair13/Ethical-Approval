@@ -201,3 +201,44 @@ export function getAdminFormById(formId: string): RequiredForm | null {
   };
 }
 
+// ─── Faculty form catalog ───
+// Data-driven list of forms available to faculty members in the
+// "My Applications" module. Add new entries here to expose additional
+// faculty-specific forms without changing the UI.
+
+export type FacultyFormCatalogEntry = {
+  id: ApprovalFormId;
+  navTitle: string;
+  label: string;
+  applicationType: ApplicationType;
+  audience: "medical" | "non-medical";
+};
+
+export const FACULTY_FORM_CATALOG: FacultyFormCatalogEntry[] = [
+  {
+    id: "form6-publication-faculty-non-medical",
+    navTitle: "Faculty Publication Form (Non-Medical)",
+    label: "Form 6 Research Publication Faculty Non Medical.docx",
+    applicationType: "research-publication",
+    audience: "non-medical",
+  },
+  {
+    id: "form7-publication-faculty-staff-medical",
+    navTitle: "Faculty Publication Form (Medical)",
+    label: "Form 7 Research Publication Faculty Staff Medical Sciences.docx",
+    applicationType: "research-publication",
+    audience: "medical",
+  },
+];
+
+export function getFacultyFormById(formId: string): RequiredForm | null {
+  const entry = FACULTY_FORM_CATALOG.find((item) => item.id === formId);
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    label: entry.label,
+    href: `/${encodeURI(`studentsfinalforms/${entry.label}`)}`,
+    applicationType: entry.applicationType,
+  };
+}
+

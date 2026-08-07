@@ -1,50 +1,22 @@
 import { NextResponse } from "next/server";
-import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
-import { verifyPassword } from "@/lib/password";
 
-type LoginBody = {
-  email?: string;
-  password?: string;
-};
-
-export async function POST(request: Request) {
-  let body: LoginBody;
-  try {
-    body = (await request.json()) as LoginBody;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
-  }
-
-  const email = body.email?.trim();
-  const password = body.password ?? "";
-  if (!email || !password) {
-    return NextResponse.json(
-      { ok: false, error: "Email and password are required." },
-      { status: 400 },
-    );
-  }
-
-  const admin = await getAdminUserByEmail(email);
-  if (!admin || admin.status !== "active") {
-    return NextResponse.json({ ok: false, error: "Invalid credentials." }, { status: 401 });
-  }
-
-  const valid = await verifyPassword(password, admin.passwordHash);
-  if (!valid) {
-    return NextResponse.json({ ok: false, error: "Invalid credentials." }, { status: 401 });
-  }
-
-  const claims = await buildAdminClaims(admin);
-  return NextResponse.json({
-    ok: true,
-    admin: {
-      id: admin.id,
-      name: admin.name,
-      email: admin.email,
-      role: admin.role,
-      status: admin.status,
+/**
+ * POST /api/admin/login
+ *
+ * Previously handled password-based admin login. Now that authentication is
+ * unified via SSO (Google / email verification), this endpoint is deprecated.
+ * Admin login is handled by the /auth/sign-in page using the unified
+ * "student-email" provider, which checks admin_users for role assignment.
+ *
+ * Kept as a backward-compatible endpoint that returns a deprecation notice.
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Password-based login is no longer supported. Use Google SSO or email verification at /auth/sign-in.",
+      redirect: "/auth/sign-in",
     },
-    claims,
-    nextAuthProvider: "admin-credentials",
-  });
+    { status: 410 },
+  );
 }

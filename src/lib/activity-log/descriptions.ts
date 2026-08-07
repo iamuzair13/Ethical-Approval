@@ -145,7 +145,7 @@ export function buildActivityDescription(input: {
 export function actorFromAdminUser(user: {
   id: string;
   name: string;
-  role: AdminRole;
+  role: AdminRole | null;
 }): ActivityActorSnapshot {
-  return { adminId: user.id, name: user.name, role: user.role };
+  return { adminId: user.id, name: user.name, role: user.role ?? "faculty" };
 }

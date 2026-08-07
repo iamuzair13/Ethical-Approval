@@ -11,7 +11,6 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import BreadcrumbBase from "@/components/Breadcrumbs/Breadcrumb";
 
 /* ──────────────────────────── Types ──────────────────────────── */
 
@@ -561,6 +560,7 @@ export default function FullProfilePage() {
 
   const signInProvider =
     normalizedSessionEmail.endsWith("@uol.edu.pk") ||
+    normalizedSessionEmail.endsWith(".uol.edu.pk") ||
     normalizedSessionEmail.endsWith("@student.uol.edu.pk")
       ? "Google (UOL)"
       : "Credentials";
@@ -723,7 +723,6 @@ export default function FullProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <BreadcrumbBase pageName="Full Profile" />
         </motion.div>
 
         <motion.div

@@ -36,9 +36,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
   }
 
-  if (!body.name?.trim() || !body.email?.trim() || !body.password || !body.role) {
+  if (!body.name?.trim() || !body.email?.trim() || !body.role) {
     return NextResponse.json(
-      { ok: false, error: "name, email, password and role are required." },
+      { ok: false, error: "name, email and role are required." },
       { status: 400 },
     );
   }
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const passwordHash = await hashPassword(body.password);
+  const passwordHash = body.password ? await hashPassword(body.password) : null;
   const created = await createAdminUser({
     name: body.name,
     email: body.email,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     effective: {
       adminId: created.id,
       name: created.name,
-      role: created.role,
+      role: created.role ?? "faculty",
     },
   });
 

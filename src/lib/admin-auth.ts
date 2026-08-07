@@ -171,6 +171,22 @@ export async function assertActiveAdmin(request: NextRequest | Request) {
   return effective;
 }
 
+/**
+ * Validates that the request comes from an authenticated, active user
+ * (regardless of whether they have an admin role). Used for routes that
+ * any logged-in user can access (e.g., profile, submissions).
+ * Returns the user's admin_users record or null.
+ */
+export async function assertActiveUser(request: NextRequest | Request) {
+  const token = await getTokenFromRequest(request);
+  if (!token?.adminId) return null;
+
+  const latest = await getAdminUserById(String(token.adminId));
+  if (!latest || latest.status !== "active") return null;
+
+  return latest;
+}
+
 export function isAdministrator(admin: AuthenticatedAdmin) {
   return admin.role === "administrator";
 }

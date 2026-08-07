@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/table";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import BreadcrumbBase from "@/components/Breadcrumbs/Breadcrumb";
 import ConfirmDialogBase from "@/components/ui/confirm-dialog";
 import ApprovalRequestStepperBase, {
   type SubmissionFileBundle,
@@ -439,7 +438,6 @@ export default function ProfileDashboard() {
   const [feedbackModalRequest, setFeedbackModalRequest] = useState<RequestItem | null>(null);
   const ApprovalRequestStepper = ApprovalRequestStepperBase;
   const ConfirmDialog = ConfirmDialogBase;
-  const Breadcrumb = BreadcrumbBase;
   const router = useRouter();
   const { data: session } = useSession();
   const sessionUser = session?.user as {
@@ -923,7 +921,6 @@ export default function ProfileDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Breadcrumb pageName="Profile" />
         </motion.div>
 
         <motion.div

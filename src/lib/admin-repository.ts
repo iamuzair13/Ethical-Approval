@@ -11,8 +11,8 @@ type AdminRow = {
   id: string;
   name: string;
   email: string;
-  password_hash: string;
-  role: AdminRole;
+  password_hash: string | null;
+  role: AdminRole | null;
   status: "active" | "inactive";
   sap_id: string | null;
   faculty_id: number | null;
@@ -48,7 +48,7 @@ export async function getAdminUserByEmail(
     `
       SELECT *
       FROM admin_users
-      WHERE email = $1
+      WHERE LOWER(email) = LOWER($1)
         AND deleted_at IS NULL
       LIMIT 1
     `,
@@ -75,7 +75,7 @@ export async function getAdminUserById(
 }
 
 export async function getAdminScope(admin: AdminUserRecord): Promise<AdminScope> {
-  if (admin.role === "administrator") {
+  if (!admin.role || admin.role === "administrator") {
     return { scopeMode: "all", facultyIds: [] };
   }
 
@@ -201,11 +201,11 @@ export async function resolveFacultyIdsFromSnapshotValue(
 export async function createAdminUser(input: {
   name: string;
   email: string;
-  passwordHash: string;
-  role: AdminRole;
+  passwordHash?: string | null;
+  role?: AdminRole | null;
   sapId?: string | null;
   facultyId?: number | null;
-  createdBy: string;
+  createdBy?: string | null;
 }) {
   const result = await db.query<AdminRow>(
     `
@@ -225,11 +225,11 @@ export async function createAdminUser(input: {
     [
       input.name.trim(),
       normalizeEmail(input.email),
-      input.passwordHash,
-      input.role,
+      input.passwordHash ?? null,
+      input.role ?? null,
       input.sapId ?? null,
       input.facultyId ?? null,
-      input.createdBy,
+      input.createdBy ?? null,
     ],
   );
 
@@ -292,6 +292,19 @@ export async function assignSupervisorFaculty(input: {
           AND deleted_at IS NULL
       `,
       [input.adminUserId],
+    );
+
+    // Clear any existing active supervisor assignment for this faculty
+    // (the unique index uq_supervisor_faculty_single_active allows only one)
+    await db.query(
+      `
+        UPDATE admin_faculty_assignments
+        SET deleted_at = NOW()
+        WHERE faculty_id = $1
+          AND assignment_type = 'supervisor_primary'
+          AND deleted_at IS NULL
+      `,
+      [input.facultyId],
     );
 
     await db.query(
@@ -476,7 +489,8 @@ export async function clearAdminScopeAssignments(adminUserId: string) {
 
 export async function buildAdminClaims(
   admin: AdminUserRecord,
-): Promise<AdminAuthClaims> {
+): Promise<AdminAuthClaims | null> {
+  if (!admin.role) return null;
   const scope = await getAdminScope(admin);
   return {
     adminId: admin.id,
@@ -493,7 +507,7 @@ export type AdminManagementUser = {
   id: string;
   name: string;
   email: string;
-  role: AdminRole;
+  role: AdminRole | null;
   status: "active" | "inactive";
   sapId: string | null;
   facultyScope: string;
@@ -900,6 +914,8 @@ export async function listAdminUsersForManagement(): Promise<AdminManagementUser
         scope?.irebFaculties && scope.irebFaculties.length > 0
           ? scope.irebFaculties.join(", ")
           : "All Faculties";
+    } else if (!admin.role) {
+      facultyScope = "Faculty (no admin role)";
     }
 
     return {
@@ -931,7 +947,7 @@ export async function getAdminUserByEmailExcludingId(input: {
     `
       SELECT *
       FROM admin_users
-      WHERE email = $1
+      WHERE LOWER(email) = LOWER($1)
         AND id <> $2
         AND deleted_at IS NULL
       LIMIT 1
@@ -945,16 +961,16 @@ export async function updateAdminUser(input: {
   id: string;
   name: string;
   email: string;
-  role: AdminRole;
+  role?: AdminRole | null;
   sapId: string | null;
-  passwordHash?: string;
+  passwordHash?: string | null;
 }) {
   const result = await db.query<AdminRow>(
     `
       UPDATE admin_users
       SET name = $2,
           email = $3,
-          role = $4,
+          role = $4::admin_role,
           sap_id = $5,
           password_hash = COALESCE($6, password_hash),
           updated_at = NOW(),
@@ -967,7 +983,7 @@ export async function updateAdminUser(input: {
       input.id,
       input.name.trim(),
       normalizeEmail(input.email),
-      input.role,
+      input.role ?? null,
       input.sapId,
       input.passwordHash ?? null,
     ],
@@ -1036,4 +1052,78 @@ export async function listActiveIrebForViewAs(): Promise<SupervisorPickerRow[]> 
     `,
   );
   return result.rows;
+}
+
+/**
+ * Find or create an admin_users record for a faculty member by email.
+ * Used by SAP sync and login flow to ensure every faculty member has a
+ * unified user account. Does NOT overwrite existing role or password_hash.
+ */
+export async function findOrCreateUserForFaculty(input: {
+  name: string;
+  email: string;
+  sapId?: string | null;
+}): Promise<AdminUserRecord> {
+  const email = normalizeEmail(input.email);
+  const existing = await getAdminUserByEmail(email);
+  if (existing) {
+    // Update name and sap_id if the existing record is missing them
+    if (
+      (existing.sapId === null && input.sapId) ||
+      existing.name !== input.name
+    ) {
+      const updated = await db.query<AdminRow>(
+        `
+          UPDATE admin_users
+          SET name = $2,
+              sap_id = COALESCE(sap_id, $3),
+              updated_at = NOW()
+          WHERE id = $1 AND deleted_at IS NULL
+          RETURNING *
+        `,
+        [existing.id, input.name.trim(), input.sapId?.trim() ?? null],
+      );
+      if (updated.rows[0]) return mapAdminRow(updated.rows[0]);
+    }
+    return existing;
+  }
+
+  // Check for a soft-deleted record with the same email. The email unique
+  // constraint includes soft-deleted rows, so we must restore it instead of
+  // inserting a new one (which would violate the constraint).
+  const softDeleted = await db.query<AdminRow>(
+    `
+      SELECT * FROM admin_users
+      WHERE LOWER(email) = LOWER($1) AND deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+      LIMIT 1
+    `,
+    [email],
+  );
+  if (softDeleted.rows[0]) {
+    const restored = await db.query<AdminRow>(
+      `
+        UPDATE admin_users
+        SET name = $2,
+            sap_id = COALESCE(sap_id, $3),
+            status = 'active',
+            deleted_at = NULL,
+            token_version = token_version + 1,
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `,
+      [softDeleted.rows[0].id, input.name.trim(), input.sapId?.trim() ?? null],
+    );
+    if (restored.rows[0]) return mapAdminRow(restored.rows[0]);
+  }
+
+  // Create new user with no role and no password (SSO only)
+  return createAdminUser({
+    name: input.name.trim(),
+    email,
+    passwordHash: null,
+    role: null,
+    sapId: input.sapId ?? null,
+  });
 }

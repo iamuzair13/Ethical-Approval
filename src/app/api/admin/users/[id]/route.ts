@@ -134,7 +134,7 @@ export async function PATCH(
     effective: {
       adminId: updated.id,
       name: updated.name,
-      role: updated.role,
+      role: updated.role ?? "faculty",
     },
   });
 
@@ -194,7 +194,7 @@ export async function DELETE(
     effective: {
       adminId: existing.id,
       name: existing.name,
-      role: existing.role,
+      role: existing.role ?? "faculty",
     },
   });
 

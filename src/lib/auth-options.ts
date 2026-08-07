@@ -4,11 +4,14 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { verifyEmployeeByEmail } from "@/lib/sap-employee";
 import { verifyStudentByEmail } from "@/lib/sap-student";
 import {
-  getFacultyMemberWithRoles,
+  getFacultyMemberByEmail,
   upsertFacultyMemberFromSap,
 } from "@/lib/faculty-members";
-import { buildAdminClaims, getAdminUserByEmail } from "@/lib/admin-repository";
-import { verifyPassword } from "@/lib/password";
+import {
+  buildAdminClaims,
+  findOrCreateUserForFaculty,
+  getAdminUserByEmail,
+} from "@/lib/admin-repository";
 import {
   buildAdministratorRestoreTokenFields,
   buildViewAsTokenFields,
@@ -28,9 +31,19 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/sign-in",
   },
   providers: [
+    // Single unified SSO provider for all user types:
+    //   - Students: verified via SAP student service
+    //   - Faculty: verified via local DB or SAP employee service
+    //   - Admins (supervisor/IREB/administrator): looked up in admin_users
+    //
+    // All non-student emails go through the same flow:
+    //   1. Look up admin_users by email (unified Users table)
+    //   2. If found and active, build session (with admin claims if they have a role)
+    //   3. If not found, try SAP employee verification (new faculty)
+    //   4. Create admin_users + faculty_members records for new faculty
     CredentialsProvider({
       id: "student-email",
-      name: "Student email (testing)",
+      name: "University SSO",
       credentials: {
         email: { label: "Email", type: "email" },
       },
@@ -39,14 +52,121 @@ export const authOptions: NextAuthOptions = {
         if (!email) return null;
 
         if (!isStudentEmail(email)) {
+          // ─── Faculty / Admin flow ───
+          // Check the unified admin_users table first. Every faculty member
+          // and admin has a record here (created by sync or migration).
+          const user = await getAdminUserByEmail(email);
+          if (user) {
+            if (user.status !== "active") {
+              return null;
+            }
+
+            // If the user has an admin role, build admin claims for the session
+            const claims = await buildAdminClaims(user);
+
+            // Check if this user also has a faculty profile
+            const faculty = await getFacultyMemberByEmail(email, {
+              includeInactive: true,
+            });
+
+            const baseReturn: Record<string, unknown> = {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              adminId: user.id,
+              adminStatus: user.status,
+              adminTokenVersion: user.tokenVersion,
+            };
+
+            if (claims) {
+              baseReturn.adminRole = claims.role;
+              baseReturn.adminScopeMode = claims.scopeMode;
+              baseReturn.adminFacultyIds = claims.facultyIds;
+            }
+
+            if (faculty && faculty.status === "active" && faculty.isActive) {
+              baseReturn.sapId = faculty.sapId;
+              baseReturn.facultyMemberId = faculty.id;
+              baseReturn.userType = "faculty";
+              baseReturn.applicantRole = "faculty";
+              baseReturn.facultyId = faculty.facultyId ?? undefined;
+              baseReturn.departmentId = faculty.departmentId ?? undefined;
+              baseReturn.facultyDepartment = faculty.department ?? undefined;
+              baseReturn.facultyDesignation = faculty.designation ?? undefined;
+            }
+
+            return baseReturn as {
+              id: string;
+              email?: string;
+              name?: string;
+              sapId?: string;
+              facultyMemberId?: string;
+              userType?: "student" | "faculty";
+              applicantRole?: "student" | "faculty";
+              facultyId?: number;
+              departmentId?: number;
+              facultyDepartment?: string;
+              facultyDesignation?: string | null;
+              adminId?: string;
+              adminRole?: "administrator" | "supervisor" | "ireb";
+              adminStatus?: "active" | "inactive";
+              adminScopeMode?: "all" | "restricted";
+              adminFacultyIds?: number[];
+              adminTokenVersion?: number;
+            };
+          }
+
+          // Not found in admin_users — check faculty_members directly.
+          // Synced faculty may exist here without an admin_users record yet.
+          const existingFaculty = await getFacultyMemberByEmail(email, {
+            includeInactive: true,
+          });
+          if (existingFaculty) {
+            if (existingFaculty.status !== "active") {
+              return null;
+            }
+
+            // Create the missing admin_users record and link it
+            const newUser = await findOrCreateUserForFaculty({
+              name: existingFaculty.name,
+              email: existingFaculty.email,
+              sapId: existingFaculty.sapId,
+            });
+            await linkFacultyMemberToUser(existingFaculty.id, newUser.id);
+
+            return {
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name,
+              sapId: existingFaculty.sapId,
+              adminId: newUser.id,
+              adminStatus: newUser.status,
+              adminTokenVersion: newUser.tokenVersion,
+              facultyMemberId: existingFaculty.id,
+              userType: "faculty" as const,
+              applicantRole: "faculty" as const,
+              facultyId: existingFaculty.facultyId ?? undefined,
+              departmentId: existingFaculty.departmentId ?? undefined,
+              facultyDepartment: existingFaculty.department ?? undefined,
+              facultyDesignation: existingFaculty.designation ?? undefined,
+            };
+          }
+
+          // Not found in admin_users or faculty_members — try SAP employee
+          // verification. This handles new faculty who haven't been synced yet.
           const empResult = await verifyEmployeeByEmail(email);
           if (!empResult.ok) {
             return null;
           }
 
-          // Ensure the faculty member exists in our internal database before
-          // issuing a session. This makes faculty members first-class system
-          // entities and prepares for future supervisor role assignments.
+          // Create a unified admin_users record for this new faculty member
+          const newUser = await findOrCreateUserForFaculty({
+            name: empResult.employeeName ?? empResult.email,
+            email: empResult.email,
+            sapId: empResult.sapId,
+          });
+
+          // Ensure the faculty profile exists in our internal database
           const faculty = await upsertFacultyMemberFromSap({
             sapId: empResult.sapId,
             name: empResult.employeeName ?? empResult.email,
@@ -56,22 +176,28 @@ export const authOptions: NextAuthOptions = {
             employeeType: null,
           });
 
-          const facultyWithRoles = await getFacultyMemberWithRoles(faculty.id);
+          // Link faculty_members.user_id to admin_users.id
+          await linkFacultyMemberToUser(faculty.id, newUser.id);
 
           return {
-            id: empResult.sapId,
-            email: faculty.email,
-            name: faculty.name,
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name,
             sapId: empResult.sapId,
+            adminId: newUser.id,
+            adminStatus: newUser.status,
+            adminTokenVersion: newUser.tokenVersion,
             facultyMemberId: faculty.id,
             userType: "faculty" as const,
             applicantRole: "faculty" as const,
+            facultyId: faculty.facultyId ?? undefined,
+            departmentId: faculty.departmentId ?? undefined,
             facultyDepartment: faculty.department ?? undefined,
             facultyDesignation: faculty.designation ?? undefined,
-            facultyMemberRoles: facultyWithRoles?.roles.map((r) => r.role) ?? [],
           };
         }
 
+        // ─── Student flow ───
         const result = await verifyStudentByEmail(email);
         if (!result.ok) {
           return null;
@@ -85,42 +211,6 @@ export const authOptions: NextAuthOptions = {
           studentRecord: result.studentRecord,
           userType: "student" as const,
           applicantRole: "student" as const,
-        };
-      },
-    }),
-    CredentialsProvider({
-      id: "admin-credentials",
-      name: "Admin login",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.trim();
-        const password = credentials?.password ?? "";
-        if (!email || !password) return null;
-
-        const admin = await getAdminUserByEmail(email);
-        if (!admin || admin.status !== "active") {
-          return null;
-        }
-
-        const valid = await verifyPassword(password, admin.passwordHash);
-        if (!valid) {
-          return null;
-        }
-
-        const claims = await buildAdminClaims(admin);
-        return {
-          id: admin.id,
-          email: admin.email,
-          name: admin.name,
-          adminId: claims.adminId,
-          adminRole: claims.role,
-          adminStatus: claims.status,
-          adminScopeMode: claims.scopeMode,
-          adminFacultyIds: claims.facultyIds,
-          adminTokenVersion: claims.tokenVersion,
         };
       },
     }),
@@ -157,9 +247,10 @@ export const authOptions: NextAuthOptions = {
         token.facultyMemberId = user.facultyMemberId;
         token.userType = user.userType;
         token.applicantRole = user.applicantRole;
+        token.facultyId = (user as { facultyId?: number }).facultyId;
+        token.departmentId = (user as { departmentId?: number }).departmentId;
         token.facultyDepartment = (user as { facultyDepartment?: string }).facultyDepartment;
         token.facultyDesignation = (user as { facultyDesignation?: string | null }).facultyDesignation;
-        token.facultyMemberRoles = user.facultyMemberRoles;
         token.name = user.name;
         token.email = user.email;
 
@@ -184,7 +275,7 @@ export const authOptions: NextAuthOptions = {
           );
           if (targetResult.ok) {
             const patch = await buildViewAsTokenFields(targetResult.target);
-            Object.assign(token, patch);
+            if (patch) Object.assign(token, patch);
           }
         } else if (update.action === "stopViewAs") {
           const patch = await buildAdministratorRestoreTokenFields(actingAdminId);
@@ -213,11 +304,11 @@ export const authOptions: NextAuthOptions = {
         session.user.actingAdminRole = token.actingAdminRole;
         session.user.viewAsActive = Boolean(token.viewAsActive);
         session.user.viewAsUserName = token.viewAsUserName;
+        (session.user as { facultyId?: number }).facultyId = token.facultyId as number | undefined;
+        (session.user as { departmentId?: number }).departmentId = token.departmentId as number | undefined;
         (session.user as { facultyDepartment?: string }).facultyDepartment = token.facultyDepartment;
         (session.user as { facultyDesignation?: string | null }).facultyDesignation =
           token.facultyDesignation;
-        (session.user as { facultyMemberRoles?: string[] }).facultyMemberRoles =
-          Array.isArray(token.facultyMemberRoles) ? token.facultyMemberRoles : undefined;
 
         if (typeof token.name === "string") {
           session.user.name = token.name;
@@ -230,3 +321,22 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/**
+ * Links a faculty_members record to its corresponding admin_users record.
+ * Called after upserting a faculty member from SAP login flow.
+ */
+async function linkFacultyMemberToUser(
+  facultyMemberId: string,
+  userId: string,
+): Promise<void> {
+  const { db } = await import("@/lib/db");
+  await db.query(
+    `
+      UPDATE faculty_members
+      SET user_id = $2, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+    `,
+    [facultyMemberId, userId],
+  );
+}

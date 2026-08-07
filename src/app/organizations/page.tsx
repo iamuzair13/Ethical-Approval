@@ -1,6 +1,5 @@
 "use client";
 
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import {
   Table,
   TableBody,
@@ -477,7 +476,6 @@ export default function OrganizationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1200px]">
-      <Breadcrumb pageName="Organizations" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard

@@ -1,6 +1,5 @@
 "use client";
 
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import {
   Table,
   TableBody,
@@ -242,7 +241,6 @@ export default function ActivityCenterPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1250px]">
-      <Breadcrumb pageName="Activity Center" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card">

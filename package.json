@@ -10,7 +10,11 @@
     "db:migrate:008": "node scripts/run-sql-migration.mjs migrations/008_activity_events.sql",
     "db:migrate:009": "node scripts/run-sql-migration.mjs migrations/009_backfill_activity_from_approval_decisions.sql",
     "db:migrate:010": "node scripts/run-sql-migration.mjs migrations/010_activity_notification_reads.sql",
-    "db:migrate:014": "node scripts/run-sql-migration.mjs migrations/014_faculty_member_roles_and_participant_schema.sql"
+    "db:migrate:014": "node scripts/run-sql-migration.mjs migrations/014_faculty_member_roles_and_participant_schema.sql",
+    "db:migrate:015": "node scripts/run-sql-migration.mjs migrations/015_add_internal_faculty_participant_source.sql",
+    "db:migrate:016": "node scripts/run-sql-migration.mjs migrations/016_submission_participants_internal_faculty_check.sql",
+    "db:migrate:017": "node scripts/run-sql-migration.mjs migrations/017_faculty_sync_tracking_and_org_links.sql",
+    "db:migrate:018": "node scripts/run-sql-migration.mjs migrations/018_unify_users_and_faculty.sql"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

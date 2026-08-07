@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { authOptions } from "@/lib/auth-options";
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import {
   ADMIN_ETHICS_FORM_CATALOG,
 } from "@/app/profile/_components/forms/form-registry";
@@ -11,13 +10,12 @@ export const metadata = { title: "Forms" };
 
 export default async function FormsCatalogPage() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.adminRole !== "administrator") {
+  if (session?.user?.adminRole !== "administrator" && session?.user?.adminRole !== "ireb") {
     redirect("/auth/sign-in?callbackUrl=/forms");
   }
 
   return (
     <>
-      <Breadcrumb pageName="Ethical Application Forms" />
       <div className="rounded-xl border border-stroke bg-white p-6 dark:border-dark-3 dark:bg-gray-dark ">
         <p className="mb-6 text-sm text-body dark:text-dark-6 ">
           Preview all ethical application forms with the same UI students use. No validation or

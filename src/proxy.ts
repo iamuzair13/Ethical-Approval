@@ -37,24 +37,37 @@ export async function proxy(request: NextRequest) {
   }
 
   const adminRole = token.adminRole;
-  if (
-    pathname.startsWith("/administrator") ||
-    pathname.startsWith("/users") ||
-    pathname.startsWith("/organizations")
-  ) {
-    if (adminRole !== "administrator") {
-      if (!adminRole) {
-        const signIn = new URL("/admin/login", request.url);
-        signIn.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search || ""}`);
-        return NextResponse.redirect(signIn);
-      }
+  const facultyMemberId = token.facultyMemberId;
+
+  // My Applications — only accessible by authenticated users with a faculty
+  // member profile. Students and users without a faculty profile are redirected.
+  if (pathname === "/my-applications" || pathname.startsWith("/my-applications/")) {
+    if (!facultyMemberId) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
+  // Administration routes — only accessible by Super Admin (administrator)
+  // and IREB roles. Supervisors and faculty-only users are redirected home.
+  const adminOnlyRoutes = [
+    "/administrator",
+    "/organizations",
+    "/faculty-members",
+    "/forms",
+    "/reports",
+    "/activity-center",
+  ];
+  const isAdminOnlyRoute = adminOnlyRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/"),
+  );
+  if (isAdminOnlyRoute && adminRole !== "administrator" && adminRole !== "ireb") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   if (pathname.startsWith("/admin")) {
     if (!adminRole) {
-      const signIn = new URL("/admin/login", request.url);
+      // No admin role — redirect to sign-in page (unified SSO)
+      const signIn = new URL("/auth/sign-in", request.url);
       signIn.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search || ""}`);
       return NextResponse.redirect(signIn);
     }
@@ -69,7 +82,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
 
-    if (pathname.startsWith("/admin/users") && adminRole !== "administrator") {
+    if (
+      pathname.startsWith("/admin/faculty-members") &&
+      adminRole !== "administrator"
+    ) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     if (

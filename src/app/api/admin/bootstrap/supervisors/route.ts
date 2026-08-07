@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const user = await createAdminUser({
       name: supervisor.name,
       email: supervisor.email,
-      passwordHash: await hashPassword(supervisor.password),
+      passwordHash: supervisor.password ? await hashPassword(supervisor.password) : null,
       role: "supervisor",
       sapId: supervisor.sapId ?? null,
       facultyId: supervisor.facultyId,

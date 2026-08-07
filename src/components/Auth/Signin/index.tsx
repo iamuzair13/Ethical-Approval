@@ -8,6 +8,7 @@ import { signIn } from "next-auth/react";
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { resolvePostLoginRedirect } from "@/lib/post-login-redirect";
 
 function validateStudentEmailFormat(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
@@ -212,7 +213,8 @@ export default function Signin() {
 
       if (result?.ok) {
         toast.success("Login successful.");
-        router.push(result?.url ?? studentTarget);
+        const redirectUrl = await resolvePostLoginRedirect(result?.url ?? studentTarget);
+        router.push(redirectUrl);
         router.refresh();
       }
     } finally {

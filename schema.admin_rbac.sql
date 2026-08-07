@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  role admin_role NOT NULL,
+  password_hash TEXT,
+  role admin_role,
   status admin_status NOT NULL DEFAULT 'active',
   sap_id VARCHAR(50) UNIQUE,
   faculty_id BIGINT REFERENCES faculties(id),
@@ -144,6 +144,10 @@ WHERE assignment_type = 'supervisor_primary' AND deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_admin_users_role_status
 ON admin_users(role, status)
+WHERE deleted_at IS NULL AND role IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_email_lower
+ON admin_users(LOWER(email))
 WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_snapshot_faculty

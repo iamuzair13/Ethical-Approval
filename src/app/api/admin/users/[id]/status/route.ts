@@ -53,7 +53,7 @@ export async function PATCH(
     effective: {
       adminId: updated.id,
       name: updated.name,
-      role: updated.role,
+      role: updated.role ?? "faculty",
     },
     metadata: { previousStatus: previous?.status },
   });

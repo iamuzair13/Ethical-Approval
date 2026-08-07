@@ -9,9 +9,10 @@ declare module "next-auth" {
     facultyMemberId?: string;
     userType?: "student" | "faculty";
     applicantRole?: "student" | "faculty";
+    facultyId?: number;
+    departmentId?: number;
     facultyDepartment?: string;
     facultyDesignation?: string | null;
-    facultyMemberRoles?: string[];
     adminId?: string;
     adminRole?: "administrator" | "supervisor" | "ireb";
     adminStatus?: "active" | "inactive";
@@ -28,9 +29,10 @@ declare module "next-auth" {
       facultyMemberId?: string;
       userType?: "student" | "faculty";
       applicantRole?: "student" | "faculty";
+      facultyId?: number;
+      departmentId?: number;
       facultyDepartment?: string;
       facultyDesignation?: string | null;
-      facultyMemberRoles?: string[];
       adminId?: string;
       adminRole?: "administrator" | "supervisor" | "ireb";
       adminStatus?: "active" | "inactive";
@@ -51,9 +53,10 @@ declare module "next-auth/jwt" {
     facultyMemberId?: string;
     userType?: "student" | "faculty";
     applicantRole?: "student" | "faculty";
+    facultyId?: number;
+    departmentId?: number;
     facultyDepartment?: string;
     facultyDesignation?: string | null;
-    facultyMemberRoles?: string[];
     adminId?: string;
     adminRole?: "administrator" | "supervisor" | "ireb";
     adminStatus?: "active" | "inactive";

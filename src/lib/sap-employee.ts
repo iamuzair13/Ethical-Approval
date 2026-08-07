@@ -1,7 +1,8 @@
 export type SapEmployeeVerifyErrorCode =
   | "INVALID_EMAIL"
   | "NOT_FOUND"
-  | "SAP_ERROR";
+  | "SAP_ERROR"
+  | "SAP_TIMEOUT";
 
 export type SapEmployeeVerifySuccess = {
   ok: true;
@@ -24,6 +25,9 @@ export type SapEmployeeVerifyResult =
 
 const SAP_EMP_BASE =
   "http://uolerp.uol.edu.pk:8000/sap/opu/odata/sap/Z_EMP_INFO_API_SRV/empinfoSet";
+
+const SAP_EMPLOYEE_SET_BASE =
+  "http://uolerp.uol.edu.pk:8000/sap/opu/odata/sap/Z_EMP_INFO_API_SRV/EmployeeSet";
 
 function getStringField(
   rec: Record<string, unknown>,
@@ -187,11 +191,19 @@ async function fetchEmployeeByKey(
 export type SapEmployeeRecord = {
   sapId: string;
   employeeId: string | null;
+  employeeCode: string | null;
   email: string | null;
   employeeName: string | null;
   department: string | null;
   designation: string | null;
-  employeeRecord: Record<string, unknown>;
+  faculty: string | null;
+  employeeStatus: string | null;
+  employeeGroup: string | null;
+  employeeType: string | null;
+  sector: string | null;
+  orgUnit: string | null;
+  leavingDate: string | null;
+  raw: Record<string, unknown>;
 };
 
 export type SapEmployeeListSuccess = {
@@ -218,17 +230,62 @@ function normalizeSapEmployeeRecord(
   return {
     sapId,
     employeeId: getStringField(rest, ["EmployeeId", "EmpId", "PersonnelNumber"]),
-    email: getStringField(rest, ["Email", "EmailId", "E-mail", "email"]),
+    employeeCode: getStringField(rest, ["EmployeeCode", "EmpCode", "Pernr", "PersonnelNo"]),
+    email: getStringField(rest, ["EmailAddress", "Email", "EmailId", "E-mail", "email", "SmtpAddr"]),
     employeeName: extractEmployeeName(rest),
-    department: getStringField(rest, ["Department", "DeptName", "Dept"]),
-    designation: getStringField(rest, ["Designation", "Position", "JobTitle"]),
-    employeeRecord: rest,
+    department: getStringField(rest, ["Department", "DeptName", "Dept", "OrgUnitText"]),
+    designation: getStringField(rest, ["Designation", "Position", "JobTitle", "PositionText"]),
+    faculty: getStringField(rest, ["Faculty", "FacultyName", "FacName", "College"]),
+    employeeStatus: getStringField(rest, [
+      "EmployeeStatus",
+      "EmpStatus",
+      "Status",
+      "EmploymentStatus",
+      "ActiveStatus",
+    ]),
+    employeeGroup: getStringField(rest, [
+      "EmployeeGroup",
+      "EmpGroup",
+      "PersG",
+      "EmployeeClass",
+    ]),
+    employeeType: getStringField(rest, [
+      "EmployeeType",
+      "EmpType",
+      "PersK",
+      "EmploymentType",
+    ]),
+    sector: getStringField(rest, [
+      "Sector",
+      "Branche",
+      "BusinessSector",
+      "Area",
+    ]),
+    orgUnit: getStringField(rest, [
+      "OrgUnit",
+      "OrganizationUnit",
+      "OrgUnitId",
+      "Orgeh",
+    ]),
+    leavingDate: getStringField(rest, [
+      "LeavingDate",
+      "TerminationDate",
+      "EndDate",
+      "LeavDate",
+    ]),
+    raw: rest,
   };
 }
 
 /**
- * Fetches all employee records from SAP empinfoSet as a single collection.
- * SAP may paginate; this implementation returns the first page it receives.
+ * Fetches all employee records from SAP EmployeeSet.
+ *
+ * The SAP OData service has `sap:pageable="false"` — it returns ALL records
+ * in a single response with no `__next` pagination links. The response can
+ * take 2-5 minutes to complete and may be 10+ MB of JSON.
+ *
+ * We use a 300-second (5-minute) timeout to accommodate the slow response.
+ * No $top parameter is used because the server does not support pagination.
  */
 export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
   const authHeader = buildSapEmpAuthHeader();
@@ -236,10 +293,12 @@ export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
     return { ok: false, errorCode: "SAP_ERROR" };
   }
 
-  const url = `${SAP_EMP_BASE}?$format=json`;
+  const url = `${SAP_EMPLOYEE_SET_BASE}?$format=json`;
+  console.log(`[sap-employee] Fetching all employees from ${url}`);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const timeout = setTimeout(() => controller.abort(), 300000);
+
   try {
     const res = await fetch(url, {
       cache: "no-store",
@@ -250,8 +309,14 @@ export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
       signal: controller.signal,
     });
 
+    if (!res.ok) {
+      console.error(`[sap-employee] HTTP ${res.status} ${res.statusText}`);
+      return { ok: false, errorCode: "SAP_ERROR" };
+    }
+
     const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.includes("application/json")) {
+      console.error(`[sap-employee] Non-JSON content-type: ${contentType}`);
       return { ok: false, errorCode: "SAP_ERROR" };
     }
 
@@ -259,16 +324,14 @@ export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
     try {
       json = await res.json();
     } catch {
-      return { ok: false, errorCode: "SAP_ERROR" };
-    }
-
-    if (!res.ok) {
+      console.error(`[sap-employee] JSON parse failed`);
       return { ok: false, errorCode: "SAP_ERROR" };
     }
 
     const body = json as { d?: { results?: unknown[] } };
     const results = body.d?.results;
     if (!Array.isArray(results)) {
+      console.error(`[sap-employee] No results array in response`);
       return { ok: false, errorCode: "SAP_ERROR" };
     }
 
@@ -280,9 +343,21 @@ export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
       if (record) employees.push(record);
     }
 
+    console.log(
+      `[sap-employee] Fetched ${results.length} raw records, ${employees.length} normalized`,
+    );
+
     return { ok: true, employees };
-  } catch {
-    return { ok: false, errorCode: "SAP_ERROR" };
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    console.error(
+      `[sap-employee] Fetch ${isAbort ? "timed out (300s)" : "failed"}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+    return {
+      ok: false,
+      errorCode: isAbort ? "SAP_TIMEOUT" : "SAP_ERROR",
+    };
   } finally {
     clearTimeout(timeout);
   }

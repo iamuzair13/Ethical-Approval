@@ -18,23 +18,47 @@ export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const adminRole = session?.user?.adminRole;
   const isAdministrator = adminRole === "administrator";
+  const isIreb = adminRole === "ireb";
+  const canSeeAdministration = isAdministrator || isIreb;
+  const hasFacultyProfile = Boolean(session?.user?.facultyMemberId);
 
   const visibleNavData = NAV_DATA.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
+      // Dashboard is visible to everyone
+      if (item.url === "/") return true;
+
+      // My Applications is visible to every authenticated faculty member,
+      // regardless of admin role (supervisor, IREB, super admin, or none).
+      if (item.url === "/my-applications") {
+        return hasFacultyProfile;
+      }
+
+      // Administration section (and all its children) is only for
+      // Super Admin (administrator) and IREB roles.
+      if (item.title === "Administration") {
+        return canSeeAdministration;
+      }
+
+      // Any other admin-only routes (organizations, faculty-members, forms,
+      // reports, activity-center) require administration access too.
       const directHref = item.url ?? "";
       const childHrefs = item.items.map((subItem) => subItem.url);
       const hasAdminOnlyRoute =
-        directHref === "/users" ||
         directHref === "/organizations" ||
+        directHref === "/faculty-members" ||
         directHref === "/administrator" ||
         directHref.startsWith("/forms") ||
-        childHrefs.includes("/users") ||
+        directHref === "/reports" ||
+        directHref === "/activity-center" ||
         childHrefs.includes("/organizations") ||
+        childHrefs.includes("/faculty-members") ||
         childHrefs.includes("/administrator") ||
-        childHrefs.some((href) => href.startsWith("/forms"));
+        childHrefs.some((href) => href.startsWith("/forms")) ||
+        childHrefs.includes("/reports") ||
+        childHrefs.includes("/activity-center");
 
-      if (hasAdminOnlyRoute && !isAdministrator) {
+      if (hasAdminOnlyRoute && !canSeeAdministration) {
         return false;
       }
       return true;
@@ -66,7 +90,7 @@ export function Sidebar() {
         });
       });
     });
-  }, [pathname, isAdministrator]);
+  }, [pathname, canSeeAdministration]);
 
   return (
     <>

@@ -11,22 +11,30 @@ system keeps a local `faculty_members` record for authentication, role
 assignment, and future workflow permissions.
 
 ```text
-SAP Employee API
+SAP Employee API (EmployeeSet)
         |
         v
-verifyEmployeeByEmail (single) or fetchAllEmployees (bulk)
+fetchAllEmployees (bulk, paginated)
+        |
+        v
+Faculty Filtering Pipeline (src/lib/sap/faculty-filter.ts)
+        |
+        +-- 1. Active employee check (status, leaving date)
+        +-- 2. Academic sector check (exclude admin/HR/finance/etc.)
+        +-- 3. Email validation (@uol.edu.pk only, no student emails)
+        +-- 4. Designation validation (configurable via faculty_designation_rules)
+        +-- 5. Organization mapping (resolve faculty_id, department_id)
         |
         v
 faculty_members table  (internal canonical record)
         |
         +-- Authentication identity
-        |
+        +-- Organization FK links (faculty_id, department_id, program_id)
         +-- faculty_member_roles table  (supervisor today, more later)
-        |
         +-- submission_participants.faculty_member_id  (future linkage)
         |
         v
-NextAuth session: facultyMemberId, userType, facultyMemberRoles
+NextAuth session: facultyMemberId, userType, facultyId, departmentId, facultyMemberRoles
 ```
 
 ## Database
@@ -35,11 +43,17 @@ NextAuth session: facultyMemberId, userType, facultyMemberRoles
 
 - `sap_id` — canonical SAP identifier, unique.
 - `employee_id` — optional HR/employee number if different from `sap_id`.
-- `name`, `email`, `department`, `designation` — from SAP.
-- `faculty` — derived from department using `inferFacultyFromDepartment`.
-- `program` — optional, for future use.
+- `employee_code` — SAP personnel/employee code.
+- `name`, `email`, `department` (text), `designation` — from SAP.
+- `faculty` (text) — derived from department using `inferFacultyFromDepartment`.
+- `faculty_id` — FK to `faculties(id)`, resolved during sync.
+- `department_id` — FK to `departments(id)`, resolved during sync.
+- `program_id` — FK to `programs(id)`, for future use.
+- `program` (text) — optional, for future use.
 - `employee_type` — optional classification (e.g., `faculty`, `staff`).
-- `status` — `active` / `inactive`.
+- `employee_status` — SAP employment status text.
+- `status` — `active` / `inactive` (faculty_member_status enum).
+- `is_active` — boolean flag for quick filtering.
 - `last_synced_at` — last SAP bulk sync.
 - `last_login_at` — retained from earlier schema.
 - Soft delete via `deleted_at`.
@@ -55,6 +69,37 @@ time. Roles can be soft-deleted.
 - `assigned_by UUID REFERENCES admin_users(id)`
 - `assigned_at`, `status`, `created_at`, `updated_at`, `deleted_at`
 
+### `faculty_designation_rules`
+
+Configurable designation allow/deny list used by the SAP filtering pipeline.
+
+- `id BIGSERIAL PRIMARY KEY`
+- `designation VARCHAR(255) NOT NULL UNIQUE`
+- `is_allowed BOOLEAN NOT NULL DEFAULT TRUE`
+- `created_at`, `updated_at`
+
+When the table is empty, the filter falls back to built-in default keyword lists.
+
+### `faculty_sync_history`
+
+Tracks each SAP faculty sync run.
+
+- `id BIGSERIAL PRIMARY KEY`
+- `started_at`, `completed_at`
+- `total_records`, `inserted_count`, `updated_count`, `skipped_count`, `failed_count`
+- `status` — `running` / `completed` / `failed`
+
+### `faculty_sync_errors`
+
+Per-record error/skip logging for debugging SAP mapping issues.
+
+- `id BIGSERIAL PRIMARY KEY`
+- `sync_history_id BIGINT REFERENCES faculty_sync_history(id) ON DELETE CASCADE`
+- `sap_id VARCHAR(50)`
+- `reason VARCHAR(255) NOT NULL` — e.g., `NON_ACADEMIC_SECTOR`, `DESIGNATION_NOT_ALLOWED`
+- `raw_data JSONB` — the raw SAP record for debugging
+- `created_at`
+
 ### `submission_participants`
 
 - New `participant_source` value: `internal_faculty`.
@@ -68,24 +113,65 @@ No existing data or behavior is changed; only the schema is prepared.
 
 ## Migrations
 
-- `migrations/014_faculty_member_roles_and_participant_schema.sql`
-- Run with: `npm run db:migrate:014`
+Because PostgreSQL does not allow a newly-added enum value to be used in the
+same `pool.query` batch that created it, the schema changes are split into three
+migrations:
 
-The migration is idempotent and safe to re-run.
+- `migrations/014_faculty_member_roles_and_participant_schema.sql`  
+  — `faculty_members` columns, `faculty_member_roles` table, and
+  `submission_participants.faculty_member_id` column/index.
+- `migrations/015_add_internal_faculty_participant_source.sql`  
+  — Adds the `internal_faculty` value to `participant_source`.
+- `migrations/016_submission_participants_internal_faculty_check.sql`  
+  — Updates the `submission_participants` CHECK constraint for `internal_faculty`.
+- `migrations/017_faculty_sync_tracking_and_org_links.sql`  
+  — Adds `employee_code`, `faculty_id`, `department_id`, `program_id`, `employee_status`,
+    `is_active` to `faculty_members`. Creates `faculty_designation_rules`,
+    `faculty_sync_history`, and `faculty_sync_errors` tables.
+
+Run in order:
+
+```bash
+npm run db:migrate:014
+npm run db:migrate:015
+npm run db:migrate:016
+npm run db:migrate:017
+```
+
+All migrations are idempotent and safe to re-run.
 
 ## Services
 
 ### `src/lib/sap-employee.ts`
 
-- `verifyEmployeeByEmail(email)` — existing single-record lookup.
-- `fetchAllEmployees()` — new bulk collection fetch from `empinfoSet`.
-- `SapEmployeeRecord` — normalized record type.
+- `verifyEmployeeByEmail(email)` — existing single-record lookup via `empinfoSet`.
+- `fetchAllEmployees()` — bulk collection fetch from `EmployeeSet` with OData
+  pagination (`__next` links). Extracts rich fields: status, group, sector, org
+  unit, leaving date, etc.
+- `SapEmployeeRecord` — normalized record type with all extracted fields.
+
+### `src/lib/sap/faculty-filter.ts`
+
+Faculty filtering pipeline. Applies five stages:
+1. Active employee check (status, leaving date)
+2. Academic sector check (excludes non-academic keywords)
+3. Email validation (`@uol.edu.pk` only, no student emails)
+4. Designation validation (configurable via `faculty_designation_rules` table)
+5. Organization mapping (resolves `faculty_id` and `department_id` from SAP text)
+
+Returns `FilterResult` — either a `NormalizedFacultyMember` or a rejection with
+reason and raw data for error logging.
 
 ### `src/lib/sap/sync-faculty-members.ts`
 
-- `syncFacultyMembersFromSap()` — fetches all employees, normalizes, and
-  upserts by `sap_id`.
-- Returns counts: `total`, `inserted`, `updated`, `skipped`, `errors`.
+- `syncFacultyMembersFromSap()` — full sync pipeline:
+  1. Creates a `faculty_sync_history` row.
+  2. Fetches all employees from SAP `EmployeeSet`.
+  3. Filters each record through `filterFacultyMember`.
+  4. Upserts eligible records via `upsertFacultyMemberFromSync`.
+  5. Logs skipped/failed records to `faculty_sync_errors`.
+  6. Updates sync history with final counts.
+- Returns `syncHistoryId`, `total`, `inserted`, `updated`, `skipped`, `failed`.
 - Never deletes or inactivates missing records.
 
 ### `src/lib/faculty-members.ts`

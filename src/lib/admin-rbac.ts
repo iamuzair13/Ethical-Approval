@@ -26,8 +26,8 @@ export type AdminUserRecord = {
   id: string;
   name: string;
   email: string;
-  passwordHash: string;
-  role: AdminRole;
+  passwordHash: string | null;
+  role: AdminRole | null;
   status: AdminStatus;
   sapId: string | null;
   facultyId: number | null;

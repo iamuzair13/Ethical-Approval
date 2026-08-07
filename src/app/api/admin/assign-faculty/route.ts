@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       effective: {
         adminId: target.id,
         name: target.name,
-        role: target.role,
+        role: target.role ?? "faculty",
       },
     });
     return NextResponse.json({ ok: true });
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     effective: {
       adminId: target.id,
       name: target.name,
-      role: target.role,
+      role: target.role ?? "faculty",
     },
     metadata: { facultyIds },
   });

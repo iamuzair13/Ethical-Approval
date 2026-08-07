@@ -1,4 +1,3 @@
-import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
 import { formatSubmissionApplicationType } from "@/app/(home)/fetch";
 import { ViewDocumentsButton } from "@/app/admin/submissions/[id]/profile/_components/view-documents-button";
 import { authOptions } from "@/lib/auth-options";
@@ -194,7 +193,6 @@ export default async function AdminSubmissionProfilePage({
 
   return (
     <div className="mx-auto w-full max-w-[1100px]">
-      <Breadcrumb pageName="Application profile" />
 
       <div className="grid gap-6">
         {/* Priority summary */}

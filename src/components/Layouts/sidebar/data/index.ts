@@ -29,20 +29,9 @@ export const NAV_DATA: NavSection[] = [
         items: []
       },
       {
-        title: "Forms",
+        title: "My Applications",
         icon: Icons.Alphabet,
-        items: [],
-      },
-      {
-        title: "Reports",
-        icon: Icons.PieChart,
-        url: "/reports",
-        items: []
-      },
-      {
-        title: "Activity Center",
-        icon: Icons.Table,
-        url: "/activity-center",
+        url: "/my-applications",
         items: []
       },
       {
@@ -51,12 +40,25 @@ export const NAV_DATA: NavSection[] = [
         items: [
           {
             title: "Users",
-            url: "/users",
+            url: "/faculty-members",
           },
           {
             title: "Organizations",
             url: "/organizations",
           },
+          {
+            title: "Forms",
+            url: "/forms",
+          },
+          {
+            title: "Reports",
+            url: "/reports",
+          },
+          {
+            title: "Activity Center",
+            url: "/activity-center",
+          },
+          
         ]
       },
       // {

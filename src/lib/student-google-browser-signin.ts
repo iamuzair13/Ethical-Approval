@@ -3,6 +3,8 @@
  * then the same SAP path as student-email credentials: /api/auth/verify-student + student-email.
  */
 
+import { resolvePostLoginRedirect } from "@/lib/post-login-redirect";
+
 declare global {
   interface Window {
     google?: {
@@ -184,7 +186,8 @@ export async function signInStudentViaGoogleBrowserToken(
   }
 
   if (result?.ok) {
-    return { ok: true, redirectUrl: result.url ?? studentTarget };
+    const redirectUrl = await resolvePostLoginRedirect(result.url ?? studentTarget);
+    return { ok: true, redirectUrl };
   }
 
   return { ok: false, message: "Sign-in did not complete. Please try again." };

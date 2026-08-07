@@ -2,8 +2,11 @@
 -- Prepares the faculty member management architecture:
 --   1. Adds sync/scope columns to faculty_members.
 --   2. Creates faculty_member_roles table for scalable role assignment.
---   3. Extends participant_source enum to support internal faculty linkage.
---   4. Adds faculty_member_id to submission_participants.
+--   3. Adds faculty_member_id to submission_participants with an index.
+--
+-- The new participant_source enum value and the updated CHECK constraint are
+-- added in separate migrations because PostgreSQL does not allow a newly-added
+-- enum value to be used in the same query batch that created it.
 --
 -- Idempotent: safe to run multiple times.
 
@@ -42,34 +45,10 @@ CREATE INDEX IF NOT EXISTS idx_faculty_member_roles_status
   WHERE deleted_at IS NULL;
 
 -- =========================
--- submission_participants internal faculty support
+-- submission_participants internal faculty support (column only)
 -- =========================
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
-    WHERE t.typname = 'participant_source' AND e.enumlabel = 'internal_faculty'
-  ) THEN
-    ALTER TYPE participant_source ADD VALUE 'internal_faculty';
-  END IF;
-END
-$$;
-
 ALTER TABLE submission_participants
   ADD COLUMN IF NOT EXISTS faculty_member_id UUID REFERENCES faculty_members(id) ON DELETE SET NULL;
-
-ALTER TABLE submission_participants
-  DROP CONSTRAINT IF EXISTS submission_participants_source_check;
-
-ALTER TABLE submission_participants
-  ADD CONSTRAINT submission_participants_source_check
-  CHECK (
-    (source = 'internal_erp' AND sap_id IS NOT NULL AND external_name IS NULL)
-    OR
-    (source = 'internal_faculty' AND faculty_member_id IS NOT NULL AND external_name IS NULL)
-    OR
-    (source = 'external' AND external_name IS NOT NULL AND sap_id IS NULL AND faculty_member_id IS NULL)
-  );
 
 CREATE INDEX IF NOT EXISTS idx_submission_participants_faculty_member
   ON submission_participants(faculty_member_id)

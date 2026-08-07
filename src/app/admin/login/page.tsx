@@ -7,44 +7,102 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { GoogleIcon } from "@/assets/icons";
+import { resolvePostLoginRedirect } from "@/lib/post-login-redirect";
 
 function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingManual, setLoadingManual] = useState(false);
+  const [manualEmail, setManualEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const callbackUrl = useMemo(() => {
     const raw = searchParams.get("callbackUrl");
     return raw?.startsWith("/") ? raw : "/admin";
   }, [searchParams]);
 
-  const onSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleGoogle = async () => {
     setError(null);
-    setLoading(true);
+    setLoadingGoogle(true);
     try {
-      const result = await signIn("admin-credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl,
-      });
-
-      if (result?.error || !result?.ok) {
-        const message = "Invalid admin credentials.";
+      const { signInStudentViaGoogleBrowserToken } = await import(
+        "@/lib/student-google-browser-signin"
+      );
+      const res = await signInStudentViaGoogleBrowserToken(signIn, callbackUrl);
+      if (!res.ok) {
+        const message =
+          res.errorCode === "Configuration"
+            ? "Server authentication is misconfigured."
+            : res.errorCode === "FACULTY_NOT_FOUND"
+              ? "Your email was not found in the system. Please contact the administrator."
+              : res.message ?? "Google sign-in failed.";
         setError(message);
         toast.error(message);
         return;
       }
       toast.success("Login successful.");
-      router.push(result.url ?? callbackUrl);
+      router.push(res.redirectUrl);
       router.refresh();
     } finally {
-      setLoading(false);
+      setLoadingGoogle(false);
+    }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const email = manualEmail.trim();
+    if (!email) {
+      setError("Enter your university email.");
+      return;
+    }
+
+    setLoadingManual(true);
+    try {
+      // Verify the email exists in the system
+      const verifyRes = await fetch("/api/auth/verify-student?admin=1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!verifyRes.ok) {
+        const verifyBody = (await verifyRes.json().catch(() => null)) as
+          | { errorCode?: string }
+          | null;
+        const message =
+          verifyBody?.errorCode === "FACULTY_NOT_FOUND"
+            ? "Your email was not found in the system."
+            : verifyBody?.errorCode === "FACULTY_INACTIVE"
+              ? "Your account is inactive. Please contact the administrator."
+              : verifyBody?.errorCode === "ADMIN_ROLE_REQUIRED"
+                ? "Your account does not have admin access. Please contact the administrator."
+                : "Unable to verify your account.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      const result = await signIn("student-email", {
+        email,
+        redirect: false,
+        callbackUrl,
+      });
+
+      if (result?.error || !result?.ok) {
+        setError("Sign-in failed. Please try again.");
+        toast.error("Sign-in failed.");
+        return;
+      }
+
+      toast.success("Login successful.");
+      const redirectUrl = await resolvePostLoginRedirect(result.url ?? callbackUrl);
+      router.push(redirectUrl);
+      router.refresh();
+    } finally {
+      setLoadingManual(false);
     }
   };
 
@@ -59,8 +117,8 @@ function AdminLoginForm() {
             Ethical Approval Process
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-100 max-lg:mx-auto">
-            Admin portal access for administrators, supervisors, and IREB .
-            Sign in with your assigned email and password.
+            Admin portal access for administrators, supervisors, and IREB members.
+            Sign in with your University of Lahore Google account.
           </p>
         </div>
 
@@ -84,58 +142,63 @@ function AdminLoginForm() {
               </div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              <label className="block">
-                <span className="mb-1.5 block text-left text-xs font-medium text-slate-700 dark:text-dark-6">
-                  Email
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@uol.edu.pk"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 placeholder:text-slate-400 focus:border-primary focus:ring-2 disabled:opacity-60 dark:border-dark-3 dark:bg-[#020d1a] dark:text-white"
-                  required
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-left text-xs font-medium text-slate-700 dark:text-dark-6">
-                  Password
-                </span>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-20 text-sm text-slate-900 outline-none ring-primary/30 placeholder:text-slate-400 focus:border-primary focus:ring-2 disabled:opacity-60 dark:border-dark-3 dark:bg-[#020d1a] dark:text-white"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-dark-5 hover:bg-gray-1 dark:hover:bg-dark-2"
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </label>
-
+            <div className="space-y-4">
               <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={handleGoogle}
+                disabled={loadingGoogle || loadingManual}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3"
               >
-                {loading && (
-                  <span className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
+                {loadingGoogle ? (
+                  <span className="inline-block size-5 animate-spin rounded-full border-2 border-solid border-slate-400 border-t-transparent" />
+                ) : (
+                  <GoogleIcon className="shrink-0" />
                 )}
-                {loading ? "Signing in..." : "Sign in with email"}
+                {loadingGoogle ? "Connecting…" : "Sign in with Google"}
               </button>
-            </form>
+
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200 dark:border-dark-3" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                  <span className="bg-white px-3 text-slate-500 dark:bg-gray-dark dark:text-dark-6">
+                    or use email
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleManualSubmit} className="space-y-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-left text-xs font-medium text-slate-700 dark:text-dark-6">
+                    University email
+                  </span>
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    value={manualEmail}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    placeholder="admin@uol.edu.pk"
+                    disabled={loadingManual || loadingGoogle}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 placeholder:text-slate-400 focus:border-primary focus:ring-2 disabled:opacity-60 dark:border-dark-3 dark:bg-[#020d1a] dark:text-white"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={loadingManual || loadingGoogle}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loadingManual && (
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
+                  )}
+                  {loadingManual ? "Verifying…" : "Sign in with email"}
+                </button>
+              </form>
+            </div>
 
             <p className="mt-8 text-center text-xs text-slate-500 dark:text-dark-6">
-              Use your assigned admin credentials to access the approval dashboard.
+              Use your university email to sign in. Your account must be active in the system.
             </p>
 
             <p className="mt-4 text-center text-sm text-slate-600 dark:text-dark-6">
