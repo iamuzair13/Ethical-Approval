@@ -217,21 +217,9 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
-      const safeUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
-      const target = new URL(safeUrl, baseUrl);
-
-      if (target.pathname === "/") {
-        if (target.searchParams.get("portal") === "admin") {
-          return `${baseUrl}/`;
-        }
-        return `${baseUrl}/profile`;
-      }
-
-      if (target.origin === new URL(baseUrl).origin) {
-        return target.toString();
-      }
-
-      return baseUrl;
+      // Always redirect to root after successful authentication
+      // Role-based access and module availability are handled separately
+      return `${baseUrl}/`;
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {

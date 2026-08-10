@@ -6,18 +6,14 @@ import { getAuthSecret } from "@/lib/auth-secret";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/auth");
-  const isAdminAuthRoute = pathname.startsWith("/admin/login");
   const isAuthApiRoute = pathname.startsWith("/api/auth");
-  const isAdminLoginApiRoute = pathname === "/api/admin/login";
   const isPublicProfileRoute = pathname === "/profile";
   const isNextInternals = pathname.startsWith("/_next");
   const isStaticFile = /\.[^/]+$/.test(pathname);
 
   if (
     isAuthRoute ||
-    isAdminAuthRoute ||
     isAuthApiRoute ||
-    isAdminLoginApiRoute ||
     isPublicProfileRoute ||
     isNextInternals ||
     isStaticFile

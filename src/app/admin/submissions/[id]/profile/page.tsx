@@ -121,7 +121,7 @@ export default async function AdminSubmissionProfilePage({
     !session.user.adminStatus ||
     session.user.adminStatus !== "active"
   ) {
-    redirect("/admin/login");
+    redirect("/auth/sign-in");
   }
   const actor: AuthenticatedAdmin = {
     adminId: session.user.adminId,

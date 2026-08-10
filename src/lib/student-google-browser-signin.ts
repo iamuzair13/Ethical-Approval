@@ -173,12 +173,10 @@ export async function signInStudentViaGoogleBrowserToken(
     }
   }
 
-  const studentTarget = email.endsWith("@student.uol.edu.pk") ? "/profile" : callbackUrl;
-
   const result = await signIn("student-email", {
     email,
     redirect: false,
-    callbackUrl: studentTarget,
+    callbackUrl: "/",
   });
 
   if (result?.error) {
@@ -186,7 +184,7 @@ export async function signInStudentViaGoogleBrowserToken(
   }
 
   if (result?.ok) {
-    const redirectUrl = await resolvePostLoginRedirect(result.url ?? studentTarget);
+    const redirectUrl = await resolvePostLoginRedirect(result.url ?? "/");
     return { ok: true, redirectUrl };
   }
 

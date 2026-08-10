@@ -16,7 +16,6 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
   const { data: session, status } = useSession();
 
   const isAuthRoute = pathname?.startsWith("/auth") ?? false;
-  const isAdminLoginRoute = pathname?.startsWith("/admin/login") ?? false;
 
   // User-facing shells (no sidebar): the profile dashboard, the full profile
   // view, and the account-settings page. These are "manage your own account"
@@ -34,7 +33,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
   const isAuthenticatedNonAdmin =
     status === "authenticated" && !isAdmin;
 
-  if (isAuthRoute || isAdminLoginRoute) {
+  if (isAuthRoute) {
     return <>{children}</>;
   }
 

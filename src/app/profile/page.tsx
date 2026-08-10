@@ -1211,10 +1211,10 @@ export default function ProfileDashboard() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-dark tracking-tight dark:text-white">
-                      Create New Approval Request
+                      Initiate New Approval Request
                     </h3>
                     <p className="mt-1 max-w-xl text-sm leading-relaxed text-dark-6 dark:text-slate-400">
-                      Start the multi-step ethical review form and submit your approval request to the review board.
+                      Initiate the multi-step ethical review form and submit your approval request to the review board.
                     </p>
                   </div>
                 </div>
@@ -1222,7 +1222,7 @@ export default function ProfileDashboard() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
-                  New Application
+                  Initiate Application
                 </MagneticButton>
               </div>
             </SpotlightCard>

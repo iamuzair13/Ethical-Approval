@@ -3,20 +3,21 @@ import { NextResponse } from "next/server";
 /**
  * POST /api/admin/login
  *
- * Previously handled password-based admin login. Now that authentication is
- * unified via SSO (Google / email verification), this endpoint is deprecated.
- * Admin login is handled by the /auth/sign-in page using the unified
- * "student-email" provider, which checks admin_users for role assignment.
+ * This endpoint is deprecated. All authentication is now unified through
+ * /auth/sign-in using the "student-email" provider, which handles students,
+ * faculty, and admin users through a single authentication pipeline.
  *
- * Kept as a backward-compatible endpoint that returns a deprecation notice.
+ * Redirects to the unified login page.
  */
 export async function POST() {
-  return NextResponse.json(
-    {
-      ok: false,
-      error: "Password-based login is no longer supported. Use Google SSO or email verification at /auth/sign-in.",
-      redirect: "/auth/sign-in",
-    },
-    { status: 410 },
-  );
+  return NextResponse.redirect(new URL("/auth/sign-in", process.env.NEXTAUTH_URL || "http://localhost:3000"));
+}
+
+/**
+ * GET /api/admin/login
+ *
+ * Redirects to the unified login page.
+ */
+export async function GET() {
+  return NextResponse.redirect(new URL("/auth/sign-in", process.env.NEXTAUTH_URL || "http://localhost:3000"));
 }

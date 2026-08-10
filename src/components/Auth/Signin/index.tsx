@@ -92,7 +92,7 @@ export default function Signin() {
   const callbackUrl = useMemo(() => {
     const raw = searchParams.get("callbackUrl");
     if (raw?.startsWith("/")) return raw;
-    return "/profile";
+    return "/"; // All users redirect to root after login
   }, [searchParams]);
 
   const urlError = useMemo(
@@ -165,12 +165,6 @@ export default function Signin() {
 
     setLoadingManual(true);
     try {
-      const studentTarget = email
-        .toLowerCase()
-        .endsWith("@student.uol.edu.pk")
-        ? "/profile"
-        : callbackUrl;
-
       const verifyRes = await fetch("/api/auth/verify-student", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,7 +195,7 @@ export default function Signin() {
       const result = await signIn("student-email", {
         email,
         redirect: false,
-        callbackUrl: studentTarget,
+        callbackUrl,
       });
 
       if (result?.error) {
@@ -213,7 +207,7 @@ export default function Signin() {
 
       if (result?.ok) {
         toast.success("Login successful.");
-        const redirectUrl = await resolvePostLoginRedirect(result?.url ?? studentTarget);
+        const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
         router.push(redirectUrl);
         router.refresh();
       }
@@ -233,8 +227,8 @@ export default function Signin() {
             Ethical Approval Process
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-100 max-lg:mx-auto">
-            Sign in with your University Google account. Access is granted only after
-            your student record is verified against SAP.
+            Sign in with your University Google account. Access is granted after
+            your record is verified against SAP.
           </p>
         </div>
 
@@ -338,13 +332,6 @@ export default function Signin() {
             </p>
 
             <p className="mt-4 text-center text-sm text-slate-600 dark:text-dark-6">
-              <Link
-                href="/admin/login"
-                className="mb-2 inline-flex rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/10"
-              >
-                Admin Login
-              </Link>
-              <br />
               <Link
                 href="/"
                 className="font-medium text-primary hover:underline"
