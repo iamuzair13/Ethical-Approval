@@ -40,7 +40,25 @@ export async function GET(
   const facultyIds = await resolveFacultyIdsFromSnapshotValue(submission.applicant_faculty);
 
   let supervisorOption: AdminOption | null = null;
-  if (facultyIds.length > 0) {
+
+  // Prefer the assigned supervisor (per-application routing) when available.
+  if (submission.supervisor_user_id) {
+    const assignedResult = await db.query<AdminOption>(
+      `
+        SELECT id, name, role
+        FROM admin_users
+        WHERE id = $1
+          AND role = 'supervisor'
+          AND status = 'active'
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [submission.supervisor_user_id],
+    );
+    supervisorOption = assignedResult.rows[0] ?? null;
+  }
+
+  if (!supervisorOption && facultyIds.length > 0) {
     const supervisorResult = await db.query<AdminOption>(
       `
         SELECT au.id, au.name, au.role

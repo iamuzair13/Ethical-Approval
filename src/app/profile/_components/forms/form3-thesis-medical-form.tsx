@@ -8,6 +8,7 @@ import { ResearchPopulationBox } from "./research-population-box";
 import { SdgCheckboxDropdown } from "./sdg-checkbox-dropdown";
 import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
+import { SupervisorPicker } from "./supervisor-picker";
 import {
   AttachmentCard,
   BaseInput,
@@ -191,59 +192,8 @@ export function Form3ThesisMedicalForm({
           </FieldRow>
         </FormSection>
 
-        {/* 1.2 Supervisor's Information */}
-        <FormSection title="1.2 Supervisor's Information">
-          <FieldRow>
-            <Required label="SAP ID *">
-              <BaseInput
-                placeholder="Enter SAP ID"
-                value={form.supervisorSapId}
-                onChange={onFieldChange("supervisorSapId")}
-              />
-            </Required>
-            <Required label="Name *">
-              <BaseInput
-                placeholder="Enter Name"
-                value={form.supervisorName}
-                onChange={onFieldChange("supervisorName")}
-              />
-            </Required>
-            <Required label=" Email *">
-              <BaseInput
-                placeholder="Enter Email"
-                value={form.supervisorEmail}
-                onChange={onFieldChange("supervisorEmail")}
-              />
-            </Required>
-            <Required label="Faculty">
-              <BaseSelect
-                value={form.supervisorFaculty}
-                onChange={onFieldChange("supervisorFaculty")}
-              >
-                <option value="">Select Faculty</option>
-                {facultyOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </BaseSelect>
-            </Required>
-            <Required label="Department" className="md:col-span-2">
-              <BaseSelect
-                value={form.supervisorDepartment}
-                onChange={onFieldChange("supervisorDepartment")}
-                disabled={!form.supervisorFaculty}
-              >
-                <option value="">Select Department</option>
-                {getDepartmentsForFaculty(form.supervisorFaculty).map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </BaseSelect>
-            </Required>
-          </FieldRow>
-        </FormSection>
+        {/* 1.2 Supervisor's Information — Department -> Supervisor -> auto-fill */}
+        <SupervisorPicker form={form} setForm={setForm} />
 
         <CoPersonSection
           title="1.3 Co-supervisor"

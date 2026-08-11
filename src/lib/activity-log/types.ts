@@ -117,11 +117,16 @@ export type ActivityEventsFilters = {
   page?: number;
   pageSize?: number;
   sort?: "asc" | "desc";
-  actorRole?: string;
-  actorAdminId?: string;
-  actionCode?: string;
-  targetType?: string;
-  facultyId?: number;
+  /** Multi-select: array of actor roles (OR logic). */
+  actorRoles?: string[];
+  /** Multi-select: array of actor admin IDs (OR logic). */
+  actorAdminIds?: string[];
+  /** Multi-select: array of action codes (OR logic). */
+  actionCodes?: string[];
+  /** Multi-select: array of target types (OR logic). */
+  targetTypes?: string[];
+  /** Multi-select: array of faculty IDs (OR logic). */
+  facultyIds?: number[];
   dateFrom?: string;
   dateTo?: string;
   impersonation?: "only" | "exclude" | "all";

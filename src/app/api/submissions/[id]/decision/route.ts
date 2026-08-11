@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
-import { getAdminUserById, resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
+import {
+  getAdminUserById,
+  getIrebEmailsForFacultyIds,
+  resolveFacultyIdsFromSnapshotValue,
+} from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import {
   scheduleSupervisorRejectionEmail,
+  scheduleSupervisorApprovalToIrebEmail,
   scheduleIrebApprovalEmail,
   scheduleIrebRejectionEmail,
 } from "@/lib/email";
@@ -112,9 +117,22 @@ export async function POST(
   let effectiveAdmin = effectiveAdminUser;
   let auditNote: string | null = recorderContext.auditNote;
 
+  // Per-application supervisor authorization.
+  // When a submission has a supervisor_user_id, only that specific supervisor
+  // can approve/reject it at the supervisor stage. Administrators must act on
+  // behalf of that specific supervisor, not just any supervisor.
+  const assignedSupervisorId = submission.supervisor_user_id;
+
   if (recorderContext.isViewAs) {
     if (actor.role !== stage) {
       return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
+    }
+    // View-as: the impersonated supervisor must be the assigned one.
+    if (stage === "supervisor" && assignedSupervisorId && actor.adminId !== assignedSupervisorId) {
+      return NextResponse.json(
+        { ok: false, error: "Only the assigned supervisor can review this application." },
+        { status: 403 },
+      );
     }
   } else if (actor.role === "administrator") {
     if (!body.onBehalfOfAdminId) {
@@ -137,10 +155,23 @@ export async function POST(
         { status: 400 },
       );
     }
+    // Admin must act on behalf of the assigned supervisor, not just any supervisor.
+    if (stage === "supervisor" && assignedSupervisorId && selectedAdmin.id !== assignedSupervisorId) {
+      return NextResponse.json(
+        { ok: false, error: "Only the assigned supervisor can review this application." },
+        { status: 403 },
+      );
+    }
     effectiveAdmin = selectedAdmin;
     auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;
   } else if (actor.role !== stage) {
     return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
+  } else if (stage === "supervisor" && assignedSupervisorId && actor.adminId !== assignedSupervisorId) {
+    // Direct supervisor action: must be the assigned supervisor.
+    return NextResponse.json(
+      { ok: false, error: "Only the assigned supervisor can review this application." },
+      { status: 403 },
+    );
   }
 
   const decidedBySapId = recorderContext.isViewAs
@@ -217,6 +248,22 @@ export async function POST(
         supervisorName: effectiveAdmin.name,
         comment: finalComment,
       });
+    } else if (body.decision === "approved" && stage === "supervisor") {
+      // Notify IREB members that the supervisor has approved and the
+      // application is now ready for IREB review.
+      const facultyIds = await resolveFacultyIdsFromSnapshotValue(
+        submission.applicant_faculty,
+      );
+      const irebEmails = await getIrebEmailsForFacultyIds(facultyIds);
+      if (irebEmails.length > 0) {
+        scheduleSupervisorApprovalToIrebEmail({
+          irebEmails,
+          applicantName: submission.applicant_name,
+          title: submission.title,
+          applicationId: submission.application_id,
+          supervisorName: effectiveAdmin.name,
+        });
+      }
     } else if (body.decision === "rejected" && stage === "ireb") {
       scheduleIrebRejectionEmail({
         to: submission.applicant_email,

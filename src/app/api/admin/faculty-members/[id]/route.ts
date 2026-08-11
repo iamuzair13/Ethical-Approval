@@ -177,6 +177,7 @@ export async function GET(
 type UpdateFacultyBody = {
   name?: string;
   email?: string;
+  sapId?: string;
   designation?: string | null;
   facultyId?: number | null;
   departmentId?: number | null;
@@ -248,6 +249,21 @@ export async function PATCH(
       }
     }
 
+    // Check SAP ID uniqueness if changing
+    const newSapId = body.sapId?.trim() || null;
+    if (newSapId && newSapId !== current.sap_id) {
+      const sapConflict = await db.query<{ id: string }>(
+        `SELECT id FROM faculty_members WHERE sap_id = $1 AND id <> $2 AND deleted_at IS NULL LIMIT 1`,
+        [newSapId, id],
+      );
+      if (sapConflict.rows[0]) {
+        return NextResponse.json(
+          { ok: false, error: "Another faculty member already uses this SAP ID." },
+          { status: 409 },
+        );
+      }
+    }
+
     // 1. Update faculty_members record
     // NOTE: `department` column is NOT NULL — fall back to current value
     // when no new department is selected. `faculty` and `program` are nullable.
@@ -266,20 +282,22 @@ export async function PATCH(
     await db.query(
       `
         UPDATE faculty_members SET
-          name = COALESCE($2, name),
-          email = COALESCE($3, email),
-          designation = $4,
-          faculty = $5,
-          department = $6,
-          program = $7,
-          faculty_id = $8,
-          department_id = $9,
-          program_id = $10,
+          sap_id = COALESCE($2, sap_id),
+          name = COALESCE($3, name),
+          email = COALESCE($4, email),
+          designation = $5,
+          faculty = $6,
+          department = $7,
+          program = $8,
+          faculty_id = $9,
+          department_id = $10,
+          program_id = $11,
           updated_at = NOW()
         WHERE id = $1 AND deleted_at IS NULL
       `,
       [
         id,
+        newSapId,
         body.name?.trim() ?? null,
         body.email?.trim().toLowerCase() ?? null,
         body.designation ?? null,
@@ -304,7 +322,7 @@ export async function PATCH(
         await findOrCreateUserForFaculty({
           name: body.name?.trim() ?? current.name,
           email: body.email?.trim() ?? current.email,
-          sapId: current.sap_id,
+          sapId: newSapId ?? current.sap_id,
         })
       ).id;
       await linkFacultyMemberToUser(id, effectiveUserId);
@@ -320,7 +338,7 @@ export async function PATCH(
         name: body.name?.trim() ?? current.name,
         email: body.email?.trim() ?? current.email,
         role: roleValue as "administrator" | "supervisor" | "ireb" | null,
-        sapId: current.sap_id,
+        sapId: newSapId ?? current.sap_id,
         passwordHash,
       });
 

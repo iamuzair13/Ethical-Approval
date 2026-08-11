@@ -211,7 +211,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const methodology = normalizeDraftText(body.methodology);
     const applicant = body.applicantProfile;
 
-    const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Student";
+    const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Applicant";
     const applicantEmail = applicant?.email?.trim() || session.user?.email?.trim() || "";
     const applicantFaculty = applicant?.faculty?.trim() || "Unknown Faculty";
     const applicantDepartment = applicant?.department?.trim() || "Unknown Department";

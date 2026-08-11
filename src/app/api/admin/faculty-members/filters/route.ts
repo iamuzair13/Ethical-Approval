@@ -8,6 +8,7 @@ type ProgramOptionRow = { id: number; name: string; department_id: number; count
 type DesignationOptionRow = { designation: string; count: number };
 type RoleOptionRow = { role: string | null; count: number };
 type StatusOptionRow = { status: string; count: number };
+type DataQualityRow = { duplicate_sap_id: number; duplicate_email: number; missing_sap_id: number; missing_email: number };
 
 /**
  * GET /api/admin/faculty-members/filters
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
       designationsRes,
       rolesRes,
       statusesRes,
+      dataQualityRes,
     ] = await Promise.all([
       // Faculties — only those with ≥1 faculty member, with counts
       db.query<FacultyOptionRow>(`
@@ -96,6 +98,47 @@ export async function GET(request: NextRequest) {
         GROUP BY COALESCE(au.status::text, fm.status::text)
         ORDER BY status
       `),
+
+      // Data quality counts — counts of records (not groups) matching each
+      // condition. SAP ID normalization strips leading zeros (e.g. '00022833'
+      // and '22833' are the same SAP ID). Email normalization is LOWER(TRIM).
+      // NULL/empty values are excluded from duplicate detection.
+      db.query<DataQualityRow>(`
+        WITH base AS (
+          SELECT * FROM faculty_members WHERE deleted_at IS NULL
+        ),
+        dup_sap AS (
+          SELECT REGEXP_REPLACE(TRIM(sap_id), '^0+', '') AS norm
+          FROM base
+          WHERE sap_id IS NOT NULL AND TRIM(sap_id) != ''
+            AND sap_id !~ '^[A-Za-z]'
+          GROUP BY REGEXP_REPLACE(TRIM(sap_id), '^0+', '')
+          HAVING COUNT(*) > 1
+        ),
+        dup_email AS (
+          SELECT LOWER(TRIM(email)) AS norm
+          FROM base
+          WHERE email IS NOT NULL AND TRIM(email) != ''
+          GROUP BY LOWER(TRIM(email))
+          HAVING COUNT(*) > 1
+        )
+        SELECT
+          (SELECT COUNT(*) FROM base b
+             WHERE b.sap_id IS NOT NULL AND TRIM(b.sap_id) != ''
+               AND b.sap_id !~ '^[A-Za-z]'
+               AND REGEXP_REPLACE(TRIM(b.sap_id), '^0+', '') IN (SELECT norm FROM dup_sap)
+          )::int AS duplicate_sap_id,
+          (SELECT COUNT(*) FROM base b
+             WHERE b.email IS NOT NULL AND TRIM(b.email) != ''
+               AND LOWER(TRIM(b.email)) IN (SELECT norm FROM dup_email)
+          )::int AS duplicate_email,
+          (SELECT COUNT(*) FROM base b
+             WHERE b.sap_id IS NULL OR TRIM(b.sap_id) = ''
+          )::int AS missing_sap_id,
+          (SELECT COUNT(*) FROM base b
+             WHERE b.email IS NULL OR TRIM(b.email) = ''
+          )::int AS missing_email
+      `),
     ]);
 
     // Build role options with labels
@@ -146,6 +189,12 @@ export async function GET(request: NextRequest) {
       })),
       roles,
       statuses,
+      dataQuality: {
+        duplicateSapId: dataQualityRes.rows[0]?.duplicate_sap_id ?? 0,
+        duplicateEmail: dataQualityRes.rows[0]?.duplicate_email ?? 0,
+        missingSapId: dataQualityRes.rows[0]?.missing_sap_id ?? 0,
+        missingEmail: dataQualityRes.rows[0]?.missing_email ?? 0,
+      },
     });
   } catch (error) {
     console.error("[faculty-members] filters failed:", error);

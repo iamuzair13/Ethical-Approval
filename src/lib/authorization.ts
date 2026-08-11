@@ -96,6 +96,15 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
     params.push(roleStatuses);
   }
 
+  // Per-application supervisor routing: a supervisor only sees submissions
+  // explicitly assigned to them via supervisor_user_id. Publications (which
+  // have no supervisor_user_id) and legacy thesis submissions are excluded.
+  const supervisorFilter =
+    admin.role === "supervisor" ? `AND s.supervisor_user_id = $${params.length + 1}` : "";
+  if (admin.role === "supervisor") {
+    params.push(admin.adminId);
+  }
+
   const result = await db.query<SubmissionRow>(
     `
       SELECT
@@ -118,12 +127,19 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
       LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
       WHERE s.current_status::text <> 'draft'
       ${statusFilter}
+      ${supervisorFilter}
       ORDER BY s.submitted_at DESC
     `,
     params,
   );
 
   if (admin.role === "administrator" || admin.scopeMode === "all") {
+    return result.rows;
+  }
+
+  // For supervisors, the SQL filter already restricted to assigned submissions.
+  // For IREB and other restricted roles, apply the faculty-scope filter.
+  if (admin.role === "supervisor") {
     return result.rows;
   }
 

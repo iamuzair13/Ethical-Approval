@@ -8,6 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  FilterMultiSelect,
+  type FilterOption,
+} from "@/components/ui/filter-multi-select";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -78,11 +82,11 @@ export default function ActivityCenterPage() {
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [actorRole, setActorRole] = useState("");
-  const [actorAdminId, setActorAdminId] = useState("");
-  const [actionCode, setActionCode] = useState("");
-  const [targetType, setTargetType] = useState("");
-  const [facultyId, setFacultyId] = useState("");
+  const [actorRoles, setActorRoles] = useState<string[]>([]);
+  const [actorAdminIds, setActorAdminIds] = useState<string[]>([]);
+  const [actionCodes, setActionCodes] = useState<string[]>([]);
+  const [targetTypes, setTargetTypes] = useState<string[]>([]);
+  const [facultyIds, setFacultyIds] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [impersonation, setImpersonation] = useState<"" | "only" | "exclude">("");
@@ -126,11 +130,11 @@ export default function ActivityCenterPage() {
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     if (debouncedQuery) params.set("q", debouncedQuery);
-    if (actorRole) params.set("actorRole", actorRole);
-    if (actorAdminId) params.set("actorAdminId", actorAdminId);
-    if (actionCode) params.set("actionCode", actionCode);
-    if (targetType) params.set("targetType", targetType);
-    if (facultyId) params.set("facultyId", facultyId);
+    if (actorRoles.length > 0) params.set("actorRole", actorRoles.join(","));
+    if (actorAdminIds.length > 0) params.set("actorAdminId", actorAdminIds.join(","));
+    if (actionCodes.length > 0) params.set("actionCode", actionCodes.join(","));
+    if (targetTypes.length > 0) params.set("targetType", targetTypes.join(","));
+    if (facultyIds.length > 0) params.set("facultyId", facultyIds.join(","));
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (impersonation) params.set("impersonation", impersonation);
@@ -140,11 +144,11 @@ export default function ActivityCenterPage() {
     return params;
   }, [
     debouncedQuery,
-    actorRole,
-    actorAdminId,
-    actionCode,
-    targetType,
-    facultyId,
+    actorRoles,
+    actorAdminIds,
+    actionCodes,
+    targetTypes,
+    facultyIds,
     dateFrom,
     dateTo,
     impersonation,
@@ -191,11 +195,11 @@ export default function ActivityCenterPage() {
     setCurrentPage(1);
   }, [
     debouncedQuery,
-    actorRole,
-    actorAdminId,
-    actionCode,
-    targetType,
-    facultyId,
+    actorRoles,
+    actorAdminIds,
+    actionCodes,
+    targetTypes,
+    facultyIds,
     dateFrom,
     dateTo,
     impersonation,
@@ -208,6 +212,78 @@ export default function ActivityCenterPage() {
     () => events.filter((e) => e.impersonationMode).length,
     [events],
   );
+
+  // Build FilterOption arrays for FilterMultiSelect
+  const actorRoleOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.actorRoles ?? []).map((r) => ({
+        value: r,
+        label: roleLabel(r),
+      })),
+    [filterOptions],
+  );
+
+  const actorOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.actors ?? []).map((a) => ({
+        value: a.id,
+        label: a.name,
+        hint: roleLabel(a.role),
+      })),
+    [filterOptions],
+  );
+
+  const actionOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.actionCodes ?? []).map((c) => ({
+        value: c,
+        label: c,
+      })),
+    [filterOptions],
+  );
+
+  const targetTypeOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.targetTypes ?? []).map((t) => ({
+        value: t,
+        label: t,
+      })),
+    [filterOptions],
+  );
+
+  const facultyOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.faculties ?? []).map((f) => ({
+        value: String(f.id),
+        label: f.name,
+      })),
+    [filterOptions],
+  );
+
+  const hasActiveFilters =
+    debouncedQuery ||
+    actorRoles.length > 0 ||
+    actorAdminIds.length > 0 ||
+    actionCodes.length > 0 ||
+    targetTypes.length > 0 ||
+    facultyIds.length > 0 ||
+    dateFrom ||
+    dateTo ||
+    impersonation;
+
+  const clearFilters = () => {
+    setQuery("");
+    setActorRoles([]);
+    setActorAdminIds([]);
+    setActionCodes([]);
+    setTargetTypes([]);
+    setFacultyIds([]);
+    setDateFrom("");
+    setDateTo("");
+    setImpersonation("");
+    setSort("desc");
+    setCurrentPage(1);
+  };
 
   const handleExport = async (format: "csv" | "xlsx") => {
     setExporting(format);
@@ -297,65 +373,47 @@ export default function ActivityCenterPage() {
               className={selectClass}
             />
           </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Actor type</span>
-            <select value={actorRole} onChange={(e) => setActorRole(e.target.value)} className={selectClass}>
-              <option value="">All</option>
-              {(filterOptions?.actorRoles ?? []).map((r) => (
-                <option key={r} value={r}>
-                  {roleLabel(r)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Actor</span>
-            <select
-              value={actorAdminId}
-              onChange={(e) => setActorAdminId(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">All</option>
-              {(filterOptions?.actors ?? []).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({roleLabel(a.role)})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Action</span>
-            <select value={actionCode} onChange={(e) => setActionCode(e.target.value)} className={selectClass}>
-              <option value="">All</option>
-              {(filterOptions?.actionCodes ?? []).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Target type</span>
-            <select value={targetType} onChange={(e) => setTargetType(e.target.value)} className={selectClass}>
-              <option value="">All</option>
-              {(filterOptions?.targetTypes ?? []).map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Faculty</span>
-            <select value={facultyId} onChange={(e) => setFacultyId(e.target.value)} className={selectClass}>
-              <option value="">All</option>
-              {(filterOptions?.faculties ?? []).map((f) => (
-                <option key={f.id} value={String(f.id)}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FilterMultiSelect
+            label="Actor type"
+            options={actorRoleOptions}
+            selected={actorRoles}
+            onChange={setActorRoles}
+            placeholder="All"
+            searchPlaceholder="Search actor types…"
+            showSelectAll={false}
+          />
+          <FilterMultiSelect
+            label="Actor"
+            options={actorOptions}
+            selected={actorAdminIds}
+            onChange={setActorAdminIds}
+            placeholder="All"
+            searchPlaceholder="Search actors…"
+          />
+          <FilterMultiSelect
+            label="Action"
+            options={actionOptions}
+            selected={actionCodes}
+            onChange={setActionCodes}
+            placeholder="All"
+            searchPlaceholder="Search actions…"
+          />
+          <FilterMultiSelect
+            label="Target type"
+            options={targetTypeOptions}
+            selected={targetTypes}
+            onChange={setTargetTypes}
+            placeholder="All"
+            searchPlaceholder="Search target types…"
+          />
+          <FilterMultiSelect
+            label="Faculty"
+            options={facultyOptions}
+            selected={facultyIds}
+            onChange={setFacultyIds}
+            placeholder="All"
+            searchPlaceholder="Search faculties…"
+          />
           <label>
             <span className="mb-1 block text-sm font-medium">From date</span>
             <input
@@ -397,6 +455,17 @@ export default function ActivityCenterPage() {
               <option value="asc">Oldest first</option>
             </select>
           </label>
+          {hasActiveFilters && (
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="rounded-lg border border-stroke px-3 py-2 text-sm font-medium text-dark-5 transition hover:bg-gray-1 dark:border-dark-3 dark:hover:bg-dark-2"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </div>
 
         {setupMessage && (

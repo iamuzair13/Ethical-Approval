@@ -33,29 +33,29 @@ function buildFilters(
     );
   }
 
-  if (filters.actorRole?.trim()) {
-    parts.params.push(filters.actorRole.trim());
-    parts.where.push(`ae.actor_role = $${parts.params.length}`);
+  if (filters.actorRoles && filters.actorRoles.length > 0) {
+    parts.params.push(filters.actorRoles);
+    parts.where.push(`ae.actor_role = ANY($${parts.params.length}::text[])`);
   }
 
-  if (filters.actorAdminId?.trim()) {
-    parts.params.push(filters.actorAdminId.trim());
-    parts.where.push(`ae.actor_admin_id = $${parts.params.length}`);
+  if (filters.actorAdminIds && filters.actorAdminIds.length > 0) {
+    parts.params.push(filters.actorAdminIds);
+    parts.where.push(`ae.actor_admin_id = ANY($${parts.params.length}::text[])`);
   }
 
-  if (filters.actionCode?.trim()) {
-    parts.params.push(filters.actionCode.trim());
-    parts.where.push(`ae.action_code = $${parts.params.length}`);
+  if (filters.actionCodes && filters.actionCodes.length > 0) {
+    parts.params.push(filters.actionCodes);
+    parts.where.push(`ae.action_code = ANY($${parts.params.length}::text[])`);
   }
 
-  if (filters.targetType?.trim()) {
-    parts.params.push(filters.targetType.trim());
-    parts.where.push(`ae.target_type = $${parts.params.length}`);
+  if (filters.targetTypes && filters.targetTypes.length > 0) {
+    parts.params.push(filters.targetTypes);
+    parts.where.push(`ae.target_type = ANY($${parts.params.length}::text[])`);
   }
 
-  if (typeof filters.facultyId === "number" && Number.isInteger(filters.facultyId)) {
-    parts.params.push(filters.facultyId);
-    parts.where.push(`ae.faculty_id = $${parts.params.length}`);
+  if (filters.facultyIds && filters.facultyIds.length > 0) {
+    parts.params.push(filters.facultyIds);
+    parts.where.push(`ae.faculty_id = ANY($${parts.params.length}::int[])`);
   }
 
   if (filters.dateFrom?.trim()) {
@@ -234,8 +234,14 @@ export async function queryActivityEventsForExport(
 export function parseActivityFiltersFromSearchParams(
   searchParams: URLSearchParams,
 ): ActivityEventsFilters {
-  const facultyRaw = searchParams.get("facultyId");
-  const facultyId = facultyRaw ? Number.parseInt(facultyRaw, 10) : undefined;
+  // Parse comma-separated filter values into arrays (multi-select support)
+  const parseCsv = (key: string): string[] =>
+    (searchParams.get(key) ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const facultyIds = parseCsv("facultyId").map(Number).filter((n) => Number.isInteger(n));
 
   const impersonation = searchParams.get("impersonation");
   const impersonationFilter =
@@ -246,11 +252,11 @@ export function parseActivityFiltersFromSearchParams(
     page: Number.parseInt(searchParams.get("page") ?? "1", 10) || 1,
     pageSize: Number.parseInt(searchParams.get("pageSize") ?? "20", 10) || 20,
     sort: searchParams.get("sort") === "asc" ? "asc" : "desc",
-    actorRole: searchParams.get("actorRole") ?? undefined,
-    actorAdminId: searchParams.get("actorAdminId") ?? undefined,
-    actionCode: searchParams.get("actionCode") ?? undefined,
-    targetType: searchParams.get("targetType") ?? undefined,
-    facultyId: Number.isInteger(facultyId) ? facultyId : undefined,
+    actorRoles: parseCsv("actorRole"),
+    actorAdminIds: parseCsv("actorAdminId"),
+    actionCodes: parseCsv("actionCode"),
+    targetTypes: parseCsv("targetType"),
+    facultyIds: facultyIds.length > 0 ? facultyIds : undefined,
     dateFrom: searchParams.get("dateFrom") ?? undefined,
     dateTo: searchParams.get("dateTo") ?? undefined,
     impersonation: impersonationFilter === "all" ? undefined : impersonationFilter,

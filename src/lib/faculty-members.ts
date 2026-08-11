@@ -130,6 +130,38 @@ export async function getFacultyMemberBySapId(
   return result.rows[0] ? mapFacultyMemberRow(result.rows[0]) : null;
 }
 
+/**
+ * Finds an existing active faculty member by normalized email prefix (the
+ * part before @). SAP often has multiple employee records for the same
+ * person with different email domains (e.g. muhammad.usman@cs.uol.edu.pk
+ * and muhammad.usman@math.uol.edu.pk). This function detects those
+ * duplicates so the sync can skip them instead of creating new records.
+ *
+ * Returns the existing record, or null if no match is found.
+ */
+export async function getFacultyMemberByEmailPrefix(
+  email: string,
+): Promise<FacultyMemberRecord | null> {
+  const normalized = email.trim().toLowerCase();
+  const atIdx = normalized.indexOf("@");
+  if (atIdx <= 0) return null;
+  const prefix = normalized.slice(0, atIdx);
+
+  const result = await db.query<FacultyMemberRow>(
+    `
+      SELECT *
+      FROM faculty_members
+      WHERE LOWER(SPLIT_PART(LOWER(TRIM(email)), '@', 1)) = $1
+        AND deleted_at IS NULL
+      ORDER BY last_synced_at DESC NULLS LAST, created_at ASC
+      LIMIT 1
+    `,
+    [prefix],
+  );
+
+  return result.rows[0] ? mapFacultyMemberRow(result.rows[0]) : null;
+}
+
 export async function getFacultyMemberById(
   id: string,
 ): Promise<FacultyMemberRecord | null> {
@@ -199,6 +231,55 @@ export async function upsertFacultyMemberFromSap(
     : (inferFacultyFromDepartment(department) ?? "Unknown Faculty");
 
   const existing = await getFacultyMemberBySapId(sapId);
+
+  // Also check by email prefix — SAP may have multiple employee records
+  // for the same person with different email domains (e.g. @cs vs @math).
+  // If we find an existing record by email prefix but not by SAP ID, it
+  // means this is a duplicate SAP record for the same person. We update
+  // the existing record's SAP ID instead of creating a new row.
+  const existingByEmailPrefix = !existing
+    ? await getFacultyMemberByEmailPrefix(email)
+    : null;
+
+  if (existingByEmailPrefix && !existing) {
+    const result = await db.query<FacultyMemberRow>(
+      `
+        UPDATE faculty_members
+        SET
+          sap_id = $2,
+          employee_id = COALESCE($3, employee_id),
+          name = $4,
+          email = $5,
+          faculty = COALESCE(NULLIF($6, ''), faculty),
+          department = $7,
+          designation = COALESCE($8, designation),
+          employee_type = COALESCE($9, employee_type),
+          faculty_id = COALESCE($10, faculty_id),
+          department_id = COALESCE($11, department_id),
+          status = 'active',
+          is_active = TRUE,
+          last_synced_at = NOW(),
+          updated_at = NOW()
+        WHERE id = $1
+          AND deleted_at IS NULL
+        RETURNING *
+      `,
+      [
+        existingByEmailPrefix.id,
+        sapId,
+        input.employeeId ?? null,
+        input.name.trim() || existingByEmailPrefix.name,
+        email,
+        faculty,
+        department,
+        input.designation?.trim() ?? null,
+        input.employeeType?.trim() ?? null,
+        facultyId,
+        departmentId,
+      ],
+    );
+    return mapFacultyMemberRow(result.rows[0]);
+  }
 
   if (existing) {
     const result = await db.query<FacultyMemberRow>(
@@ -289,6 +370,12 @@ export async function upsertFacultyMemberFromSap(
  *   - New email → INSERT
  *   - Existing email (same or different sap_id) → UPDATE (including sap_id)
  *
+ * Additionally, SAP may have multiple employee records for the same person
+ * with DIFFERENT email domains (e.g. muhammad.usman@cs.uol.edu.pk and
+ * muhammad.usman@math.uol.edu.pk). Before inserting, we check if a faculty
+ * member with the same email prefix (part before @) already exists. If so,
+ * we skip the insert and return the existing record to prevent duplicates.
+ *
  * The unique index is: uq_faculty_members_email_lower ON (LOWER(email)) WHERE deleted_at IS NULL
  */
 export async function upsertFacultyMemberFromSync(
@@ -298,6 +385,24 @@ export async function upsertFacultyMemberFromSync(
   const sapId = normalized.sapId.trim();
   const department = normalized.departmentText || "Unknown Department";
   const faculty = normalized.facultyText || "Unknown Faculty";
+
+  // Check if a faculty member with the same email prefix already exists
+  // (different email domain but same person). If so, skip this record to
+  // prevent duplicates. The ON CONFLICT below only catches exact email
+  // matches, not email-prefix matches.
+  const existingByEmailPrefix = await getFacultyMemberByEmailPrefix(email);
+  if (existingByEmailPrefix) {
+    // Update the existing record's last_synced_at to keep it fresh,
+    // but don't overwrite its SAP ID or department — the first record
+    // wins (first-write-wins policy).
+    await db.query(
+      `UPDATE faculty_members
+       SET last_synced_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [existingByEmailPrefix.id],
+    );
+    return existingByEmailPrefix;
+  }
 
   const result = await db.query<FacultyMemberRow>(
     `

@@ -40,6 +40,14 @@ export type SubmissionDetail = {
   /** Thesis timeline (null for publications and for submissions without a stored timeline). */
   start_date: Date | null;
   end_date: Date | null;
+  /** Assigned supervisor (admin_users.id) — the only supervisor who can approve. */
+  supervisor_user_id: string | null;
+  /** Supervisor snapshot fields (historical record at submission time). */
+  supervisor_name_snapshot: string | null;
+  supervisor_sap_id_snapshot: string | null;
+  supervisor_email_snapshot: string | null;
+  supervisor_department_snapshot: string | null;
+  supervisor_faculty_snapshot: string | null;
 };
 
 export async function getSubmissionDetailById(submissionId: number) {
@@ -66,6 +74,12 @@ export async function getSubmissionDetailById(submissionId: number) {
         sep.ethics_json,
         st.start_date,
         st.end_date,
+        s.supervisor_user_id,
+        s.supervisor_name_snapshot,
+        s.supervisor_sap_id_snapshot,
+        s.supervisor_email_snapshot,
+        s.supervisor_department_snapshot,
+        s.supervisor_faculty_snapshot,
         (
           SELECT COUNT(*)::int
           FROM submissions s2

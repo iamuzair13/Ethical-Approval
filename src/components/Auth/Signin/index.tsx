@@ -14,8 +14,11 @@ function validateStudentEmailFormat(email: string): string | null {
   const trimmed = email.trim().toLowerCase();
   const at = trimmed.indexOf("@");
   if (at <= 0) {
-    return "Enter a full email address (e.g. 70088579@studen.uol.edu.pk).";
+    return "Enter a full email address (e.g. 70088579@student.uol.edu.pk).";
   }
+  // Only apply strict SAP-ID validation to student emails. Faculty/staff
+  // emails have different local-part formats (e.g. "name.surname").
+  if (!trimmed.endsWith("@student.uol.edu.pk")) return null;
   const local = trimmed.slice(0, at);
   if (!local || !/^[a-zA-Z0-9_-]+$/.test(local)) {
     return "Invalid SAP ID: use only letters, numbers, _ or - before the @ symbol.";
@@ -27,7 +30,7 @@ function mapAuthError(code: string | null): string | null {
   if (!code) return null;
   switch (code) {
     case "INVALID_EMAIL":
-      return "Invalid email format. The part before @ must be a valid SAP student ID.";
+      return "Invalid email format. Please enter a valid university email address.";
     case "NOT_FOUND":
       return "No matching student record was found in SAP for this SAP ID.";
     case "SAP_ERROR":
@@ -155,7 +158,7 @@ export default function Signin() {
     const email = manualEmail.trim();
     const isFacultyEmail = !isStudentEmailAddress(email);
     if (!email) {
-      const message = "Enter your student email.";
+      const message = "Enter your university email address.";
       setFormError(message);
       toast.error(message);
       return;
@@ -293,13 +296,13 @@ export default function Signin() {
                 </p>
                 <p className="mt-1 text-center text-xs text-amber-800/90 dark:text-amber-100/80">
                   Use when you cannot sign in with Google. Same SAP verification as
-                  Google sign-in.
+                  Google sign-in. Works for both students and faculty.
                 </p>
 
                 <form onSubmit={handleManualSubmit} className="mt-4 space-y-3">
                   <label className="block">
                     <span className="mb-1.5 block text-left text-xs font-medium text-slate-700 dark:text-dark-6">
-                      Student email
+                      University email
                     </span>
                     <input
                       type="email"
@@ -307,7 +310,7 @@ export default function Signin() {
                       autoComplete="email"
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
-                      placeholder="70088579@studen.uol.edu.pk"
+                      placeholder="70088579@student.uol.edu.pk or name@uol.edu.pk"
                       disabled={loadingManual || loadingGoogle}
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 placeholder:text-slate-400 focus:border-primary focus:ring-2 disabled:opacity-60 dark:border-dark-3 dark:bg-[#020d1a] dark:text-white"
                     />

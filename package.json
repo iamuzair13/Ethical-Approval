@@ -14,7 +14,12 @@
     "db:migrate:015": "node scripts/run-sql-migration.mjs migrations/015_add_internal_faculty_participant_source.sql",
     "db:migrate:016": "node scripts/run-sql-migration.mjs migrations/016_submission_participants_internal_faculty_check.sql",
     "db:migrate:017": "node scripts/run-sql-migration.mjs migrations/017_faculty_sync_tracking_and_org_links.sql",
-    "db:migrate:018": "node scripts/run-sql-migration.mjs migrations/018_unify_users_and_faculty.sql"
+    "db:migrate:018": "node scripts/run-sql-migration.mjs migrations/018_unify_users_and_faculty.sql",
+    "db:migrate:021": "node scripts/run-sql-migration.mjs migrations/021_supervisor_per_application.sql",
+    "db:migrate:023": "node scripts/run-sql-migration.mjs migrations/023_departments_independent.sql",
+    "db:migrate:024": "node scripts/run-sql-migration.mjs migrations/024_canonical_departments_from_faculty_members.sql",
+    "db:migrate:026": "node scripts/run-sql-migration.mjs migrations/026_deduplicate_faculty_members.sql",
+    "db:dup-emails": "node scripts/find-duplicate-faculty-emails.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

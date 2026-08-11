@@ -17,6 +17,12 @@ import {
   DropdownContent,
   DropdownTrigger,
 } from "@/components/ui/dropdown";
+import {
+  FilterMultiSelect,
+  type FilterOption,
+} from "@/components/ui/filter-multi-select";
+import { ColumnHeaderFilter } from "@/components/ui/column-header-filter";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -67,7 +73,29 @@ type FilterOptions = {
   designations: { value: string; count: number }[];
   roles: { value: string; label: string; count: number }[];
   statuses: { value: string; label: string; count: number }[];
+  dataQuality?: {
+    duplicateSapId: number;
+    duplicateEmail: number;
+    missingSapId: number;
+    missingEmail: number;
+  };
 };
+
+type DataQualityFlag =
+  | "duplicate_sap_id"
+  | "duplicate_email"
+  | "missing_sap_id"
+  | "missing_email";
+
+const DATA_QUALITY_OPTIONS: {
+  value: DataQualityFlag;
+  label: string;
+}[] = [
+  { value: "duplicate_sap_id", label: "Duplicate SAP ID" },
+  { value: "duplicate_email", label: "Duplicate Email" },
+  { value: "missing_sap_id", label: "Missing SAP ID" },
+  { value: "missing_email", label: "Missing Email" },
+];
 
 type Stats = {
   total: number;
@@ -134,7 +162,7 @@ type FacultyScope = {
 } | null;
 
 type OrgFaculty = { id: number; code: string; name: string };
-type OrgDepartment = { id: number; faculty_id: number; name: string };
+type OrgDepartment = { id: number; faculty_id: number | null; name: string };
 type OrgProgram = { id: number; department_id: number; name: string };
 
 type FacultyForm = {
@@ -143,9 +171,7 @@ type FacultyForm = {
   sapId: string;
   employeeCode: string;
   designation: string;
-  facultyId: number | "";
   departmentId: number | "";
-  programId: number | "";
   role: AdminRole | "";
   password: string;
   status: "active" | "inactive";
@@ -349,83 +375,64 @@ function ScopeFields({
   if (role === "supervisor") {
     return (
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className="block">
+        <div>
           <span className={labelClass}>
             Supervisor Faculty <span className="text-red">*</span>
           </span>
-          <select
-            id={`${idPrefix}-sup-faculty`}
-            value={supervisorFacultyId}
-            onChange={(e) => {
-              onSupervisorFacultyChange(e.target.value ? Number(e.target.value) : "");
+          <SearchableSelect
+            options={faculties.map((f) => ({ value: String(f.id), label: f.name }))}
+            value={supervisorFacultyId ? String(supervisorFacultyId) : ""}
+            onChange={(val) => {
+              onSupervisorFacultyChange(val ? Number(val) : "");
               onSupervisorDepartmentChange("");
               onSupervisorProgramChange("");
             }}
-            className={selectClass}
-            required
-          >
-            <option value="">Select faculty</option>
-            {faculties.map((faculty) => (
-              <option key={faculty.id} value={faculty.id}>
-                {faculty.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
+            placeholder="Select faculty"
+            searchPlaceholder="Search faculties…"
+            triggerClassName={selectClass}
+          />
+        </div>
+        <div>
           <span className={labelClass}>
             Supervisor Department <span className="text-red">*</span>
           </span>
-          <select
-            id={`${idPrefix}-sup-dept`}
-            value={supervisorDepartmentId}
-            onChange={(e) => {
-              onSupervisorDepartmentChange(e.target.value ? Number(e.target.value) : "");
+          <SearchableSelect
+            options={supervisorDepartments.map((d) => ({ value: String(d.id), label: d.name }))}
+            value={supervisorDepartmentId ? String(supervisorDepartmentId) : ""}
+            onChange={(val) => {
+              onSupervisorDepartmentChange(val ? Number(val) : "");
               onSupervisorProgramChange("");
             }}
-            className={selectClass}
-            disabled={supervisorDepartments.length === 0}
-            required
-          >
-            <option value="">
-              {typeof supervisorFacultyId !== "number"
+            placeholder={
+              typeof supervisorFacultyId !== "number"
                 ? "Select faculty first"
                 : supervisorDepartments.length === 0
                   ? "No departments"
-                  : "Select department"}
-            </option>
-            {supervisorDepartments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className={labelClass}>Supervisor Program</span>
-          <select
-            id={`${idPrefix}-sup-prog`}
-            value={supervisorProgramId}
-            onChange={(e) =>
-              onSupervisorProgramChange(e.target.value ? Number(e.target.value) : "")
+                  : "Select department"
             }
-            className={selectClass}
-            disabled={supervisorPrograms.length === 0}
-          >
-            <option value="">
-              {typeof supervisorDepartmentId !== "number"
+            searchPlaceholder="Search departments…"
+            disabled={supervisorDepartments.length === 0}
+            triggerClassName={selectClass}
+          />
+        </div>
+        <div>
+          <span className={labelClass}>Supervisor Program</span>
+          <SearchableSelect
+            options={supervisorPrograms.map((p) => ({ value: String(p.id), label: p.name }))}
+            value={supervisorProgramId ? String(supervisorProgramId) : ""}
+            onChange={(val) => onSupervisorProgramChange(val ? Number(val) : "")}
+            placeholder={
+              typeof supervisorDepartmentId !== "number"
                 ? "Select dept first"
                 : supervisorPrograms.length === 0
                   ? "No programs"
-                  : "Select program"}
-            </option>
-            {supervisorPrograms.map((program) => (
-              <option key={program.id} value={program.id}>
-                {program.name}
-              </option>
-            ))}
-          </select>
-        </label>
+                  : "Select program"
+            }
+            searchPlaceholder="Search programs…"
+            disabled={supervisorPrograms.length === 0}
+            triggerClassName={selectClass}
+          />
+        </div>
       </div>
     );
   }
@@ -524,9 +531,9 @@ function FacultyFormDialog({
   mode: "create" | "edit";
   form: FacultyForm;
   orgData: {
-    faculties: OrgFaculty[];
     departments: OrgDepartment[];
-    programs: OrgProgram[];
+    scopeFaculties: OrgFaculty[];
+    scopePrograms: OrgProgram[];
   } | null;
   submitting: boolean;
   onClose: () => void;
@@ -608,15 +615,14 @@ function FacultyFormDialog({
             </label>
             <label className="block">
               <span className={labelClass}>
-                SAP ID {isEdit ? "" : <span className="text-red">*</span>}
+                SAP ID <span className="text-red">*</span>
               </span>
               <input
                 value={form.sapId}
                 onChange={(e) => onFormChange({ sapId: e.target.value })}
                 className={inputClass}
                 placeholder="SAP ID"
-                required={!isEdit}
-                disabled={isEdit}
+                required
               />
             </label>
             <label className="block">
@@ -643,75 +649,25 @@ function FacultyFormDialog({
         {/* Organization */}
         <section>
           <h4 className={sectionTitleClass}>Organization</h4>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <label className="block">
-              <span className={labelClass}>Faculty</span>
-              <select
-                value={form.facultyId}
-                onChange={(e) => {
-                  const val = e.target.value ? Number(e.target.value) : "";
-                  onFormChange({ facultyId: val, departmentId: "", programId: "" });
-                }}
-                className={selectClass}
-              >
-                <option value="">Select faculty</option>
-                {(orgData?.faculties ?? []).map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
               <span className={labelClass}>Department</span>
-              <select
-                value={form.departmentId}
-                onChange={(e) => {
-                  const val = e.target.value ? Number(e.target.value) : "";
-                  onFormChange({ departmentId: val, programId: "" });
-                }}
-                className={selectClass}
-                disabled={!form.facultyId}
-              >
-                <option value="">Select department</option>
-                {(orgData?.departments ?? [])
-                  .filter(
-                    (d) =>
-                      !form.facultyId || d.faculty_id === form.facultyId,
-                  )
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className={labelClass}>Program</span>
-              <select
-                value={form.programId}
-                onChange={(e) =>
+              <SearchableSelect
+                options={(orgData?.departments ?? []).map((d) => ({
+                  value: String(d.id),
+                  label: d.name,
+                }))}
+                value={form.departmentId ? String(form.departmentId) : ""}
+                onChange={(val) => {
                   onFormChange({
-                    programId: e.target.value ? Number(e.target.value) : "",
-                  })
-                }
-                className={selectClass}
-                disabled={!form.departmentId}
-              >
-                <option value="">Select program</option>
-                {(orgData?.programs ?? [])
-                  .filter(
-                    (p) =>
-                      !form.departmentId ||
-                      p.department_id === form.departmentId,
-                  )
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+                    departmentId: val ? Number(val) : "",
+                  });
+                }}
+                placeholder="Select department"
+                searchPlaceholder="Search departments…"
+                triggerClassName={selectClass}
+              />
+            </div>
           </div>
         </section>
 
@@ -789,9 +745,9 @@ function FacultyFormDialog({
               <p className={labelClass}>Role Scope</p>
               <ScopeFields
                 role={form.role}
-                faculties={orgData?.faculties ?? []}
+                faculties={orgData?.scopeFaculties ?? []}
                 departments={orgData?.departments ?? []}
-                programs={orgData?.programs ?? []}
+                programs={orgData?.scopePrograms ?? []}
                 supervisorFacultyId={form.supervisorFacultyId}
                 supervisorDepartmentId={form.supervisorDepartmentId}
                 supervisorProgramId={form.supervisorProgramId}
@@ -1021,13 +977,7 @@ function TableSkeletonRows({ count = 6 }: { count?: number }) {
             <Skeleton className="h-4 w-24" />
           </TableCell>
           <TableCell className="py-3.5">
-            <Skeleton className="h-4 w-28" />
-          </TableCell>
-          <TableCell className="py-3.5">
             <Skeleton className="h-4 w-24" />
-          </TableCell>
-          <TableCell className="py-3.5">
-            <Skeleton className="h-4 w-20" />
           </TableCell>
           <TableCell className="py-3.5">
             <Skeleton className="h-5 w-20 rounded-md" />
@@ -1103,9 +1053,7 @@ const emptyForm: FacultyForm = {
   sapId: "",
   employeeCode: "",
   designation: "",
-  facultyId: "",
   departmentId: "",
-  programId: "",
   role: "",
   password: "",
   status: "active",
@@ -1130,15 +1078,14 @@ export default function FacultyMembersPage() {
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [filtersLoading, setFiltersLoading] = useState(true);
 
-  // Filters
+  // Filters — multi-select arrays for FilterMultiSelect
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [facultyId, setFacultyId] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
-  const [programId, setProgramId] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [designationFilter, setDesignationFilter] = useState("");
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [roleFilters, setRoleFilters] = useState<string[]>([]);
+  const [designationFilters, setDesignationFilters] = useState<string[]>([]);
+  const [dataQualityFilters, setDataQualityFilters] = useState<DataQualityFlag[]>([]);
   const [sort, setSort] = useState("name-asc");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
@@ -1156,11 +1103,12 @@ export default function FacultyMembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submittingForm, setSubmittingForm] = useState(false);
 
-  // Org data for forms
+  // Org data for forms (departments for org assignment,
+  // faculties/programs for RBAC scope fields)
   const [orgData, setOrgData] = useState<{
-    faculties: OrgFaculty[];
     departments: OrgDepartment[];
-    programs: OrgProgram[];
+    scopeFaculties: OrgFaculty[];
+    scopePrograms: OrgProgram[];
   } | null>(null);
 
   // Delete confirmation
@@ -1191,6 +1139,12 @@ export default function FacultyMembersPage() {
           designations: p.designations ?? [],
           roles: p.roles ?? [],
           statuses: p.statuses ?? [],
+          dataQuality: p.dataQuality ?? {
+            duplicateSapId: 0,
+            duplicateEmail: 0,
+            missingSapId: 0,
+            missingEmail: 0,
+          },
         });
       }
     } catch {
@@ -1208,19 +1162,19 @@ export default function FacultyMembersPage() {
   const fetchOrgData = useCallback(async () => {
     if (orgData) return;
     try {
-      const [fRes, dRes, pRes] = await Promise.all([
-        fetch("/api/admin/faculties", { cache: "no-store" }),
+      const [dRes, fRes, pRes] = await Promise.all([
         fetch("/api/admin/departments?all=1", { cache: "no-store" }),
+        fetch("/api/admin/faculties", { cache: "no-store" }),
         fetch("/api/admin/programs?all=1", { cache: "no-store" }),
       ]);
-      const fBody = (await fRes.json()) as { ok: boolean; faculties?: OrgFaculty[] };
       const dBody = (await dRes.json()) as { ok: boolean; departments?: OrgDepartment[] };
+      const fBody = (await fRes.json()) as { ok: boolean; faculties?: OrgFaculty[] };
       const pBody = (await pRes.json()) as { ok: boolean; programs?: OrgProgram[] };
-      if (fBody.ok && dBody.ok && pBody.ok) {
+      if (dBody.ok) {
         setOrgData({
-          faculties: fBody.faculties ?? [],
           departments: dBody.departments ?? [],
-          programs: pBody.programs ?? [],
+          scopeFaculties: fBody.ok ? (fBody.faculties ?? []) : [],
+          scopePrograms: pBody.ok ? (pBody.programs ?? []) : [],
         });
       }
     } catch {
@@ -1231,24 +1185,23 @@ export default function FacultyMembersPage() {
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     if (debouncedQuery) params.set("q", debouncedQuery);
-    if (facultyId) params.set("facultyId", facultyId);
-    if (departmentId) params.set("departmentId", departmentId);
-    if (programId) params.set("programId", programId);
-    if (statusFilter) params.set("status", statusFilter);
-    if (roleFilter) params.set("role", roleFilter);
-    if (designationFilter) params.set("designation", designationFilter);
+    if (departmentIds.length > 0) params.set("departmentId", departmentIds.join(","));
+    if (statusFilters.length > 0) params.set("status", statusFilters.join(","));
+    if (roleFilters.length > 0) params.set("role", roleFilters.join(","));
+    if (designationFilters.length > 0) params.set("designation", designationFilters.join(","));
+    if (dataQualityFilters.length > 0)
+      params.set("dataQuality", dataQualityFilters.join(","));
     params.set("sort", sort);
     params.set("page", String(currentPage));
     params.set("pageSize", String(pageSize));
     return params;
   }, [
     debouncedQuery,
-    facultyId,
-    departmentId,
-    programId,
-    statusFilter,
-    roleFilter,
-    designationFilter,
+    departmentIds,
+    statusFilters,
+    roleFilters,
+    designationFilters,
+    dataQualityFilters,
     sort,
     currentPage,
   ]);
@@ -1298,47 +1251,80 @@ export default function FacultyMembersPage() {
     setCurrentPage(1);
   }, [
     debouncedQuery,
-    facultyId,
-    departmentId,
-    programId,
-    statusFilter,
-    roleFilter,
-    designationFilter,
+    departmentIds,
+    statusFilters,
+    roleFilters,
+    designationFilters,
+    dataQualityFilters,
     sort,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Cascading department/program options
-  const filteredDepartments = useMemo(
+  // Department options — no longer filtered by faculty (faculty filter removed)
+  const filteredDepartments = useMemo(() => {
+    if (!filterOptions) return [];
+    return filterOptions.departments;
+  }, [filterOptions]);
+
+  // Build FilterOption arrays for FilterMultiSelect components
+  const departmentFilterOptions: FilterOption[] = useMemo(
     () =>
-      filterOptions
-        ? facultyId
-          ? filterOptions.departments.filter(
-              (d) => String(d.faculty_id) === facultyId,
-            )
-          : filterOptions.departments
-        : [],
-    [filterOptions, facultyId],
+      filteredDepartments.map((d) => ({
+        value: String(d.id),
+        label: d.name,
+        count: d.count,
+      })),
+    [filteredDepartments],
   );
 
-  const filteredPrograms = useMemo(
+  const roleFilterOptions: FilterOption[] = useMemo(
     () =>
-      filterOptions
-        ? departmentId
-          ? filterOptions.programs.filter(
-              (p) => String(p.department_id) === departmentId,
-            )
-          : facultyId
-            ? filterOptions.programs.filter((p) => {
-                const dept = filterOptions.departments.find(
-                  (d) => String(d.id) === String(p.department_id),
-                );
-                return dept && String(dept.faculty_id) === facultyId;
-              })
-            : filterOptions.programs
-        : [],
-    [filterOptions, facultyId, departmentId],
+      (filterOptions?.roles ?? []).map((r) => ({
+        value: r.value,
+        label: r.label,
+        count: r.count,
+      })),
+    [filterOptions],
+  );
+
+  const statusFilterOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.statuses ?? []).map((s) => ({
+        value: s.value,
+        label: s.label,
+        count: s.count,
+      })),
+    [filterOptions],
+  );
+
+  const designationFilterOptions: FilterOption[] = useMemo(
+    () =>
+      (filterOptions?.designations ?? []).map((d) => ({
+        value: d.value,
+        label: d.value,
+        count: d.count,
+      })),
+    [filterOptions],
+  );
+
+  const dataQualityFilterOptions: FilterOption[] = useMemo(
+    () =>
+      DATA_QUALITY_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: opt.label,
+        count:
+          filterOptions?.dataQuality?.[
+            opt.value === "duplicate_sap_id"
+              ? "duplicateSapId"
+              : opt.value === "duplicate_email"
+                ? "duplicateEmail"
+                : opt.value === "missing_sap_id"
+                  ? "missingSapId"
+                  : "missingEmail"
+          ] ?? 0,
+      })),
+    [filterOptions],
   );
 
   const handleSync = async () => {
@@ -1422,9 +1408,7 @@ export default function FacultyMembersPage() {
         sapId: m.sapId,
         employeeCode: m.employeeCode ?? "",
         designation: m.designation ?? "",
-        facultyId: m.facultyId ?? "",
         departmentId: m.departmentId ?? "",
-        programId: m.programId ?? "",
         role: (u?.role as AdminRole) ?? "",
         password: "",
         status: (u?.status as "active" | "inactive") ?? "active",
@@ -1455,9 +1439,7 @@ export default function FacultyMembersPage() {
           sapId: formData.sapId,
           employeeCode: formData.employeeCode || null,
           designation: formData.designation || null,
-          facultyId: formData.facultyId || null,
           departmentId: formData.departmentId || null,
-          programId: formData.programId || null,
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
@@ -1495,9 +1477,7 @@ export default function FacultyMembersPage() {
           name: formData.name,
           email: formData.email,
           designation: formData.designation || null,
-          facultyId: formData.facultyId || null,
           departmentId: formData.departmentId || null,
-          programId: formData.programId || null,
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
@@ -1595,21 +1575,19 @@ export default function FacultyMembersPage() {
 
   const hasActiveFilters =
     debouncedQuery ||
-    facultyId ||
-    departmentId ||
-    programId ||
-    statusFilter ||
-    roleFilter ||
-    designationFilter;
+    departmentIds.length > 0 ||
+    statusFilters.length > 0 ||
+    roleFilters.length > 0 ||
+    designationFilters.length > 0 ||
+    dataQualityFilters.length > 0;
 
   const clearFilters = () => {
     setQuery("");
-    setFacultyId("");
-    setDepartmentId("");
-    setProgramId("");
-    setStatusFilter("");
-    setRoleFilter("");
-    setDesignationFilter("");
+    setDepartmentIds([]);
+    setStatusFilters([]);
+    setRoleFilters([]);
+    setDesignationFilters([]);
+    setDataQualityFilters([]);
     setSort("name-asc");
     setCurrentPage(1);
   };
@@ -1748,7 +1726,7 @@ export default function FacultyMembersPage() {
         <div className="border-b border-stroke p-5 dark:border-dark-3">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
             {/* Search — spans more on large screens */}
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-6">
               <label className="block">
                 <span className={labelClass}>Search</span>
                 <div className="relative">
@@ -1777,109 +1755,73 @@ export default function FacultyMembersPage() {
             </div>
 
             <div className="lg:col-span-2">
-              <label className="block">
-                <span className={labelClass}>Faculty</span>
-                <select
-                  value={facultyId}
-                  onChange={(e) => {
-                    setFacultyId(e.target.value);
-                    setDepartmentId("");
-                    setProgramId("");
-                  }}
-                  className={selectClass}
-                  disabled={filtersLoading}
-                >
-                  <option value="">All</option>
-                  {(filterOptions?.faculties ?? []).map((f) => (
-                    <option key={f.id} value={String(f.id)}>
-                      {f.name} ({f.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FilterMultiSelect
+                label="Department"
+                options={departmentFilterOptions}
+                selected={departmentIds}
+                onChange={(vals) => {
+                  setDepartmentIds(vals);
+                }}
+                placeholder="All"
+                searchPlaceholder="Search departments…"
+                disabled={filtersLoading || filteredDepartments.length === 0}
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <label className="block">
-                <span className={labelClass}>Department</span>
-                <select
-                  value={departmentId}
-                  onChange={(e) => {
-                    setDepartmentId(e.target.value);
-                    setProgramId("");
-                  }}
-                  className={selectClass}
-                  disabled={filtersLoading || filteredDepartments.length === 0}
-                >
-                  <option value="">All</option>
-                  {filteredDepartments.map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.name} ({d.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FilterMultiSelect
+                label="Role"
+                options={roleFilterOptions}
+                selected={roleFilters}
+                onChange={setRoleFilters}
+                placeholder="All"
+                searchPlaceholder="Search roles…"
+                disabled={filtersLoading}
+                showSelectAll={false}
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <label className="block">
-                <span className={labelClass}>Role</span>
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className={selectClass}
-                  disabled={filtersLoading}
-                >
-                  <option value="">All</option>
-                  {(filterOptions?.roles ?? []).map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label} ({r.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className="block">
-                <span className={labelClass}>Status</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className={selectClass}
-                  disabled={filtersLoading}
-                >
-                  <option value="">All</option>
-                  {(filterOptions?.statuses ?? []).map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label} ({s.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FilterMultiSelect
+                label="Status"
+                options={statusFilterOptions}
+                selected={statusFilters}
+                onChange={setStatusFilters}
+                placeholder="All"
+                searchPlaceholder="Search statuses…"
+                disabled={filtersLoading}
+                showSelectAll={false}
+              />
             </div>
           </div>
 
-          {/* Secondary row: Designation, Sort, Clear */}
+          {/* Secondary row: Designation, Data Quality, Sort, Clear */}
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
             <div className="lg:col-span-3">
-              <label className="block">
-                <span className={labelClass}>Designation</span>
-                <select
-                  value={designationFilter}
-                  onChange={(e) => setDesignationFilter(e.target.value)}
-                  className={selectClass}
-                  disabled={filtersLoading}
-                >
-                  <option value="">All</option>
-                  {(filterOptions?.designations ?? []).map((d) => (
-                    <option key={d.value} value={d.value}>
-                      {d.value} ({d.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FilterMultiSelect
+                label="Designation"
+                options={designationFilterOptions}
+                selected={designationFilters}
+                onChange={setDesignationFilters}
+                placeholder="All"
+                searchPlaceholder="Search designations…"
+                disabled={filtersLoading}
+              />
             </div>
+
+            <div className="lg:col-span-3">
+              <FilterMultiSelect
+                label="Data Quality"
+                options={dataQualityFilterOptions}
+                selected={dataQualityFilters}
+                onChange={(vals) => setDataQualityFilters(vals as DataQualityFlag[])}
+                placeholder="All"
+                searchPlaceholder="Search data quality…"
+                disabled={filtersLoading}
+                showSelectAll={false}
+              />
+            </div>
+
             <div className="lg:col-span-3">
               <label className="block">
                 <span className={labelClass}>Sort by</span>
@@ -1899,7 +1841,7 @@ export default function FacultyMembersPage() {
                 </select>
               </label>
             </div>
-            <div className="flex items-end lg:col-span-6 lg:justify-end">
+            <div className="flex items-end lg:col-span-3 lg:justify-end">
               {hasActiveFilters && (
                 <button
                   type="button"
@@ -1928,24 +1870,40 @@ export default function FacultyMembersPage() {
                 <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   Email
                 </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Designation
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Faculty
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Department
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Program
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Role
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
-                  Status
-                </TableHead>
+                <ColumnHeaderFilter
+                  label="Designation"
+                  options={designationFilterOptions}
+                  selected={designationFilters}
+                  onChange={setDesignationFilters}
+                  searchPlaceholder="Search designations…"
+                  disabled={filtersLoading}
+                />
+                <ColumnHeaderFilter
+                  label="Department"
+                  options={departmentFilterOptions}
+                  selected={departmentIds}
+                  onChange={setDepartmentIds}
+                  searchPlaceholder="Search departments…"
+                  disabled={filtersLoading}
+                />
+                <ColumnHeaderFilter
+                  label="Role"
+                  options={roleFilterOptions}
+                  selected={roleFilters}
+                  onChange={setRoleFilters}
+                  searchPlaceholder="Search roles…"
+                  disabled={filtersLoading}
+                  showSelectAll={false}
+                />
+                <ColumnHeaderFilter
+                  label="Status"
+                  options={statusFilterOptions}
+                  selected={statusFilters}
+                  onChange={setStatusFilters}
+                  searchPlaceholder="Search statuses…"
+                  disabled={filtersLoading}
+                  showSelectAll={false}
+                />
                 <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   Last Synced
                 </TableHead>
@@ -1959,7 +1917,7 @@ export default function FacultyMembersPage() {
                 <TableSkeletonRows count={6} />
               ) : members.length === 0 ? (
                 <TableRow className="border-0 hover:bg-transparent">
-                  <TableCell colSpan={11} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <EmptyState
                       hasFilters={Boolean(hasActiveFilters)}
                       onAdd={openCreateForm}
@@ -1988,13 +1946,7 @@ export default function FacultyMembersPage() {
                       {member.designation ?? "—"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-dark-5">
-                      {member.faculty ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm text-dark-5">
                       {member.department}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm text-dark-5">
-                      {member.program ?? "—"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <RoleBadge role={member.userRole} />

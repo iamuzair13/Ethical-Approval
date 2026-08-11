@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { allocateUniqueApplicationId } from "@/lib/application-id";
 import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
+import { isFormAllowedForApplicant } from "@/lib/form-eligibility";
 import { db } from "@/lib/db";
 
 type DraftBody = {
@@ -35,6 +36,7 @@ function normalizeDraftText(value: string | undefined): string {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const sapId = session?.user?.sapId;
+  const sessionApplicantRole = session?.user?.applicantRole;
 
   if (!sapId) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
@@ -83,11 +85,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate that the selected form is available to this applicant role.
+  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole)) {
+    return NextResponse.json(
+      { ok: false, error: "The selected form is not available for your account type." },
+      { status: 403 },
+    );
+  }
+
   const title = normalizeDraftText(body.title);
   const objectives = normalizeDraftText(body.objectives);
   const methodology = normalizeDraftText(body.methodology);
 
-  const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Student";
+  const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Applicant";
   const applicantEmail = applicant?.email?.trim() || session.user?.email?.trim() || "";
   const applicantFaculty = applicant?.faculty?.trim() || "Unknown Faculty";
   const applicantDepartment = applicant?.department?.trim() || "Unknown Department";
@@ -111,6 +121,9 @@ export async function POST(request: NextRequest) {
 
     const applicationId = await allocateUniqueApplicationId(client);
 
+    // Determine applicant_role from the session (source of truth), not from email domain.
+    const applicantRole = sessionApplicantRole === "student" ? "student" : "faculty";
+
     const submissionResult = await client.query<{
       id: number;
       application_id: string;
@@ -119,10 +132,10 @@ export async function POST(request: NextRequest) {
     }>(
       `
         INSERT INTO submissions (type, domain, applicant_role, current_status, application_id)
-        VALUES ($1, $2, 'student', 'draft', $3)
+        VALUES ($1, $2, $4::applicant_role, 'draft', $3)
         RETURNING id, application_id, current_status, submitted_at
       `,
-      [type, domain, applicationId],
+      [type, domain, applicationId, applicantRole],
     );
 
     const submission = submissionResult.rows[0];

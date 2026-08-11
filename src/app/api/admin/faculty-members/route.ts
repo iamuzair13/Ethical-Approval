@@ -56,12 +56,19 @@ export async function GET(request: NextRequest) {
   const params = url.searchParams;
 
   const query = params.get("q")?.trim() ?? "";
-  const facultyId = params.get("facultyId")?.trim() ?? "";
-  const departmentId = params.get("departmentId")?.trim() ?? "";
-  const programId = params.get("programId")?.trim() ?? "";
-  const status = params.get("status")?.trim() ?? "";
-  const role = params.get("role")?.trim() ?? "";
-  const designation = params.get("designation")?.trim() ?? "";
+  // Parse comma-separated filter values into arrays (multi-select support)
+  const parseCsv = (key: string): string[] =>
+    (params.get(key) ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  const facultyIds = parseCsv("facultyId");
+  const departmentIds = parseCsv("departmentId");
+  const programIds = parseCsv("programId");
+  const statusValues = parseCsv("status");
+  const roleValues = parseCsv("role");
+  const designationValues = parseCsv("designation");
+  const dataQualityParam = params.get("dataQuality")?.trim() ?? "";
   const sort = params.get("sort")?.trim() ?? "name-asc";
   const page = parsePositiveInt(params.get("page"), 1);
   const pageSize = parsePositiveInt(params.get("pageSize"), 20);
@@ -79,46 +86,126 @@ export async function GET(request: NextRequest) {
     paramIdx++;
   }
 
-  if (facultyId) {
-    conditions.push(`fm.faculty_id = $${paramIdx}::bigint`);
-    values.push(Number(facultyId));
+  // Faculty — multi-select OR (IN clause)
+  if (facultyIds.length > 0) {
+    conditions.push(`fm.faculty_id = ANY($${paramIdx}::bigint[])`);
+    values.push(facultyIds.map(Number));
     paramIdx++;
   }
 
-  if (departmentId) {
-    conditions.push(`fm.department_id = $${paramIdx}::bigint`);
-    values.push(Number(departmentId));
+  // Department — multi-select OR (IN clause)
+  if (departmentIds.length > 0) {
+    conditions.push(`fm.department_id = ANY($${paramIdx}::bigint[])`);
+    values.push(departmentIds.map(Number));
     paramIdx++;
   }
 
-  if (programId) {
-    conditions.push(`fm.program_id = $${paramIdx}::bigint`);
-    values.push(Number(programId));
+  // Program — multi-select OR (IN clause)
+  if (programIds.length > 0) {
+    conditions.push(`fm.program_id = ANY($${paramIdx}::bigint[])`);
+    values.push(programIds.map(Number));
     paramIdx++;
   }
 
-  if (status === "active" || status === "inactive") {
-    // Use COALESCE to match the StatusBadge display which shows au.status,
-    // falling back to fm.status for faculty members without a user account.
-    conditions.push(`COALESCE(au.status::text, fm.status::text) = $${paramIdx}`);
-    values.push(status);
+  // Status — multi-select OR. Use COALESCE to match the StatusBadge display
+  // which shows au.status, falling back to fm.status for faculty members
+  // without a user account.
+  const validStatuses = statusValues.filter((s) => s === "active" || s === "inactive");
+  if (validStatuses.length > 0) {
+    conditions.push(`COALESCE(au.status::text, fm.status::text) = ANY($${paramIdx}::text[])`);
+    values.push(validStatuses);
     paramIdx++;
   }
 
-  if (role === "administrator" || role === "supervisor" || role === "ireb") {
-    // au.role is an admin_role enum; cast the parameter to admin_role so
-    // PostgreSQL can compare them (admin_role = text has no operator).
-    conditions.push(`au.role = $${paramIdx}::admin_role`);
-    values.push(role);
+  // Role — multi-select OR. au.role is an admin_role enum; "none" means no
+  // admin user. We handle "none" separately with an OR branch.
+  const validRoles = roleValues.filter(
+    (r) => r === "administrator" || r === "supervisor" || r === "ireb",
+  );
+  const hasNoneRole = roleValues.includes("none");
+  if (validRoles.length > 0 && !hasNoneRole) {
+    conditions.push(`au.role = ANY($${paramIdx}::admin_role[])`);
+    values.push(validRoles);
     paramIdx++;
-  } else if (role === "none") {
+  } else if (validRoles.length > 0 && hasNoneRole) {
+    conditions.push(
+      `(au.role = ANY($${paramIdx}::admin_role[]) OR au.role IS NULL)`,
+    );
+    values.push(validRoles);
+    paramIdx++;
+  } else if (hasNoneRole) {
     conditions.push(`au.role IS NULL`);
   }
 
-  if (designation) {
-    conditions.push(`LOWER(fm.designation) = LOWER($${paramIdx})`);
-    values.push(designation);
+  // Designation — multi-select OR (case-insensitive)
+  if (designationValues.length > 0) {
+    conditions.push(`LOWER(fm.designation) = ANY($${paramIdx}::text[])`);
+    values.push(designationValues.map((d) => d.toLowerCase()));
     paramIdx++;
+  }
+
+  // Data Quality multi-select filter — OR logic within, AND with other filters.
+  // Accepts comma-separated values: duplicate_sap_id, duplicate_email,
+  // missing_sap_id, missing_email.
+  const validDqFlags = new Set([
+    "duplicate_sap_id",
+    "duplicate_email",
+    "missing_sap_id",
+    "missing_email",
+  ]);
+  const dqFlags = dataQualityParam
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => validDqFlags.has(s));
+
+  if (dqFlags.length > 0) {
+    const dqConditions: string[] = [];
+
+    if (dqFlags.includes("duplicate_sap_id")) {
+      // SAP ID is non-empty and the same normalized SAP ID appears on >1 record.
+      // Normalization strips leading zeros (e.g. '00022833' and '22833' match).
+      // Alphanumeric SAP IDs (e.g. 'ADMIN-78780B95') are excluded from this
+      // normalization since they don't have leading-zero variants.
+      dqConditions.push(
+        `fm.sap_id IS NOT NULL AND TRIM(fm.sap_id) != ''
+           AND fm.sap_id !~ '^[A-Za-z]'
+           AND REGEXP_REPLACE(TRIM(fm.sap_id), '^0+', '') IN (
+          SELECT REGEXP_REPLACE(TRIM(fm2.sap_id), '^0+', '')
+          FROM faculty_members fm2
+          WHERE fm2.deleted_at IS NULL
+            AND fm2.sap_id IS NOT NULL AND TRIM(fm2.sap_id) != ''
+            AND fm2.sap_id !~ '^[A-Za-z]'
+          GROUP BY REGEXP_REPLACE(TRIM(fm2.sap_id), '^0+', '')
+          HAVING COUNT(*) > 1
+        )`,
+      );
+    }
+
+    if (dqFlags.includes("duplicate_email")) {
+      // Email is non-empty and the same normalized email appears on >1 record
+      dqConditions.push(
+        `fm.email IS NOT NULL AND TRIM(fm.email) != '' AND LOWER(TRIM(fm.email)) IN (
+          SELECT LOWER(TRIM(fm2.email))
+          FROM faculty_members fm2
+          WHERE fm2.deleted_at IS NULL
+            AND fm2.email IS NOT NULL AND TRIM(fm2.email) != ''
+          GROUP BY LOWER(TRIM(fm2.email))
+          HAVING COUNT(*) > 1
+        )`,
+      );
+    }
+
+    if (dqFlags.includes("missing_sap_id")) {
+      dqConditions.push(`fm.sap_id IS NULL OR TRIM(fm.sap_id) = ''`);
+    }
+
+    if (dqFlags.includes("missing_email")) {
+      dqConditions.push(`fm.email IS NULL OR TRIM(fm.email) = ''`);
+    }
+
+    if (dqConditions.length > 0) {
+      conditions.push(`(${dqConditions.join(" OR ")})`);
+    }
   }
 
   const whereClause = conditions.join(" AND ");

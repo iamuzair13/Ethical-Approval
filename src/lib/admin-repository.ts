@@ -198,6 +198,33 @@ export async function resolveFacultyIdsFromSnapshotValue(
   return Array.from(matchedIds);
 }
 
+/**
+ * Returns the email addresses of all active IREB members assigned to the
+ * given faculty ids. Used to notify IREB when a supervisor approves an
+ * application and it moves to IREB review.
+ */
+export async function getIrebEmailsForFacultyIds(
+  facultyIds: number[],
+): Promise<string[]> {
+  if (facultyIds.length === 0) return [];
+  const result = await db.query<{ email: string }>(
+    `
+      SELECT DISTINCT au.email
+      FROM admin_users au
+      INNER JOIN admin_faculty_assignments afa
+        ON afa.admin_user_id = au.id
+        AND afa.assignment_type = 'ireb_scope'
+        AND afa.deleted_at IS NULL
+      WHERE au.role = 'ireb'
+        AND au.status = 'active'
+        AND au.deleted_at IS NULL
+        AND afa.faculty_id = ANY($1::bigint[])
+    `,
+    [facultyIds],
+  );
+  return result.rows.map((row: { email: string }) => row.email.trim()).filter(Boolean);
+}
+
 export async function createAdminUser(input: {
   name: string;
   email: string;
@@ -579,15 +606,15 @@ export async function listDepartments(options?: {
   const bySingle = typeof facultyId === "number";
   const byMany = Array.isArray(facultyIds) && facultyIds.length > 0;
 
-  const result = await db.query<DepartmentRow & { faculty_name: string }>(
+  const result = await db.query<DepartmentRow & { faculty_name: string | null }>(
     `
       SELECT d.id, d.faculty_id, d.name, d.is_active, f.name AS faculty_name
       FROM departments d
-      INNER JOIN faculties f ON f.id = d.faculty_id
+      LEFT JOIN faculties f ON f.id = d.faculty_id
       WHERE ($1::boolean OR d.is_active = TRUE)
         AND (NOT $2::boolean OR d.faculty_id = $3::bigint)
         AND (NOT $4::boolean OR d.faculty_id = ANY($5::bigint[]))
-      ORDER BY f.name ASC, d.name ASC
+      ORDER BY d.name ASC
     `,
     [includeInactive, bySingle, facultyId ?? null, byMany, byMany ? facultyIds : []],
   );
@@ -595,7 +622,7 @@ export async function listDepartments(options?: {
 }
 
 export async function createDepartment(input: {
-  facultyId: number;
+  facultyId?: number | null;
   name: string;
 }) {
   const result = await db.query<DepartmentRow>(
@@ -604,14 +631,14 @@ export async function createDepartment(input: {
       VALUES ($1, $2, TRUE)
       RETURNING id, faculty_id, name, is_active
     `,
-    [input.facultyId, input.name.trim()],
+    [input.facultyId ?? null, input.name.trim()],
   );
   return result.rows[0];
 }
 
 export async function updateDepartment(input: {
   id: number;
-  facultyId: number;
+  facultyId?: number | null;
   name: string;
   isActive: boolean;
 }) {
@@ -625,7 +652,7 @@ export async function updateDepartment(input: {
       WHERE id = $1
       RETURNING id, faculty_id, name, is_active
     `,
-    [input.id, input.facultyId, input.name.trim(), input.isActive],
+    [input.id, input.facultyId ?? null, input.name.trim(), input.isActive],
   );
   return result.rows[0] ?? null;
 }

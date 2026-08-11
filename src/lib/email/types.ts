@@ -32,3 +32,11 @@ export type IrebApprovalInput = {
   applicationId: string;
   publicAppUrl?: string;
 };
+
+export type SupervisorApprovalIrebInput = {
+  applicantName: string;
+  title: string | null;
+  applicationId: string;
+  supervisorName: string;
+  publicAppUrl?: string;
+};

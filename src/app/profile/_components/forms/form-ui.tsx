@@ -4,6 +4,10 @@ import {
   Children,
   forwardRef,
   isValidElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
   type ChangeEvent,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -255,6 +259,148 @@ export const ReadOnlyInput = forwardRef<
     />
   );
 });
+
+/* ============================================================
+   SearchableSelect — a dropdown with built-in client-side search
+   ============================================================ */
+
+export type SearchableOption = {
+  value: string;
+  label: string;
+  /** Optional secondary text shown beneath the label (e.g. email, SAP ID). */
+  hint?: string;
+};
+
+type SearchableSelectProps = {
+  options: SearchableOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  emptyMessage?: string;
+  noResultsMessage?: string;
+  /** Optional render for the button when nothing is selected. */
+  defaultPlaceholder?: string;
+};
+
+export function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder = "Search…",
+  disabled = false,
+  loading = false,
+  emptyMessage = "No options available.",
+  noResultsMessage = "No matching results.",
+  defaultPlaceholder,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return options;
+    return options.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(normalized) ||
+        (opt.hint ?? "").toLowerCase().includes(normalized),
+    );
+  }, [query, options]);
+
+  const selected = options.find((opt) => opt.value === value);
+
+  const handleSelect = (val: string) => {
+    onChange(val);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const buttonClass = disabled ? disabledSelectClasses : selectClasses;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((prev) => !prev)}
+        className={`${buttonClass} text-left ${disabled ? "" : "cursor-pointer"}`}
+      >
+        {selected
+          ? selected.label
+          : (defaultPlaceholder ?? placeholder ?? "Select…")}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-stroke bg-white shadow-lg dark:border-dark-3 dark:bg-dark-2">
+          {/* Search input */}
+          <div className="border-b border-stroke p-2 dark:border-dark-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:text-white"
+              autoFocus
+            />
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-56 overflow-y-auto">
+            {loading ? (
+              <p className="px-3 py-4 text-center text-sm text-body dark:text-dark-6">
+                Loading…
+              </p>
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-4 text-center text-sm text-body dark:text-dark-6">
+                {query ? noResultsMessage : emptyMessage}
+              </p>
+            ) : (
+              filtered.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleSelect(opt.value)}
+                  className={`flex w-full flex-col items-start gap-0.5 border-b border-stroke px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-gray-2 dark:border-dark-3 dark:hover:bg-dark-3 ${
+                    opt.value === value ? "bg-primary/5" : ""
+                  }`}
+                >
+                  <span className="text-sm font-medium text-dark dark:text-white">
+                    {opt.label}
+                  </span>
+                  {opt.hint && (
+                    <span className="text-xs text-body dark:text-dark-6">
+                      {opt.hint}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ============================================================
    Checkbox / Radio Tiles

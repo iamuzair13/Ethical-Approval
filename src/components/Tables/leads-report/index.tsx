@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/table";
 import { TableTopScrollArea } from "@/components/ui/table-top-scroll-area";
 import {
+  ColumnHeaderFilter,
+  type FilterOption,
+} from "@/components/ui/column-header-filter";
+import {
   defaultLeadsExcelColumnSelection,
   downloadLeadsReportExcel,
   LEADS_EXCEL_COLUMNS,
@@ -294,6 +298,7 @@ export function LeadsReport({
   const [facultyFilter, setFacultyFilter] = useState<string[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
   const [currentStatusFilter, setCurrentStatusFilter] = useState<LeadStatus[]>([]);
+  const [applicationTypeFilter, setApplicationTypeFilter] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [attachmentModalLead, setAttachmentModalLead] = useState<Lead | null>(null);
@@ -347,6 +352,11 @@ export function LeadsReport({
         !currentStatusFilter.includes(lead.currentStatus)
       )
         return false;
+      if (
+        applicationTypeFilter.length > 0 &&
+        !applicationTypeFilter.includes(lead.applicationType)
+      )
+        return false;
       if (!q) return true;
       const app = lead.applicationId.toLowerCase();
       return (
@@ -365,6 +375,7 @@ export function LeadsReport({
     facultyFilter,
     departmentFilter,
     currentStatusFilter,
+    applicationTypeFilter,
   ]);
 
   // Live counts (entity + count) â€” derived from the scope (e.g. supervisor-only,
@@ -401,10 +412,38 @@ export function LeadsReport({
     [scopeFilteredLeads],
   );
 
+  const applicationTypeCounts = useMemo(
+    () =>
+      buildCountsList(scopeFilteredLeads, (lead) => lead.applicationType || "Unknown"),
+    [scopeFilteredLeads],
+  );
+
+  // Build FilterOption arrays for ColumnHeaderFilter components
+  const statusFilterOptions: FilterOption[] = useMemo(
+    () =>
+      currentStatusCounts.map((entry) => ({
+        value: entry.value,
+        label: entry.value,
+        count: entry.count,
+      })),
+    [currentStatusCounts],
+  );
+
+  const applicationTypeFilterOptions: FilterOption[] = useMemo(
+    () =>
+      applicationTypeCounts.map((entry) => ({
+        value: entry.value,
+        label: entry.value,
+        count: entry.count,
+      })),
+    [applicationTypeCounts],
+  );
+
   const clearAllFilters = useCallback(() => {
     setFacultyFilter([]);
     setDepartmentFilter([]);
     setCurrentStatusFilter([]);
+    setApplicationTypeFilter([]);
   }, []);
 
   useEffect(() => {
@@ -535,6 +574,7 @@ export function LeadsReport({
     facultyFilter,
     departmentFilter,
     currentStatusFilter,
+    applicationTypeFilter,
   ]);
 
   useEffect(() => {
@@ -968,12 +1008,24 @@ export function LeadsReport({
                 <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Email
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Current Status
-                </TableHead>
-                <TableHead className="min-w-22.5 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Application Type
-                </TableHead>
+                <ColumnHeaderFilter
+                  label="Current Status"
+                  options={statusFilterOptions}
+                  selected={currentStatusFilter as string[]}
+                  onChange={(vals) =>
+                    setCurrentStatusFilter(vals as LeadStatus[])
+                  }
+                  searchPlaceholder="Search statuses…"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-500"
+                />
+                <ColumnHeaderFilter
+                  label="Application Type"
+                  options={applicationTypeFilterOptions}
+                  selected={applicationTypeFilter}
+                  onChange={setApplicationTypeFilter}
+                  searchPlaceholder="Search types…"
+                  className="min-w-22.5 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500"
+                />
                 <TableHead className="min-w-48 text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Title
                 </TableHead>

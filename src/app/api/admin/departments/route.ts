@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 }
 
 type CreateDepartmentBody = {
-  facultyId?: number;
+  facultyId?: number | null;
   name?: string;
 };
 
@@ -35,21 +35,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
   }
 
-  if (typeof body.facultyId !== "number" || !body.name?.trim()) {
+  if (!body.name?.trim()) {
     return NextResponse.json(
-      { ok: false, error: "facultyId and name are required." },
+      { ok: false, error: "name is required." },
       { status: 400 },
     );
   }
 
   try {
-    const department = await createDepartment({ facultyId: body.facultyId, name: body.name });
+    const department = await createDepartment({
+      facultyId: body.facultyId ?? null,
+      name: body.name,
+    });
     void logActivityFromRequest(request, {
       actionCode: "admin.department.create",
       targetType: "department",
       targetId: String(department.id),
       targetLabel: department.name,
-      facultyId: body.facultyId,
+      facultyId: body.facultyId ?? undefined,
     });
     return NextResponse.json({ ok: true, department });
   } catch {

@@ -4,7 +4,7 @@ import { deleteDepartment, updateDepartment } from "@/lib/admin-repository";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
 type UpdateDepartmentBody = {
-  facultyId?: number;
+  facultyId?: number | null;
   name?: string;
   isActive?: boolean;
 };
@@ -31,9 +31,9 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
   }
 
-  if (typeof body.facultyId !== "number" || !body.name?.trim() || typeof body.isActive !== "boolean") {
+  if (!body.name?.trim() || typeof body.isActive !== "boolean") {
     return NextResponse.json(
-      { ok: false, error: "facultyId, name and isActive are required." },
+      { ok: false, error: "name and isActive are required." },
       { status: 400 },
     );
   }
@@ -41,7 +41,7 @@ export async function PATCH(
   try {
     const department = await updateDepartment({
       id: departmentId,
-      facultyId: body.facultyId,
+      facultyId: body.facultyId ?? null,
       name: body.name,
       isActive: body.isActive,
     });
@@ -53,7 +53,7 @@ export async function PATCH(
       targetType: "department",
       targetId: String(department.id),
       targetLabel: department.name,
-      facultyId: body.facultyId,
+      facultyId: body.facultyId ?? undefined,
     });
     return NextResponse.json({ ok: true, department });
   } catch {

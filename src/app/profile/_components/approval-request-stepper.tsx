@@ -240,10 +240,13 @@ const INITIAL_FORM = {
   scholarFaculty: "",
   scholarDepartment: "",
   scholarProgram: "",
+  supervisorUserId: "",
   supervisorSapId: "",
   supervisorEmail: "",
   supervisorFaculty: "",
   supervisorDepartment: "",
+  supervisorDepartmentId: "",
+  supervisorDesignation: "",
   coSupervisorType: "UOL",
   uolCoSupervisorSapId: "",
   uolCoSupervisorName: "",
@@ -1150,9 +1153,15 @@ export default function ApprovalRequestStepper({
       return null;
     }
 
-    if (formMode !== "form1-thesis") return null;
+    if (formMode !== "form1-thesis" && formMode !== "form3-thesis-medical") return null;
 
     if (currentStep === 0) {
+      // Supervisor selection is now driven by the Department -> Supervisor
+      // picker. The authoritative value is supervisorUserId; the auto-filled
+      // text fields are derived from it and re-validated server-side.
+      if (!hasValue(form.supervisorUserId)) {
+        return "Please select a Department and Supervisor.";
+      }
       const supervisorRequired = [
         form.supervisorSapId,
         form.supervisorName,

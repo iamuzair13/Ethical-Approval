@@ -20,6 +20,7 @@ type SubmissionStageRow = {
   current_status: string;
   faculty: string;
   application_id: string;
+  supervisor_user_id: string | null;
 };
 
 export async function POST(
@@ -63,7 +64,7 @@ export async function POST(
 
   const submissionResult = await db.query<SubmissionStageRow>(
     `
-      SELECT s.current_status, sas.faculty, s.application_id
+      SELECT s.current_status, sas.faculty, s.application_id, s.supervisor_user_id
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       WHERE s.id = $1
@@ -78,6 +79,19 @@ export async function POST(
 
   if (!(await canAccessFacultySnapshot(admin, submission.faculty))) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+  // Per-application supervisor authorization: only the assigned supervisor
+  // can approve/reject this specific submission. Administrators are still
+  // allowed (they act on behalf of the assigned supervisor).
+  if (
+    admin.role === "supervisor" &&
+    submission.supervisor_user_id &&
+    admin.adminId !== submission.supervisor_user_id
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Only the assigned supervisor can review this application." },
+      { status: 403 },
+    );
   }
   if (submission.current_status !== "under_supervisor_review") {
     return NextResponse.json(

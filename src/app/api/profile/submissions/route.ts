@@ -5,8 +5,9 @@ import { allocateUniqueApplicationId } from "@/lib/application-id";
 import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
 import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
-import { isStudentApplicantEmail } from "@/lib/applicant-email";
 import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
+import { isFormAllowedForApplicant } from "@/lib/form-eligibility";
+import { validateSupervisorForSubmission, type VerifiedSupervisor } from "@/lib/supervisor-selection";
 import { db } from "@/lib/db";
 
 type ProfileSubmissionRow = {
@@ -28,6 +29,8 @@ type ProfileSubmissionRow = {
   ethics_json: unknown;
   latest_feedback_comment: string | null;
   faculty: string;
+  supervisor_name_snapshot: string | null;
+  supervisor_department_snapshot: string | null;
 };
 
 export async function GET() {
@@ -50,6 +53,8 @@ export async function GET() {
         src.objectives,
         sep.ethics_json,
         sas.faculty,
+        s.supervisor_name_snapshot,
+        s.supervisor_department_snapshot,
         afd.latest_feedback_comment
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
@@ -70,13 +75,22 @@ export async function GET() {
     [sapId],
   );
 
-  // Batch-resolve supervisor names by faculty
-  const facultyValues = Array.from(new Set(result.rows.map((r) => r.faculty).filter(Boolean)));
-  const supervisorMap = new Map<string, string | null>();
+  // Supervisor name: prefer the per-application snapshot (authoritative for
+  // new submissions). Fall back to faculty-scoped lookup for legacy
+  // submissions that don't have a supervisor_user_id yet.
+  const facultyValues = Array.from(
+    new Set(
+      result.rows
+        .filter((r) => !r.supervisor_name_snapshot)
+        .map((r) => r.faculty)
+        .filter(Boolean),
+    ),
+  );
+  const legacySupervisorMap = new Map<string, string | null>();
   for (const facultyValue of facultyValues) {
     const facultyIds = await resolveFacultyIdsFromSnapshotValue(facultyValue);
     if (facultyIds.length === 0) {
-      supervisorMap.set(facultyValue, null);
+      legacySupervisorMap.set(facultyValue, null);
       continue;
     }
     const supervisorResult = await db.query<{ name: string }>(
@@ -95,13 +109,14 @@ export async function GET() {
       `,
       [facultyIds],
     );
-    supervisorMap.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
+    legacySupervisorMap.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
   }
 
   const submissions = result.rows.map((row) => ({
     ...row,
     latest_feedback_comment: stripAdminAuditNote(row.latest_feedback_comment),
-    supervisor_name: supervisorMap.get(row.faculty) ?? null,
+    supervisor_name: row.supervisor_name_snapshot ?? legacySupervisorMap.get(row.faculty) ?? null,
+    supervisor_department: row.supervisor_department_snapshot ?? null,
   }));
 
   return NextResponse.json({ ok: true, submissions });
@@ -150,10 +165,9 @@ function parseDraftSubmissionIdFromEthics(ethics: Record<string, unknown> | unde
 
 function resolveResubmissionStatus(
   previousStatus: ProfileSubmissionRow["current_status"],
-  applicantEmail: string,
+  isStudent: boolean,
+  type: "thesis" | "publication" | undefined,
 ): ProfileSubmissionRow["current_status"] {
-  const isStudent = isStudentApplicantEmail(applicantEmail);
-
   // If IREB rejected a student submission, supervisor approval remains valid.
   if (previousStatus === "rejected" && isStudent) {
     return "under_ireb_review";
@@ -166,13 +180,129 @@ function resolveResubmissionStatus(
   }
 
   // If supervisor rejected (or anything else), restart from the beginning.
-  // For non-students there is no supervisor stage, so go directly to IREB.
-  return isStudent ? "submitted" : "under_ireb_review";
+  // Student thesis → supervisor stage; everything else → IREB directly.
+  return resolveInitialStatus(isStudent, type);
+}
+
+/**
+ * Determines whether a submission requires a supervisor selection.
+ *
+ * Only student thesis applications (Form 1 and Form 3) go through the
+ * supervisor approval stage. Student publications and all faculty
+ * submissions go directly to IREB.
+ */
+function requiresSupervisor(
+  isStudent: boolean,
+  type: "thesis" | "publication" | undefined,
+): boolean {
+  return isStudent && type === "thesis";
+}
+
+/**
+ * Resolves the initial status for a new or resubmitted application based on
+ * the applicant role and application type.
+ *
+ * Routing rules (the single centralized point that determines the workflow):
+ *   - Student THESIS       → 'submitted'              (supervisor stage first)
+ *   - Student PUBLICATION  → 'under_ireb_review'      (IREB directly, no supervisor)
+ *   - Faculty (any type)   → 'under_ireb_review'      (IREB directly, no supervisor)
+ */
+function resolveInitialStatus(
+  isStudent: boolean,
+  type: "thesis" | "publication" | undefined,
+): ProfileSubmissionRow["current_status"] {
+  if (requiresSupervisor(isStudent, type)) {
+    return "submitted";
+  }
+  return "under_ireb_review";
+}
+
+/**
+ * Persists the supervisor relationship for a submission.
+ *
+ * Stores the authoritative supervisor_user_id FK plus snapshot columns on
+ * the submissions row, and inserts a submission_participants row with
+ * source='internal_faculty' for the historical record.
+ *
+ * Must be called inside an open transaction.
+ */
+async function persistSupervisorRelationship(
+  client: { query: typeof db.query },
+  submissionId: number,
+  supervisor: {
+    userId: string;
+    facultyMemberId: string;
+    sapId: string;
+    name: string;
+    email: string;
+    department: string;
+    faculty: string | null;
+  },
+): Promise<void> {
+  // Update the submissions row with the authoritative FK + snapshot columns.
+  await client.query(
+    `
+      UPDATE submissions
+      SET
+        supervisor_user_id = $2,
+        supervisor_name_snapshot = $3,
+        supervisor_sap_id_snapshot = $4,
+        supervisor_email_snapshot = $5,
+        supervisor_department_snapshot = $6,
+        supervisor_faculty_snapshot = $7
+      WHERE id = $1
+    `,
+    [
+      submissionId,
+      supervisor.userId,
+      supervisor.name,
+      supervisor.sapId,
+      supervisor.email,
+      supervisor.department,
+      supervisor.faculty ?? null,
+    ],
+  );
+
+  // Replace any existing supervisor participant row for this submission.
+  await client.query(
+    `
+      DELETE FROM submission_participants
+      WHERE submission_id = $1 AND participant_role = 'supervisor'
+    `,
+    [submissionId],
+  );
+
+  await client.query(
+    `
+      INSERT INTO submission_participants (
+        submission_id,
+        participant_role,
+        source,
+        faculty_member_id,
+        sap_id,
+        internal_name,
+        internal_email,
+        internal_faculty,
+        internal_department
+      )
+      VALUES ($1, 'supervisor', 'internal_faculty', $2, $3, $4, $5, $6, $7)
+    `,
+    [
+      submissionId,
+      supervisor.facultyMemberId,
+      supervisor.sapId,
+      supervisor.name,
+      supervisor.email,
+      supervisor.faculty ?? null,
+      supervisor.department,
+    ],
+  );
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const sapId = session?.user?.sapId;
+  const sessionApplicantRole = session?.user?.applicantRole;
 
   if (!sapId) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
@@ -224,7 +354,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Student";
+  const applicantName = applicant?.name?.trim() || session.user?.name?.trim() || "Applicant";
   const applicantEmail = applicant?.email?.trim() || session.user?.email?.trim() || "";
   const applicantFaculty = applicant?.faculty?.trim() || "Unknown Faculty";
   const applicantDepartment = applicant?.department?.trim() || "Unknown Department";
@@ -235,6 +365,38 @@ export async function POST(request: NextRequest) {
       { ok: false, error: "Applicant email is required." },
       { status: 400 },
     );
+  }
+
+  // Determine applicant type from the session (source of truth), not from email domain.
+  // Faculty sessions have applicantRole = "faculty"; student sessions have "student".
+  const isStudent = sessionApplicantRole === "student";
+
+  // Validate that the selected form is available to this applicant role.
+  // This prevents faculty from submitting student-only forms and vice versa.
+  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole)) {
+    return NextResponse.json(
+      { ok: false, error: "The selected form is not available for your account type." },
+      { status: 403 },
+    );
+  }
+
+  // Validate supervisor selection for student thesis applications.
+  // The supervisor is verified server-side from supervisorUserId alone;
+  // client-submitted name/email/sapId are never trusted as authoritative.
+  const needsSupervisor = requiresSupervisor(isStudent, type);
+  let verifiedSupervisor: VerifiedSupervisor | null = null;
+
+  if (needsSupervisor) {
+    const supervisorValidation = await validateSupervisorForSubmission(
+      body.ethics as Record<string, unknown> | undefined,
+    );
+    if (!supervisorValidation.ok) {
+      return NextResponse.json(
+        { ok: false, error: supervisorValidation.error },
+        { status: 400 },
+      );
+    }
+    verifiedSupervisor = supervisorValidation.supervisor;
   }
 
   const client = await db.connect();
@@ -274,7 +436,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const nextStatus = resolveResubmissionStatus(existing.current_status, applicantEmail);
+      const nextStatus = resolveResubmissionStatus(existing.current_status, isStudent, type);
 
       await client.query(
         `
@@ -335,6 +497,12 @@ export async function POST(request: NextRequest) {
         `,
         [revisionSubmissionId, JSON.stringify(mergedEthics)],
       );
+
+      // Re-validate and persist the supervisor relationship on resubmission.
+      // The student may have changed the supervisor during revision.
+      if (needsSupervisor && verifiedSupervisor) {
+        await persistSupervisorRelationship(client, revisionSubmissionId, verifiedSupervisor);
+      }
 
       const revisionNumber =
         typeof body.ethics?.revisionNumber === "number" ? body.ethics.revisionNumber : undefined;
@@ -403,7 +571,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const draftInitialStatus = isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review';
+      const draftInitialStatus = resolveInitialStatus(isStudent, type);
       await client.query(
         `
           UPDATE submissions
@@ -464,6 +632,11 @@ export async function POST(request: NextRequest) {
         [draftSubmissionId, JSON.stringify(mergedEthics)],
       );
 
+      // Persist the supervisor relationship for the promoted submission.
+      if (needsSupervisor && verifiedSupervisor) {
+        await persistSupervisorRelationship(client, draftSubmissionId, verifiedSupervisor);
+      }
+
       await client.query("COMMIT");
 
       scheduleSubmissionConfirmationEmail({
@@ -508,7 +681,7 @@ export async function POST(request: NextRequest) {
 
     const latestDraft = latestDraftResult.rows[0];
     if (latestDraft) {
-      const latestDraftInitialStatus = isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review';
+      const latestDraftInitialStatus = resolveInitialStatus(isStudent, type);
       await client.query(
         `
           UPDATE submissions
@@ -569,6 +742,11 @@ export async function POST(request: NextRequest) {
         [latestDraft.id, JSON.stringify(mergedEthics)],
       );
 
+      // Persist the supervisor relationship for the promoted submission.
+      if (needsSupervisor && verifiedSupervisor) {
+        await persistSupervisorRelationship(client, latestDraft.id, verifiedSupervisor);
+      }
+
       await client.query("COMMIT");
 
       scheduleSubmissionConfirmationEmail({
@@ -601,10 +779,10 @@ export async function POST(request: NextRequest) {
     }>(
       `
         INSERT INTO submissions (type, domain, applicant_role, current_status, application_id)
-        VALUES ($1, $2, 'student', $4, $3)
+        VALUES ($1, $2, $5::applicant_role, $4, $3)
         RETURNING id, application_id, current_status, submitted_at
       `,
-      [type, domain, applicationId, isStudentApplicantEmail(applicantEmail) ? 'submitted' : 'under_ireb_review'],
+      [type, domain, applicationId, resolveInitialStatus(isStudent, type), isStudent ? 'student' : 'faculty'],
     );
 
     const submission = submissionResult.rows[0];
@@ -647,6 +825,11 @@ export async function POST(request: NextRequest) {
       [submission.id, JSON.stringify(mergedEthics)],
     );
 
+    // Persist the supervisor relationship for the new submission.
+    if (needsSupervisor && verifiedSupervisor) {
+      await persistSupervisorRelationship(client, submission.id, verifiedSupervisor);
+    }
+
     await client.query("COMMIT");
 
     scheduleSubmissionConfirmationEmail({
@@ -669,7 +852,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("Failed to create student submission", error);
+    console.error("Failed to create submission", error);
     return NextResponse.json(
       { ok: false, error: "Failed to save submission." },
       { status: 500 },

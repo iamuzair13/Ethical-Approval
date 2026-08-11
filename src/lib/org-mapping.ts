@@ -34,8 +34,8 @@ export type OrgMappingResult = {
 type DepartmentRow = {
   id: number;
   name: string;
-  faculty_id: number;
-  faculty_name: string;
+  faculty_id: number | null;
+  faculty_name: string | null;
 };
 
 // Cache all active departments joined with their faculty for the duration of
@@ -43,16 +43,18 @@ type DepartmentRow = {
 let cachedDepartments: DepartmentRow[] | null = null;
 
 /**
- * Loads all active departments with their parent faculty into an in-memory
- * cache. Call this once at the start of a bulk operation (e.g., sync).
+ * Loads all active departments with their parent faculty (if any) into an
+ * in-memory cache. Uses LEFT JOIN because departments.faculty_id is now
+ * nullable (departments can exist independently of faculties).
+ * Call this once at the start of a bulk operation (e.g., sync).
  */
 export async function loadDepartmentCache(): Promise<void> {
   const result = await db.query<DepartmentRow>(
     `
       SELECT d.id, d.name, d.faculty_id, f.name AS faculty_name
       FROM departments d
-      JOIN faculties f ON f.id = d.faculty_id
-      WHERE d.is_active = TRUE AND f.is_active = TRUE
+      LEFT JOIN faculties f ON f.id = d.faculty_id AND f.is_active = TRUE
+      WHERE d.is_active = TRUE
       ORDER BY d.name
     `,
   );
@@ -154,7 +156,39 @@ export async function resolveOrgFromDepartment(
     };
   }
 
-  // No match found — do not guess the faculty
+  // No match found — create a new canonical department record so future
+  // lookups for the same SAP department text resolve immediately. The
+  // department is created with faculty_id = NULL (independent department).
+  const insertResult = await db.query<{ id: number; name: string; faculty_id: number | null }>(
+    `
+      INSERT INTO departments (faculty_id, name, is_active)
+      VALUES (NULL, $1, TRUE)
+      RETURNING id, name, faculty_id
+    `,
+    [rawText],
+  );
+
+  const newDept = insertResult.rows[0];
+
+  if (newDept) {
+    // Add to cache so subsequent lookups in this run don't hit the DB.
+    if (cachedDepartments) {
+      cachedDepartments.push({
+        id: newDept.id,
+        name: newDept.name,
+        faculty_id: newDept.faculty_id ?? 0,
+        faculty_name: "",
+      });
+    }
+    return {
+      ok: true,
+      facultyId: newDept.faculty_id ?? null,
+      departmentId: newDept.id,
+      facultyName: null,
+      departmentName: newDept.name,
+    };
+  }
+
   return {
     ok: false,
     facultyId: null,
