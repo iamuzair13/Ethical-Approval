@@ -194,13 +194,11 @@ const FORM_2_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 
 const FORM_6_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
-  "Participant Consent Form",
 ];
 
-/** Form 5 & 7 — tick + upload required only for these; other institutional letter is optional. */
+/** Form 5 & 7 — tick + upload required only for these; consent and other institutional letter are optional. */
 const FORM_5_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
   "Questionnaire/Interview Guide",
-  "Participant Consent Form",
 ];
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */

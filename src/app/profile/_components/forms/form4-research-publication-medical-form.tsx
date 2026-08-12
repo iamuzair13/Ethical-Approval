@@ -276,11 +276,9 @@ export function Form4ResearchPublicationMedicalForm({
                 <option>Waived consent</option>
                 <option>Not applicable</option>
               </BaseSelect>
-              <p className="mt-2 text-xs leading-relaxed text-body dark:text-dark-6">
-                Note: Provide attach the consent form (as per UOL format) in the concerned
-                section [Link of the Form].
-              </p>
             </Required>
+
+            <InformedConsentDocumentSection />
 
             <Required
               label="Have any research data been collected prior to receiving ethical approval? *"

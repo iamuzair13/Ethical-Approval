@@ -458,6 +458,8 @@ export function Form1ThesisForm({
               </Required>
             </FieldRow>
 
+            <InformedConsentDocumentSection />
+
             {form.preApprovalDataCollected === "Yes" && (
               <InformedConsentDocumentSection />
             )}

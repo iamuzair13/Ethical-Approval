@@ -217,9 +217,15 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // Always redirect to root after successful authentication
-      // Role-based access and module availability are handled separately
-      return `${baseUrl}/`;
+      // Respect the callbackUrl passed to signIn()/signOut() so that, e.g.,
+      // signOut({ callbackUrl: "/auth/sign-in" }) goes directly to the login
+      // page instead of bouncing through the proxy. For sign-in with
+      // redirect: false (our normal path), this only affects result.url which
+      // is used as a fallback by resolvePostLoginRedirect — the actual
+      // role-based destination is determined client-side from the session.
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (url.startsWith(baseUrl)) return url;
+      return baseUrl;
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {

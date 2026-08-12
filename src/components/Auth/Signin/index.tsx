@@ -144,8 +144,9 @@ export default function Signin() {
         return;
       }
       toast.success("Login successful.");
-      router.push(res.redirectUrl);
-      router.refresh();
+      // Use replace (not push + refresh) so the sign-in page is removed from
+      // history and the navigation is not interrupted by a competing refresh.
+      router.replace(res.redirectUrl);
     } finally {
       setLoadingGoogle(false);
     }
@@ -211,8 +212,9 @@ export default function Signin() {
       if (result?.ok) {
         toast.success("Login successful.");
         const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
-        router.push(redirectUrl);
-        router.refresh();
+        // Use replace (not push + refresh) so the sign-in page is removed from
+        // history and the navigation is not interrupted by a competing refresh.
+        router.replace(redirectUrl);
       }
     } finally {
       setLoadingManual(false);

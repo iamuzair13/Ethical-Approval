@@ -32,7 +32,6 @@ const FORM_6_REQUIRED_ATTACHMENTS = [
 
 const FORM_6_MANDATORY_ATTACHMENTS = [
   FORM_6_REQUIRED_ATTACHMENTS[0],
-  FORM_6_REQUIRED_ATTACHMENTS[1],
 ] as const;
 const FORM_6_MANDATORY_ATTACHMENT_SET = new Set<string>(FORM_6_MANDATORY_ATTACHMENTS);
 
@@ -302,6 +301,8 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
               </BaseSelect>
             </Required>
           </FieldRow>
+
+          <InformedConsentDocumentSection />
 
           {form.preApprovalDataCollected === "Yes" && (
             <InformedConsentDocumentSection />

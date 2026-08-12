@@ -283,11 +283,9 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
               <option>Waived consent</option>
               <option>Not applicable</option>
             </BaseSelect>
-            <InfoNote className="mt-2">
-              Note: Provide attach the consent form (as per UOL format) in the
-              concerned section [Link of the Form].
-            </InfoNote>
           </Required>
+
+          <InformedConsentDocumentSection />
 
           <Required
             label="2.4 Have any research data been collected prior to receiving ethical approval? *"
@@ -739,9 +737,7 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             <AttachmentCard
               key={item}
               label={item}
-              isMandatory={
-                item === "Questionnaire/Interview Guide" || item === "Participant Consent Form"
-              }
+              isMandatory={item === "Questionnaire/Interview Guide"}
               isChecked={hasCsvOption("requiredAttachments", item)}
               onToggle={() => toggleCsvOption("requiredAttachments", item)}
               fileName={attachmentFiles[item]}

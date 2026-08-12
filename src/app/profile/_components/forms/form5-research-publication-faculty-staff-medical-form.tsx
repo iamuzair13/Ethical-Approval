@@ -189,9 +189,7 @@ export function Form5ResearchPublicationFacultyStaffForm({
             <AttachmentCard
               key={item}
               label={item}
-              isMandatory={
-                item === "Questionnaire/Interview Guide" || item === "Participant Consent Form"
-              }
+              isMandatory={item === "Questionnaire/Interview Guide"}
               isChecked={hasCsvOption("requiredAttachments", item)}
               onToggle={() => toggleCsvOption("requiredAttachments", item)}
               fileName={attachmentFiles[item]}
