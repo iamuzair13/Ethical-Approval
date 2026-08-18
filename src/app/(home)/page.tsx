@@ -46,6 +46,7 @@ export default async function Home({ searchParams }: PropsType) {
           key={extractTimeFrame("payments_overview")}
           timeFrame={extractTimeFrame("payments_overview")?.split(":")[1]}
           overviewData={overviewData}
+          session={session}
         />
 
         <UsedDevices

@@ -2,6 +2,7 @@
 
 import { ReportCatalogCard } from "@/app/reports/_components/report-catalog-card";
 import { SupervisorPickerSelect } from "@/app/reports/_components/supervisor-picker-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   createDefaultReportDateRange,
   isReportDateRangeValid,
@@ -348,26 +349,20 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
                 range={dateRanges["faculty-wise-research"]}
                 onChange={(next) => setReportDateRange("faculty-wise-research", next)}
               />
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-                  Faculty
-                </span>
-                <select
-                  disabled={reportFiltersLoading}
-                  value={facultyWiseFacultyId}
-                  onChange={(e) => setFacultyWiseFacultyId(e.target.value)}
-                  className="w-full max-w-md rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-medium text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                >
-                  <option value="">
-                    {reportFiltersLoading ? "Loading…" : "Select a faculty…"}
-                  </option>
-                  {reportFaculties.map((f) => (
-                    <option key={f.id} value={String(f.id)}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchableSelect
+                label="Faculty"
+                placeholder={reportFiltersLoading ? "Loading…" : "Select a faculty…"}
+                searchPlaceholder="Search faculties…"
+                disabled={reportFiltersLoading}
+                loading={reportFiltersLoading}
+                options={reportFaculties.map((f) => ({
+                  value: String(f.id),
+                  label: f.name,
+                }))}
+                value={facultyWiseFacultyId}
+                onChange={setFacultyWiseFacultyId}
+                triggerClassName="max-w-md"
+              />
             </div>
           }
           action={primaryBtn(
@@ -390,26 +385,21 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
                 range={dateRanges["department-wise-research"]}
                 onChange={(next) => setReportDateRange("department-wise-research", next)}
               />
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-                  Department
-                </span>
-                <select
-                  disabled={reportFiltersLoading}
-                  value={deptWiseDepartmentId}
-                  onChange={(e) => setDeptWiseDepartmentId(e.target.value)}
-                  className="w-full max-w-md rounded-lg border border-stroke bg-white px-3 py-2 text-sm font-medium text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"
-                >
-                  <option value="">
-                    {reportFiltersLoading ? "Loading…" : "Select a department…"}
-                  </option>
-                  {reportDepartments.map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.name} — {d.facultyName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchableSelect
+                label="Department"
+                placeholder={reportFiltersLoading ? "Loading…" : "Select a department…"}
+                searchPlaceholder="Search departments…"
+                disabled={reportFiltersLoading}
+                loading={reportFiltersLoading}
+                options={reportDepartments.map((d) => ({
+                  value: String(d.id),
+                  label: d.name,
+                  hint: d.facultyName,
+                }))}
+                value={deptWiseDepartmentId}
+                onChange={setDeptWiseDepartmentId}
+                triggerClassName="max-w-md"
+              />
             </div>
           }
           action={primaryBtn(

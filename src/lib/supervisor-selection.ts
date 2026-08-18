@@ -56,11 +56,14 @@ export async function listSupervisorDepartments(): Promise<SupervisorDepartment[
 }
 
 /**
- * All active supervisors in a given department.
+ * All active faculty members in a given department, eligible for supervisor
+ * selection.
  *
  * The department match is performed on faculty_members.department_id (the FK
- * to the centralized departments table). A supervisor is any faculty member
- * whose linked admin_users row has role = 'supervisor' and status = 'active'.
+ * to the centralized departments table). Any active faculty member with a
+ * linked, active admin_users account is eligible — regardless of their admin
+ * role (administrator, supervisor, ireb, or no role). This means a super
+ * admin who is also a faculty member can be selected as a supervisor.
  *
  * The admin_faculty_assignments / admin_department_assignments RBAC scope
  * (supervisor_primary) is NOT used to filter this list — that scope controls
@@ -101,7 +104,6 @@ export async function listSupervisorsForDepartment(
       WHERE fm.deleted_at IS NULL
         AND fm.status = 'active'
         AND fm.is_active = TRUE
-        AND au.role = 'supervisor'
         AND au.status = 'active'
         AND fm.department_id = $1
       ORDER BY fm.name ASC
@@ -122,10 +124,13 @@ export async function listSupervisorsForDepartment(
 }
 
 /**
- * Fetch a single supervisor's full details by admin_users id.
+ * Fetch a single faculty member's full details by admin_users id, for
+ * supervisor selection.
  *
- * Returns null if the user does not exist, is not a supervisor, is inactive,
- * or has no linked faculty_members profile.
+ * Returns null if the user does not exist, is inactive, or has no linked
+ * active faculty_members profile. Any admin role (administrator, supervisor,
+ * ireb, or no role) is eligible — the role does not affect supervisor
+ * selection eligibility.
  */
 export async function getSupervisorForSelection(
   supervisorUserId: string,
@@ -163,7 +168,6 @@ export async function getSupervisorForSelection(
         AND fm.deleted_at IS NULL
       WHERE au.id = $1
         AND au.deleted_at IS NULL
-        AND au.role = 'supervisor'
         AND au.status = 'active'
         AND fm.status = 'active'
         AND fm.is_active = TRUE
@@ -190,7 +194,8 @@ export async function getSupervisorForSelection(
 }
 
 /**
- * Verify that a supervisor is eligible to be selected for a given department.
+ * Verify that a faculty member is eligible to be selected as a supervisor
+ * for a given department.
  *
  * This is the authoritative server-side check used at submission time. The
  * client-submitted supervisor name/email/sapId are NEVER trusted; only the
@@ -199,9 +204,11 @@ export async function getSupervisorForSelection(
  * The department is verified by department_id (the FK to the centralized
  * departments table), not by text matching.
  *
+ * Any active faculty member with an active admin_users account is eligible,
+ * regardless of their admin role (administrator, supervisor, ireb, or none).
+ *
  * Returns the verified supervisor record, or null if:
  *   - the user does not exist
- *   - the user is not a supervisor
  *   - the user is inactive / soft-deleted
  *   - the faculty profile is missing or inactive
  *   - the supervisor's department_id does not match the selected department
@@ -213,7 +220,7 @@ export async function verifySupervisorEligibility(
   const supervisor = await getSupervisorForSelection(supervisorUserId);
   if (!supervisor) return null;
 
-  if (supervisor.departmentId !== expectedDepartmentId) return null;
+  if (Number(supervisor.departmentId) !== Number(expectedDepartmentId)) return null;
 
   return supervisor;
 }

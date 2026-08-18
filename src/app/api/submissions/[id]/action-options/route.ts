@@ -42,20 +42,29 @@ export async function GET(
   let supervisorOption: AdminOption | null = null;
 
   // Prefer the assigned supervisor (per-application routing) when available.
+  // The supervisor_user_id is authoritative regardless of the admin's current
+  // role — they may have been a supervisor at submission time and later
+  // promoted to administrator, but they are still the assigned reviewer.
   if (submission.supervisor_user_id) {
-    const assignedResult = await db.query<AdminOption>(
+    const assignedResult = await db.query<{ id: string; name: string; role: string }>(
       `
         SELECT id, name, role
         FROM admin_users
         WHERE id = $1
-          AND role = 'supervisor'
           AND status = 'active'
           AND deleted_at IS NULL
         LIMIT 1
       `,
       [submission.supervisor_user_id],
     );
-    supervisorOption = assignedResult.rows[0] ?? null;
+    const row = assignedResult.rows[0];
+    if (row) {
+      supervisorOption = {
+        id: row.id,
+        name: row.name,
+        role: row.role as "supervisor" | "ireb",
+      };
+    }
   }
 
   if (!supervisorOption && facultyIds.length > 0) {

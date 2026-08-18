@@ -255,41 +255,28 @@ export function SupervisorPicker({
             placeholder="Auto-filled from supervisor selection"
           />
         </Required>
-        <Required label="Name">
-          <ReadOnlyInput
-            value={form.supervisorName ?? ""}
-            placeholder="Auto-filled from supervisor selection"
-          />
-        </Required>
-      </FieldRow>
-      <FieldRow className="mt-4">
         <Required label="Email">
           <ReadOnlyInput
             value={form.supervisorEmail ?? ""}
             placeholder="Auto-filled from supervisor selection"
           />
         </Required>
+      </FieldRow>
+      <FieldRow className="mt-4">
         <Required label="Designation">
           <ReadOnlyInput
             value={form.supervisorDesignation ?? ""}
             placeholder="Auto-filled from supervisor selection"
           />
         </Required>
-      </FieldRow>
-      <FieldRow className="mt-4">
-        <Required label="Faculty">
-          <ReadOnlyInput
-            value={form.supervisorFaculty ?? ""}
-            placeholder="Auto-filled from supervisor selection"
-          />
-        </Required>
-        <Required label="Department">
+         <Required label="Department">
           <ReadOnlyInput
             value={form.supervisorDepartment ?? ""}
             placeholder="Auto-filled from supervisor selection"
           />
         </Required>
       </FieldRow>
+      
     </FormSection>
   );
 }

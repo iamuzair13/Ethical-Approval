@@ -37,7 +37,7 @@ type FacultyMemberListRow = {
 type FacultyNameRow = { id: number; name: string };
 type DepartmentNameRow = { id: number; name: string; faculty_id: number };
 type ProgramNameRow = { id: number; name: string; department_id: number };
-type CountRow = { total: number; active: number; inactive: number; last_synced: string | null };
+type CountRow = { total: number; active: number; inactive: number; with_user: number; last_synced: string | null };
 
 function parsePositiveInt(value: string | null, fallback: number): number {
   if (!value) return fallback;
@@ -245,6 +245,7 @@ export async function GET(request: NextRequest) {
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE status = 'active')::int AS active,
         COUNT(*) FILTER (WHERE status = 'inactive')::int AS inactive,
+        COUNT(*) FILTER (WHERE user_id IS NOT NULL)::int AS with_user,
         MAX(last_synced_at)::text AS last_synced
       FROM faculty_members
       WHERE deleted_at IS NULL
@@ -306,6 +307,7 @@ export async function GET(request: NextRequest) {
         total: statsResult.rows[0]?.total ?? 0,
         active: statsResult.rows[0]?.active ?? 0,
         inactive: statsResult.rows[0]?.inactive ?? 0,
+        withUser: statsResult.rows[0]?.with_user ?? 0,
         lastSynced: statsResult.rows[0]?.last_synced ?? null,
       },
       page,
@@ -423,22 +425,28 @@ export async function POST(request: NextRequest) {
 
     // 2. Create the faculty_members record
     const department = body.department?.trim() || "Unknown Department";
-    const facultyResult = await db.query<{ name: string }>(
-      `SELECT name FROM faculties WHERE id = $1 AND deleted_at IS NULL`,
-      [body.facultyId],
-    );
+    const facultyResult = body.facultyId
+      ? await db.query<{ name: string }>(
+          `SELECT name FROM faculties WHERE id = $1`,
+          [body.facultyId],
+        )
+      : { rows: [] as { name: string }[] };
     const facultyName = facultyResult.rows[0]?.name ?? null;
 
-    const deptResult = await db.query<{ name: string }>(
-      `SELECT name FROM departments WHERE id = $1 AND deleted_at IS NULL`,
-      [body.departmentId],
-    );
+    const deptResult = body.departmentId
+      ? await db.query<{ name: string }>(
+          `SELECT name FROM departments WHERE id = $1`,
+          [body.departmentId],
+        )
+      : { rows: [] as { name: string }[] };
     const deptName = deptResult.rows[0]?.name ?? department;
 
-    const progResult = await db.query<{ name: string }>(
-      `SELECT name FROM programs WHERE id = $1 AND deleted_at IS NULL`,
-      [body.programId],
-    );
+    const progResult = body.programId
+      ? await db.query<{ name: string }>(
+          `SELECT name FROM programs WHERE id = $1`,
+          [body.programId],
+        )
+      : { rows: [] as { name: string }[] };
     const progName = progResult.rows[0]?.name ?? null;
 
     const fmResult = await db.query<{ id: string }>(

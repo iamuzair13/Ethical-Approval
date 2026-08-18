@@ -203,6 +203,7 @@ export function Form3ThesisMedicalForm({
           onFieldChange={onFieldChange}
           facultyOptions={facultyOptions}
           getDepartmentsForFaculty={getDepartmentsForFaculty}
+          useCentralizedDepartments
           defaultKeys={{
             type: "coSupervisorType",
             uol: {

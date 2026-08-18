@@ -1,5 +1,4 @@
 import type { ApprovalFormId } from "./form-registry";
-import { FORM_3_REQUIRED_ATTACHMENTS } from "./form3-thesis-medical-form";
 
 /** Mirrors stepper “Required attachments” lists per form id. */
 export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[]> = {
@@ -10,7 +9,13 @@ export const ATTACHMENT_LIST_BY_FORM_ID: Record<ApprovalFormId, readonly string[
     "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
     "Other Institutional Approval Letter(s) (If applicable)",
   ],
-  "form3-thesis-medical": FORM_3_REQUIRED_ATTACHMENTS,
+  "form3-thesis-medical": [
+    "Complete Research Proposal/Protocol",
+    "Research Questionnaire/Interview Guide (i.e., focus group guide)",
+    "Participant Consent Form",
+    "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
+    "Other Institutional Approval Letter(s) (If applicable)",
+  ],
   "form2-publication-non-medical": [
     "Questionnaire/Interview Guide",
     "Participant Consent Form",
@@ -46,7 +51,8 @@ export function resolveAttachmentSlotLabels(
   formId: ApprovalFormId | null,
   attachmentFiles: Record<string, string>,
 ): string[] {
-  const base = formId ? [...ATTACHMENT_LIST_BY_FORM_ID[formId]] : [];
+  const template = formId ? ATTACHMENT_LIST_BY_FORM_ID[formId] : undefined;
+  const base = Array.isArray(template) ? [...template] : [];
   const seen = new Set(base);
   for (const key of Object.keys(attachmentFiles)) {
     if (!seen.has(key)) {

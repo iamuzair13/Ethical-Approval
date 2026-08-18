@@ -1051,16 +1051,29 @@ export type SupervisorPickerRow = {
   email: string;
 };
 
-/** Active supervisor accounts for administrator-only report picker. */
+/**
+ * Active accounts for the administrator-only supervisor report picker.
+ * Includes users with role = 'supervisor' plus any admin (regardless of
+ * current role) who is assigned as supervisor_user_id on at least one
+ * submission — the assignment is authoritative even if the admin's role
+ * has since changed (e.g. promoted from supervisor to administrator).
+ */
 export async function listActiveSupervisorsForReportPicker(): Promise<SupervisorPickerRow[]> {
   const result = await db.query<SupervisorPickerRow>(
     `
-      SELECT id, name, email
-      FROM admin_users
-      WHERE deleted_at IS NULL
-        AND status = 'active'
-        AND role = 'supervisor'
-      ORDER BY LOWER(name) ASC, LOWER(email) ASC
+      SELECT au.id, au.name, au.email
+      FROM admin_users au
+      WHERE au.deleted_at IS NULL
+        AND au.status = 'active'
+        AND (
+          au.role = 'supervisor'
+          OR EXISTS (
+            SELECT 1 FROM submissions s
+            WHERE s.supervisor_user_id = au.id
+          )
+        )
+      GROUP BY au.id, au.name, au.email
+      ORDER BY LOWER(au.name) ASC, LOWER(au.email) ASC
     `,
   );
   return result.rows;

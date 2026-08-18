@@ -87,6 +87,7 @@ export default async function SupervisorPanel({ searchParams }: PropsType) {
           timeFrame={extractTimeFrame("supervisor_payments_overview")?.split(":")[1]}
           title="Approval Trends"
           cardsConfig={SUPERVISOR_CARDS_CONFIG}
+          session={session}
           overviewData={{
             ...overviewData,
             customers: {

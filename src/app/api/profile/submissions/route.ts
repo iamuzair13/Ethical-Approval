@@ -272,31 +272,63 @@ async function persistSupervisorRelationship(
     [submissionId],
   );
 
-  await client.query(
-    `
-      INSERT INTO submission_participants (
-        submission_id,
-        participant_role,
-        source,
-        faculty_member_id,
-        sap_id,
-        internal_name,
-        internal_email,
-        internal_faculty,
-        internal_department
-      )
-      VALUES ($1, 'supervisor', 'internal_faculty', $2, $3, $4, $5, $6, $7)
-    `,
-    [
-      submissionId,
-      supervisor.facultyMemberId,
-      supervisor.sapId,
-      supervisor.name,
-      supervisor.email,
-      supervisor.faculty ?? null,
-      supervisor.department,
-    ],
-  );
+  // Use 'internal_faculty' source when we have a faculty_member_id (preferred),
+  // falling back to 'internal_erp' when faculty_member_id is missing (uses
+  // sap_id only). The submission_participants_source_check constraint
+  // requires faculty_member_id IS NOT NULL for 'internal_faculty' source.
+  const hasFacultyMemberId = Boolean(supervisor.facultyMemberId?.trim());
+  if (hasFacultyMemberId) {
+    await client.query(
+      `
+        INSERT INTO submission_participants (
+          submission_id,
+          participant_role,
+          source,
+          faculty_member_id,
+          sap_id,
+          internal_name,
+          internal_email,
+          internal_faculty,
+          internal_department
+        )
+        VALUES ($1, 'supervisor', 'internal_faculty', $2, $3, $4, $5, $6, $7)
+      `,
+      [
+        submissionId,
+        supervisor.facultyMemberId,
+        supervisor.sapId,
+        supervisor.name,
+        supervisor.email,
+        supervisor.faculty ?? null,
+        supervisor.department,
+      ],
+    );
+  } else {
+    // Fallback: internal_erp source only requires sap_id IS NOT NULL.
+    await client.query(
+      `
+        INSERT INTO submission_participants (
+          submission_id,
+          participant_role,
+          source,
+          sap_id,
+          internal_name,
+          internal_email,
+          internal_faculty,
+          internal_department
+        )
+        VALUES ($1, 'supervisor', 'internal_erp', $2, $3, $4, $5, $6, $7)
+      `,
+      [
+        submissionId,
+        supervisor.sapId,
+        supervisor.name,
+        supervisor.email,
+        supervisor.faculty ?? null,
+        supervisor.department,
+      ],
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -852,9 +884,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const detail = error instanceof Error ? error.message : String(error);
     console.error("Failed to create submission", error);
     return NextResponse.json(
-      { ok: false, error: "Failed to save submission." },
+      { ok: false, error: `Failed to save submission: ${detail}` },
       { status: 500 },
     );
   } finally {

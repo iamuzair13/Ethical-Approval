@@ -1,6 +1,7 @@
 import { PeriodPicker } from "@/components/period-picker";
 import { standardFormat } from "@/lib/format-number";
 import { cn } from "@/lib/utils";
+import type { Session } from "next-auth";
 import {
   OVERVIEW_CARDS_CONFIG,
   type OverviewCardConfig,
@@ -18,18 +19,20 @@ type PropsType = {
   title?: string;
   cardsConfig?: OverviewCardConfig[];
   overviewData?: OverviewData;
+  session?: Session;
 };
 
 export async function PaymentsOverview({
   timeFrame = "monthly",
   className,
-  title = "IREB Approvals",
+  title = "Approval Analysis",
   cardsConfig = OVERVIEW_CARDS_CONFIG,
   overviewData: providedOverviewData,
+  session,
 }: PropsType) {
-  const overviewData = providedOverviewData ?? (await getOverviewData());
+  const overviewData = providedOverviewData ?? (await getOverviewData(session));
   const mode = timeFrame === "yearly" ? "yearly" : "monthly";
-  const timeline = await getOverviewTimelineBreakdown(undefined, mode);
+  const timeline = await getOverviewTimelineBreakdown(session, mode);
 
   const series =
     timeline.length > 0

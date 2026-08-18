@@ -326,7 +326,10 @@ export async function POST(
 
     const targetSupervisorId = isAdministrator(actor) ? supervisorIdRaw : actor.adminId;
     const supervisorUser = await getAdminUserById(targetSupervisorId);
-    if (!supervisorUser || supervisorUser.role !== "supervisor" || supervisorUser.status !== "active") {
+    // The supervisor_user_id assignment is authoritative — the admin may have
+    // been promoted from supervisor to administrator but is still the assigned
+    // reviewer. Only require an active status, not a specific role.
+    if (!supervisorUser || supervisorUser.status !== "active") {
       return NextResponse.json({ ok: false, error: "Supervisor not found." }, { status: 404 });
     }
     const supervisorScope = await getAdminScope(supervisorUser);
@@ -390,7 +393,7 @@ export async function POST(
           reportTitle: "Supervisor's Report",
         },
       );
-      title = `Supervisor's Report — ${subjectLine ?? "Supervisor"} — ${periodLabelStr}`;
+      title = `Supervisor's Report  ${subjectLine ?? "Supervisor"} — ${periodLabelStr}`;
       break;
     }
     case "total-efficiency":

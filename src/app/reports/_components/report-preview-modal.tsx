@@ -34,7 +34,7 @@ export function ReportPreviewModal({
         <div className="flex shrink-0 flex-col gap-3 border-b border-stroke px-4 py-4 dark:border-dark-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="min-w-0">
             <h3 className="truncate text-lg font-bold text-dark dark:text-white">{title}</h3>
-            <p className="mt-0.5 text-sm text-body">Preview — print or save as PDF from the toolbar inside the report.</p>
+            <p className="mt-0.5 text-sm text-body">Preview, print or save as PDF from the toolbar inside the report.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button

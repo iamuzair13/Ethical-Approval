@@ -35,35 +35,39 @@ export async function GET(request: NextRequest) {
       statusesRes,
       dataQualityRes,
     ] = await Promise.all([
-      // Faculties — only those with ≥1 faculty member, with counts
+      // Faculties — only those with ≥1 faculty member, with counts.
+      // No is_active filter: the list query doesn't filter by faculty active
+      // status, so the filter options must include inactive faculties too.
       db.query<FacultyOptionRow>(`
         SELECT f.id, f.name, COUNT(fm.id)::int AS count
         FROM faculties f
         INNER JOIN faculty_members fm
           ON fm.faculty_id = f.id AND fm.deleted_at IS NULL
-        WHERE f.is_active = TRUE
         GROUP BY f.id, f.name
         ORDER BY f.name
       `),
 
-      // Departments — only those with ≥1 faculty member, with counts
+      // Departments — only those with ≥1 faculty member, with counts.
+      // No is_active filter: the list query doesn't filter by department
+      // active status, so the filter options must include inactive
+      // departments too (otherwise faculty members in inactive departments
+      // show in the list but their department is missing from the filter).
       db.query<DepartmentOptionRow>(`
         SELECT d.id, d.name, d.faculty_id, COUNT(fm.id)::int AS count
         FROM departments d
         INNER JOIN faculty_members fm
           ON fm.department_id = d.id AND fm.deleted_at IS NULL
-        WHERE d.is_active = TRUE
         GROUP BY d.id, d.name, d.faculty_id
         ORDER BY d.name
       `),
 
-      // Programs — only those with ≥1 faculty member, with counts
+      // Programs — only those with ≥1 faculty member, with counts.
+      // No is_active filter, same rationale as above.
       db.query<ProgramOptionRow>(`
         SELECT p.id, p.name, p.department_id, COUNT(fm.id)::int AS count
         FROM programs p
         INNER JOIN faculty_members fm
           ON fm.program_id = p.id AND fm.deleted_at IS NULL
-        WHERE p.is_active = TRUE
         GROUP BY p.id, p.name, p.department_id
         ORDER BY p.name
       `),

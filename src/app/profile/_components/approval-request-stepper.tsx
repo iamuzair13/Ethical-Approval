@@ -1130,14 +1130,8 @@ export default function ApprovalRequestStepper({
           return `Required field: upload "${shortenToastLabel(label)}".`;
         }
       }
-      const selectedOptional = FORM_3_MEDICAL_ATTACHMENT_LABELS.filter((label) =>
-        hasCsvOption("requiredAttachments", label),
-      );
-      for (const label of selectedOptional) {
-        if (!hasRequiredAttachmentUpload(label)) {
-          return `Required field: upload "${shortenToastLabel(label)}".`;
-        }
-      }
+      // Optional attachments: if ticked but no file uploaded, that's allowed —
+      // the user may tick to indicate intent and upload later.
       return null;
     }
 
@@ -1162,9 +1156,7 @@ export default function ApprovalRequestStepper({
       }
       const supervisorRequired = [
         form.supervisorSapId,
-        form.supervisorName,
         form.supervisorEmail,
-        form.supervisorFaculty,
         form.supervisorDepartment,
       ].every(hasValue);
       if (!supervisorRequired) {
@@ -1175,7 +1167,6 @@ export default function ApprovalRequestStepper({
         form.uolCoSupervisorSapId,
         form.uolCoSupervisorName,
         form.uolCoSupervisorEmail,
-        form.uolCoSupervisorFaculty,
         form.uolCoSupervisorDepartment,
         form.externalCoSupervisorName,
         form.externalCoSupervisorRegNo,
@@ -1190,7 +1181,6 @@ export default function ApprovalRequestStepper({
                 form.uolCoSupervisorSapId,
                 form.uolCoSupervisorName,
                 form.uolCoSupervisorEmail,
-                form.uolCoSupervisorFaculty,
                 form.uolCoSupervisorDepartment,
               ].every(hasValue)
             : form.coSupervisorType === "External"
@@ -1236,25 +1226,52 @@ export default function ApprovalRequestStepper({
     }
 
     if (currentStep === 1) {
-      const baseRequired = [
-        form.involveHumanParticipants,
-        form.collectPii,
-        form.informedConsentType,
-        form.preApprovalDataCollected,
-        form.canWithdraw,
-        form.compensation,
-        form.vulnerablePopulation,
-        form.sensitiveTopics,
-        form.potentialRisks,
-        form.dataRetentionYears,
-        form.conflictOfInterest,
-        form.recordsWithoutConsent,
-      ].every(hasValue);
+      // Form 3 (medical thesis) has a different set of Step 2 fields than
+      // Form 1. Notably, form3 does NOT include vulnerablePopulation,
+      // sensitiveTopics, potentialRisks, recordsWithoutConsent,
+      // confidentialityOptions, or dataRetentionYears in Step 2.
+      // dataRetentionYears is in Step 3 (Data Management) for form3.
+      // form3 uses vulnerableGroups (checkbox group) instead of
+      // vulnerablePopulation (select).
+      const isForm3 = formMode === "form3-thesis-medical";
+      const baseRequired = isForm3
+        ? [
+            form.involveHumanParticipants,
+            form.collectPii,
+            form.informedConsentType,
+            form.preApprovalDataCollected,
+            form.canWithdraw,
+            form.compensation,
+            form.conflictOfInterest,
+          ].every(hasValue)
+        : [
+            form.involveHumanParticipants,
+            form.collectPii,
+            form.informedConsentType,
+            form.preApprovalDataCollected,
+            form.canWithdraw,
+            form.compensation,
+            form.vulnerablePopulation,
+            form.sensitiveTopics,
+            form.potentialRisks,
+            form.dataRetentionYears,
+            form.conflictOfInterest,
+            form.recordsWithoutConsent,
+          ].every(hasValue);
       if (!baseRequired) {
         return "Please complete all required fields in Step 2: Ethical Considerations.";
       }
       if (!hasSelectedCsvValue(form.recruitmentChannels)) {
         return "Please select at least one recruitment channel in Step 2.";
+      }
+      if (isForm3) {
+        // Form3 uses vulnerableGroups checkbox group instead of
+        // vulnerablePopulation select, and does not have confidentialityOptions
+        // or dataRetentionYears in this step.
+        if (!hasSelectedCsvValue(form.vulnerableGroups)) {
+          return "Please select at least one vulnerable group option in Step 2.";
+        }
+        return null;
       }
       if (!hasSelectedCsvValue(form.confidentialityOptions)) {
         return "Please select at least one confidentiality option in Step 2.";
@@ -1284,7 +1301,14 @@ export default function ApprovalRequestStepper({
 
     
 
-    if (currentStep === 3) {
+    // Form 1: step 3 = Attachments, step 4 = Declaration
+    // Form 3: step 3 = Data Management, step 4 = Institutional Approvals,
+    //         step 5 = Attachments, step 6 = Declaration
+    const isForm3 = formMode === "form3-thesis-medical";
+    const attachmentsStep = isForm3 ? 5 : 3;
+    const declarationStep = isForm3 ? 6 : 4;
+
+    if (currentStep === 3 && !isForm3) {
       const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
         (label) =>
           !hasCsvOption("requiredAttachments", label) && !hasRequiredAttachmentUpload(label),
@@ -1310,9 +1334,31 @@ export default function ApprovalRequestStepper({
       return null;
     }
 
-    if (currentStep === 4) {
-      if (form.declarationAccepted !== "yes") {
-        return "Please complete all required fields in Step 5: Declaration and Submission.";
+    if (currentStep === attachmentsStep && isForm3) {
+      const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
+        (label) =>
+          !hasCsvOption("requiredAttachments", label) && !hasRequiredAttachmentUpload(label),
+      );
+      if (missingRequiredSelection) {
+        return "Please select all required attachment items in Step 6.";
+      }
+      const missingRequiredUpload = FORM_3_MANDATORY_ATTACHMENTS.some(
+        (label) => !hasRequiredAttachmentUpload(label),
+      );
+      if (missingRequiredUpload) {
+        return "Please upload files for all required attachment items in Step 6.";
+      }
+      // Optional attachments: if ticked but no file uploaded, that's allowed.
+      return null;
+    }
+
+    if (currentStep === declarationStep) {
+      // Form 3 uses form3DeclarationAccepted; Form 1 uses declarationAccepted.
+      const declarationOk = isForm3
+        ? form.form3DeclarationAccepted === "yes"
+        : form.declarationAccepted === "yes";
+      if (!declarationOk) {
+        return "Please complete all required fields in the Declaration and Submission step.";
       }
       return null;
     }

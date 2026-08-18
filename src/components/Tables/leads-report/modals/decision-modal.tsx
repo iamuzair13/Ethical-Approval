@@ -69,16 +69,9 @@ export function DecisionModal({
           {lead.stage === "supervisor" && (
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">On behalf of supervisor</p>
-              <select
-                value={selectedOnBehalfOf}
-                onChange={(e) => onOnBehalfOfChange(e.target.value)}
-                className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-              >
-                <option value="">Select supervisor</option>
-                {adminOptions.supervisorOption && (
-                  <option value={adminOptions.supervisorOption.id}>{adminOptions.supervisorOption.name}</option>
-                )}
-              </select>
+              <div className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                {adminOptions.supervisorOption?.name ?? "Loading…"}
+              </div>
             </div>
           )}
           {lead.stage === "ireb" && (

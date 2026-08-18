@@ -4,10 +4,8 @@ import { SearchIcon } from "@/assets/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useSidebarContext } from "../sidebar/sidebar-context";
 import { MenuIcon } from "./icons";
-import { Notification } from "./notification";
 import { ThemeToggleSwitch } from "./theme-toggle";
 import { UserInfo } from "./user-info";
 import { ViewAsMenu } from "./view-as/view-as-menu";
@@ -15,16 +13,14 @@ import { ViewAsMenu } from "./view-as/view-as-menu";
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext();
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const showAdminNotifications = Boolean(session?.user?.adminId);
 
   const dashboardLabel = (() => {
     if (pathname.toLowerCase().includes("supervisorpanel")) {
-      return "Supervisor IREB Approvals";
+      return "Supervisor Approval Analysis";
     }
 
     if (pathname.toLowerCase().includes("ethical")) {
-      return "IREB IREB Approvals";
+      return "IREB Approval Analysis";
     }
 
     return "Main Dashboard";
@@ -65,12 +61,6 @@ export function Header() {
         <ThemeToggleSwitch />
 
         <ViewAsMenu />
-
-        {showAdminNotifications && (
-          <div className="shrink-0">
-            <Notification />
-          </div>
-        )}
 
         <div className="shrink-0">
           <UserInfo />

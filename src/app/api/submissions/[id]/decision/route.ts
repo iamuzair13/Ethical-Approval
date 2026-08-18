@@ -149,18 +149,26 @@ export async function POST(
         { status: 404 },
       );
     }
-    if ((stage === "supervisor" && selectedAdmin.role !== "supervisor") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
-      return NextResponse.json(
-        { ok: false, error: "Selected admin cannot act for this stage." },
-        { status: 400 },
-      );
-    }
-    // Admin must act on behalf of the assigned supervisor, not just any supervisor.
-    if (stage === "supervisor" && assignedSupervisorId && selectedAdmin.id !== assignedSupervisorId) {
-      return NextResponse.json(
-        { ok: false, error: "Only the assigned supervisor can review this application." },
-        { status: 403 },
-      );
+    // Role check: the selected admin must match the stage role, UNLESS they
+    // are the assigned supervisor (supervisor_user_id) — the assignment is
+    // authoritative even if the admin's role has since changed (e.g. promoted
+    // from supervisor to administrator).
+    const isAssignedSupervisor =
+      stage === "supervisor" && assignedSupervisorId && selectedAdmin.id === assignedSupervisorId;
+    if (!isAssignedSupervisor) {
+      if ((stage === "supervisor" && selectedAdmin.role !== "supervisor") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
+        return NextResponse.json(
+          { ok: false, error: "Selected admin cannot act for this stage." },
+          { status: 400 },
+        );
+      }
+      // Admin must act on behalf of the assigned supervisor, not just any supervisor.
+      if (stage === "supervisor" && assignedSupervisorId && selectedAdmin.id !== assignedSupervisorId) {
+        return NextResponse.json(
+          { ok: false, error: "Only the assigned supervisor can review this application." },
+          { status: 403 },
+        );
+      }
     }
     effectiveAdmin = selectedAdmin;
     auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;

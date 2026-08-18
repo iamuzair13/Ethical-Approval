@@ -16,7 +16,18 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
   const rf = ethics.requiredForm;
   if (rf && typeof rf === "object" && !Array.isArray(rf)) {
     const id = (rf as { id?: string }).id;
-    if (typeof id === "string") return id as ApprovalFormId;
+    if (typeof id === "string") {
+      const valid: ApprovalFormId[] = [
+        "form1-thesis-non-medical",
+        "form2-publication-non-medical",
+        "form3-thesis-medical",
+        "form4-publication-medical",
+        "form5-publication-faculty-staff",
+        "form6-publication-faculty-non-medical",
+        "form7-publication-faculty-staff-medical",
+      ];
+      if (valid.includes(id as ApprovalFormId)) return id as ApprovalFormId;
+    }
   }
   return null;
 }

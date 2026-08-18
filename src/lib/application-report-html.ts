@@ -39,6 +39,8 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
       "form3-thesis-medical",
       "form4-publication-medical",
       "form5-publication-faculty-staff",
+      "form6-publication-faculty-non-medical",
+      "form7-publication-faculty-staff-medical",
     ];
     if (o.id && typeof o.id === "string" && valid.includes(o.id as ApprovalFormId)) {
       return o.id as ApprovalFormId;

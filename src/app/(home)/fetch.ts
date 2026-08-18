@@ -2,9 +2,9 @@ import type { Session } from "next-auth";
 import { db } from "@/lib/db";
 import { adminFromSession, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { getScopedSubmissions } from "@/lib/authorization";
-import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { getStagePendingDays } from "@/lib/lead-overdue";
 import { isStudentApplicantEmail } from "@/lib/applicant-email";
+import { resolveDepartmentIdsForAdmin, resolveDepartmentIdsFromSnapshot } from "@/lib/admin-department-scope";
 
 export type OverviewData = {
   views: { value: number; growthRate: number };
@@ -98,6 +98,7 @@ type SubmissionScopeRow = {
   submission_type: "thesis" | "publication";
   research_title: string | null;
   supervisor_name: string | null;
+  supervisor_name_snapshot: string | null;
 };
 
 /** Same rules as profile API: strip `?...` from local avatar paths for next/image. */
@@ -294,39 +295,6 @@ function toAdminScope(session: Session): AuthenticatedAdmin | null {
   return adminFromSession(session);
 }
 
-async function batchResolveSupervisorNames(
-  facultyValues: string[],
-): Promise<Map<string, string | null>> {
-  const result = new Map<string, string | null>();
-  const uniqueValues = Array.from(new Set(facultyValues.filter(Boolean)));
-
-  for (const facultyValue of uniqueValues) {
-    const facultyIds = await resolveFacultyIdsFromSnapshotValue(facultyValue);
-    if (facultyIds.length === 0) {
-      result.set(facultyValue, null);
-      continue;
-    }
-    const supervisorResult = await db.query<{ name: string }>(
-      `
-        SELECT au.name
-        FROM admin_users au
-        INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
-        WHERE au.role = 'supervisor'
-          AND au.status = 'active'
-          AND au.deleted_at IS NULL
-          AND afa.assignment_type = 'supervisor_primary'
-          AND afa.deleted_at IS NULL
-          AND afa.faculty_id = ANY($1::bigint[])
-        ORDER BY au.updated_at DESC
-        LIMIT 1
-      `,
-      [facultyIds],
-    );
-    result.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
-  }
-  return result;
-}
-
 async function getScopedSubmissionRows(session?: Session): Promise<SubmissionScopeRow[]> {
   if (!session) {
     const result = await db.query<SubmissionScopeRow>(
@@ -343,6 +311,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          s.supervisor_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
@@ -393,20 +362,46 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
         ORDER BY s.submitted_at DESC
       `,
     );
-    const supervisorMap = await batchResolveSupervisorNames(result.rows.map((r) => r.faculty));
     return result.rows.map((row) => ({
       ...row,
-      supervisor_name: supervisorMap.get(row.faculty) ?? null,
+      supervisor_name: row.supervisor_name_snapshot ?? null,
     }));
   }
 
   const admin = toAdminScope(session);
   if (admin) {
-    const rows = await getScopedSubmissions(admin);
+    let rows = await getScopedSubmissions(admin);
+
+    // Apply department-level scoping for the charts/overview.
+    // - Supervisor: only their assigned department(s)
+    // - IREB (restricted): only departments under their faculty scope
+    // - Administrator / IREB (all): no department filter
+    const allowedDeptIds = await resolveDepartmentIdsForAdmin(admin);
+    if (allowedDeptIds && allowedDeptIds.length > 0) {
+      // Resolve each row's department text to a department ID and filter.
+      // Cache resolutions to avoid duplicate queries.
+      const deptCache = new Map<string, boolean>();
+      const isRowInAllowedDepts = async (deptText: string): Promise<boolean> => {
+        const key = deptText.trim();
+        if (!key) return false;
+        if (deptCache.has(key)) return deptCache.get(key)!;
+        const ids = await resolveDepartmentIdsFromSnapshot(key);
+        const allowed = ids.some((id: number) => allowedDeptIds.includes(id));
+        deptCache.set(key, allowed);
+        return allowed;
+      };
+      const filtered: typeof rows = [];
+      for (const row of rows) {
+        if (await isRowInAllowedDepts(row.department)) {
+          filtered.push(row);
+        }
+      }
+      rows = filtered;
+    }
+
     const feedbackMap = await getLatestFeedbackBySubmissionIds(rows.map((row) => row.id));
     const decisionMap = await getLatestDecisionBySubmissionIds(rows.map((row) => row.id));
     const supervisorDecisionMap = await getSupervisorDecisionAtBySubmissionIds(rows.map((row) => row.id));
-    const supervisorMap = await batchResolveSupervisorNames(rows.map((row) => row.faculty));
     return rows.map((row) => ({
       id: row.id,
       application_id: row.application_id,
@@ -426,7 +421,8 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       latest_decision_stage: decisionMap.get(row.id)?.latestDecisionStage ?? null,
       latest_decided_by_name: decisionMap.get(row.id)?.latestDecidedByName ?? null,
       applicant_avatar_url: row.applicant_avatar_url ?? null,
-      supervisor_name: supervisorMap.get(row.faculty) ?? null,
+      supervisor_name: row.supervisor_name_snapshot ?? null,
+      supervisor_name_snapshot: row.supervisor_name_snapshot ?? null,
     }));
   }
 
@@ -445,6 +441,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          s.supervisor_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
@@ -496,10 +493,9 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       `,
       [session.user.sapId],
     );
-    const studentSupervisorMap = await batchResolveSupervisorNames(ownRows.rows.map((r) => r.faculty));
     return ownRows.rows.map((row) => ({
       ...row,
-      supervisor_name: studentSupervisorMap.get(row.faculty) ?? null,
+      supervisor_name: row.supervisor_name_snapshot ?? null,
     }));
   }
 

@@ -186,6 +186,7 @@ export function Form1ThesisForm({
             onFieldChange={onFieldChange}
             facultyOptions={facultyOptions}
             getDepartmentsForFaculty={getDepartmentsForFaculty}
+            useCentralizedDepartments
             defaultKeys={{
               type: "coSupervisorType",
               uol: {

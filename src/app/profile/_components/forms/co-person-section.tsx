@@ -15,6 +15,8 @@ import {
   FieldGroup,
   FieldRow,
   FormSection,
+  SearchableSelect,
+  type SearchableOption,
 } from "./form-ui";
 
 /* ============================================================
@@ -80,6 +82,13 @@ export type CoPersonSectionProps = {
    * after the default entry is shown.
    */
   extraKeysList?: CoPersonEntryKeys[];
+  /**
+   * When true, the UOL branch uses the centralized departments dropdown
+   * (loaded from /api/profile/supervisor-departments) instead of the old
+   * Faculty → Department cascade. Used for co-supervisor selection on
+   * thesis forms (Form 1 and Form 3). Co-author forms keep the old cascade.
+   */
+  useCentralizedDepartments?: boolean;
 };
 
 /* ============================================================
@@ -158,7 +167,10 @@ type EntryProps = {
   onFieldChange: CoPersonSectionProps["onFieldChange"];
   facultyOptions: string[];
   getDepartmentsForFaculty: CoPersonSectionProps["getDepartmentsForFaculty"];
+  useCentralizedDepartments?: boolean;
 };
+
+type CentralizedDepartmentOption = { id: number; name: string };
 
 function CoPersonEntry({
   keys,
@@ -166,8 +178,43 @@ function CoPersonEntry({
   onFieldChange,
   facultyOptions,
   getDepartmentsForFaculty,
+  useCentralizedDepartments = false,
 }: EntryProps) {
   const type = form[keys.type] ?? "";
+
+  // ─── Load centralized departments (only when useCentralizedDepartments) ───
+  const [centralizedDepts, setCentralizedDepts] = useState<
+    CentralizedDepartmentOption[]
+  >([]);
+  const [centralizedDeptsLoading, setCentralizedDeptsLoading] =
+    useState(false);
+
+  useEffect(() => {
+    if (!useCentralizedDepartments) return;
+    let cancelled = false;
+    setCentralizedDeptsLoading(true);
+    fetch("/api/profile/supervisor-departments")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        setCentralizedDepts(
+          data.departments as CentralizedDepartmentOption[],
+        );
+      })
+      .catch(() => {
+        /* ignore — dropdown will just be empty */
+      })
+      .finally(() => {
+        if (!cancelled) setCentralizedDeptsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [useCentralizedDepartments]);
+
+  const centralizedDeptOptions: SearchableOption[] = centralizedDepts.map(
+    (d) => ({ value: d.name, label: d.name }),
+  );
 
   return (
     <>
@@ -208,35 +255,64 @@ function CoPersonEntry({
                 placeholder="Email"
               />
             </FieldGroup>
-            <FieldGroup label="Faculty">
-              <BaseSelect
-                value={form[keys.uol.faculty] ?? ""}
-                onChange={onFieldChange(keys.uol.faculty)}
-              >
-                <option value="">Select Faculty</option>
-                {facultyOptions.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </BaseSelect>
-            </FieldGroup>
-            <FieldGroup label="Department" className="md:col-span-2">
-              <BaseSelect
-                value={form[keys.uol.department] ?? ""}
-                onChange={onFieldChange(keys.uol.department)}
-                disabled={!form[keys.uol.faculty]}
-              >
-                <option value="">Select Department</option>
-                {getDepartmentsForFaculty(form[keys.uol.faculty] ?? "").map(
-                  (d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ),
-                )}
-              </BaseSelect>
-            </FieldGroup>
+            {useCentralizedDepartments ? (
+              <FieldGroup label="Department" className="md:col-span-2">
+                <SearchableSelect
+                  options={centralizedDeptOptions}
+                  value={form[keys.uol.department] ?? ""}
+                  onChange={(value) => {
+                    // Use setForm-style update via a synthetic event so the
+                    // existing onFieldChange handler works unchanged.
+                    const synthetic = {
+                      target: { value },
+                    } as ChangeEvent<HTMLSelectElement>;
+                    onFieldChange(keys.uol.department)(synthetic);
+                  }}
+                  disabled={centralizedDeptsLoading}
+                  loading={centralizedDeptsLoading}
+                  searchPlaceholder="Search departments…"
+                  defaultPlaceholder={
+                    centralizedDeptsLoading
+                      ? "Loading departments…"
+                      : "Select Department"
+                  }
+                  emptyMessage="No departments available."
+                  noResultsMessage="No departments match your search."
+                />
+              </FieldGroup>
+            ) : (
+              <>
+                <FieldGroup label="Faculty">
+                  <BaseSelect
+                    value={form[keys.uol.faculty] ?? ""}
+                    onChange={onFieldChange(keys.uol.faculty)}
+                  >
+                    <option value="">Select Faculty</option>
+                    {facultyOptions.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </BaseSelect>
+                </FieldGroup>
+                <FieldGroup label="Department" className="md:col-span-2">
+                  <BaseSelect
+                    value={form[keys.uol.department] ?? ""}
+                    onChange={onFieldChange(keys.uol.department)}
+                    disabled={!form[keys.uol.faculty]}
+                  >
+                    <option value="">Select Department</option>
+                    {getDepartmentsForFaculty(form[keys.uol.faculty] ?? "").map(
+                      (d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ),
+                    )}
+                  </BaseSelect>
+                </FieldGroup>
+              </>
+            )}
           </>
         ) : type === "External" ? (
           <>
@@ -300,6 +376,7 @@ export function CoPersonSection({
   getDepartmentsForFaculty,
   defaultKeys,
   extraKeysList = [],
+  useCentralizedDepartments = false,
 }: CoPersonSectionProps) {
   /**
    * Number of optional extras currently visible (0..extraKeysList.length).
@@ -348,6 +425,7 @@ export function CoPersonSection({
           onFieldChange={onFieldChange}
           facultyOptions={facultyOptions}
           getDepartmentsForFaculty={getDepartmentsForFaculty}
+          useCentralizedDepartments={useCentralizedDepartments}
         />
       </FormSection>
 
@@ -372,6 +450,7 @@ export function CoPersonSection({
             onFieldChange={onFieldChange}
             facultyOptions={facultyOptions}
             getDepartmentsForFaculty={getDepartmentsForFaculty}
+            useCentralizedDepartments={useCentralizedDepartments}
           />
         </FormSection>
       ))}

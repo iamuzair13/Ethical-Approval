@@ -32,7 +32,6 @@ import {
   MoreVertical,
   Pencil,
   Plus,
-  RefreshCw,
   Search,
   Trash2,
   UserMinus,
@@ -101,27 +100,8 @@ type Stats = {
   total: number;
   active: number;
   inactive: number;
+  withUser: number;
   lastSynced: string | null;
-};
-
-type SyncReport = {
-  totalRecords: number;
-  academicEmployees: number;
-  inserted: number;
-  updated: number;
-  facultyMapped: number;
-  facultyMappingFailed: number;
-  departmentNotFound: number;
-  skipped: number;
-  failed: number;
-};
-
-type SyncResult = {
-  ok: boolean;
-  syncHistoryId?: number;
-  report?: SyncReport;
-  error?: string;
-  errorCode?: string;
 };
 
 type FacultyDetail = {
@@ -161,9 +141,7 @@ type FacultyScope = {
   irebFacultyIds: number[];
 } | null;
 
-type OrgFaculty = { id: number; code: string; name: string };
 type OrgDepartment = { id: number; faculty_id: number | null; name: string };
-type OrgProgram = { id: number; department_id: number; name: string };
 
 type FacultyForm = {
   name: string;
@@ -175,11 +153,6 @@ type FacultyForm = {
   role: AdminRole | "";
   password: string;
   status: "active" | "inactive";
-  supervisorFacultyId: number | "";
-  supervisorDepartmentId: number | "";
-  supervisorProgramId: number | "";
-  irebFacultyIds: number[];
-  irebScopeAll: boolean;
 };
 
 // ─── Shared style constants ───
@@ -305,216 +278,6 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
-// ─── Scope Fields ───
-
-function ScopeFields({
-  role,
-  faculties,
-  departments,
-  programs,
-  supervisorFacultyId,
-  supervisorDepartmentId,
-  supervisorProgramId,
-  irebFacultyIds,
-  irebScopeAll,
-  onSupervisorFacultyChange,
-  onSupervisorDepartmentChange,
-  onSupervisorProgramChange,
-  onIrebFacultyIdsChange,
-  onIrebScopeAllChange,
-  idPrefix,
-}: {
-  role: AdminRole | "";
-  faculties: OrgFaculty[];
-  departments: OrgDepartment[];
-  programs: OrgProgram[];
-  supervisorFacultyId: number | "";
-  supervisorDepartmentId: number | "";
-  supervisorProgramId: number | "";
-  irebFacultyIds: number[];
-  irebScopeAll: boolean;
-  onSupervisorFacultyChange: (value: number | "") => void;
-  onSupervisorDepartmentChange: (value: number | "") => void;
-  onSupervisorProgramChange: (value: number | "") => void;
-  onIrebFacultyIdsChange: (values: number[]) => void;
-  onIrebScopeAllChange: (value: boolean) => void;
-  idPrefix: string;
-}) {
-  const supervisorDepartments = useMemo(
-    () =>
-      typeof supervisorFacultyId === "number"
-        ? departments.filter((dep) => Number(dep.faculty_id) === supervisorFacultyId)
-        : [],
-    [departments, supervisorFacultyId],
-  );
-
-  const supervisorPrograms = useMemo(
-    () =>
-      typeof supervisorDepartmentId === "number"
-        ? programs.filter((prog) => Number(prog.department_id) === supervisorDepartmentId)
-        : [],
-    [programs, supervisorDepartmentId],
-  );
-
-  const toggleIrebFaculty = (facultyIdToToggle: number, checked: boolean) => {
-    onIrebFacultyIdsChange(
-      checked
-        ? [...irebFacultyIds, facultyIdToToggle]
-        : irebFacultyIds.filter((id) => id !== facultyIdToToggle),
-    );
-  };
-
-  if (role === "administrator") {
-    return (
-      <p className="rounded-lg bg-primary/5 px-3 py-2 text-sm text-dark-5 dark:bg-primary/10 dark:text-dark-6">
-        Administrators have access to all faculties and departments.
-      </p>
-    );
-  }
-
-  if (role === "supervisor") {
-    return (
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div>
-          <span className={labelClass}>
-            Supervisor Faculty <span className="text-red">*</span>
-          </span>
-          <SearchableSelect
-            options={faculties.map((f) => ({ value: String(f.id), label: f.name }))}
-            value={supervisorFacultyId ? String(supervisorFacultyId) : ""}
-            onChange={(val) => {
-              onSupervisorFacultyChange(val ? Number(val) : "");
-              onSupervisorDepartmentChange("");
-              onSupervisorProgramChange("");
-            }}
-            placeholder="Select faculty"
-            searchPlaceholder="Search faculties…"
-            triggerClassName={selectClass}
-          />
-        </div>
-        <div>
-          <span className={labelClass}>
-            Supervisor Department <span className="text-red">*</span>
-          </span>
-          <SearchableSelect
-            options={supervisorDepartments.map((d) => ({ value: String(d.id), label: d.name }))}
-            value={supervisorDepartmentId ? String(supervisorDepartmentId) : ""}
-            onChange={(val) => {
-              onSupervisorDepartmentChange(val ? Number(val) : "");
-              onSupervisorProgramChange("");
-            }}
-            placeholder={
-              typeof supervisorFacultyId !== "number"
-                ? "Select faculty first"
-                : supervisorDepartments.length === 0
-                  ? "No departments"
-                  : "Select department"
-            }
-            searchPlaceholder="Search departments…"
-            disabled={supervisorDepartments.length === 0}
-            triggerClassName={selectClass}
-          />
-        </div>
-        <div>
-          <span className={labelClass}>Supervisor Program</span>
-          <SearchableSelect
-            options={supervisorPrograms.map((p) => ({ value: String(p.id), label: p.name }))}
-            value={supervisorProgramId ? String(supervisorProgramId) : ""}
-            onChange={(val) => onSupervisorProgramChange(val ? Number(val) : "")}
-            placeholder={
-              typeof supervisorDepartmentId !== "number"
-                ? "Select dept first"
-                : supervisorPrograms.length === 0
-                  ? "No programs"
-                  : "Select program"
-            }
-            searchPlaceholder="Search programs…"
-            disabled={supervisorPrograms.length === 0}
-            triggerClassName={selectClass}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (role === "ireb") {
-    return (
-      <div className="space-y-4">
-        <fieldset className="flex flex-wrap gap-4">
-          <legend className="sr-only">IREB access scope</legend>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-dark dark:text-white">
-            <input
-              type="radio"
-              name={`${idPrefix}-ireb-scope`}
-              checked={irebScopeAll}
-              onChange={() => {
-                onIrebScopeAllChange(true);
-                onIrebFacultyIdsChange([]);
-              }}
-              className="size-4 accent-primary"
-            />
-            All faculties
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-dark dark:text-white">
-            <input
-              type="radio"
-              name={`${idPrefix}-ireb-scope`}
-              checked={!irebScopeAll}
-              onChange={() => onIrebScopeAllChange(false)}
-              className="size-4 accent-primary"
-            />
-            Restricted to selected faculties
-          </label>
-        </fieldset>
-
-        {!irebScopeAll && (
-          <div>
-            <p className={labelClass}>
-              Faculties <span className="text-red">*</span>
-            </p>
-            <p className="mb-2 text-xs text-dark-5">
-              Select one or more faculties. The member can review submissions from
-              all departments within each selected faculty.
-            </p>
-            <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-stroke p-2 dark:border-dark-3">
-              {faculties.length === 0 ? (
-                <p className="px-2 py-1.5 text-xs text-dark-5">
-                  No faculties available.
-                </p>
-              ) : (
-                faculties.map((faculty) => (
-                  <label
-                    key={faculty.id}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition hover:bg-gray-1 dark:hover:bg-dark-2"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={irebFacultyIds.includes(faculty.id)}
-                      onChange={(e) =>
-                        toggleIrebFaculty(faculty.id, e.target.checked)
-                      }
-                      className="size-4 accent-primary"
-                    />
-                    <span className="text-sm text-dark dark:text-white">
-                      {faculty.name}
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <p className="rounded-lg bg-gray-2 px-3 py-2 text-sm text-dark-5 dark:bg-dark-2 dark:text-dark-6">
-      No role assigned. The user will have faculty-only access.
-    </p>
-  );
-}
-
 // ─── Faculty Form Dialog (Create / Edit) ───
 
 function FacultyFormDialog({
@@ -532,8 +295,6 @@ function FacultyFormDialog({
   form: FacultyForm;
   orgData: {
     departments: OrgDepartment[];
-    scopeFaculties: OrgFaculty[];
-    scopePrograms: OrgProgram[];
   } | null;
   submitting: boolean;
   onClose: () => void;
@@ -651,7 +412,9 @@ function FacultyFormDialog({
           <h4 className={sectionTitleClass}>Organization</h4>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <span className={labelClass}>Department</span>
+              <span className={labelClass}>
+                Department <span className="text-red">*</span>
+              </span>
               <SearchableSelect
                 options={(orgData?.departments ?? []).map((d) => ({
                   value: String(d.id),
@@ -667,6 +430,12 @@ function FacultyFormDialog({
                 searchPlaceholder="Search departments…"
                 triggerClassName={selectClass}
               />
+              {!form.departmentId && (
+                <p className="mt-1 text-xs text-dark-5 dark:text-dark-6">
+                  Department is required. It determines the supervisor's scope
+                  for student application selection.
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -681,14 +450,7 @@ function FacultyFormDialog({
                 value={form.role}
                 onChange={(e) => {
                   const val = e.target.value as AdminRole | "";
-                  onFormChange({
-                    role: val,
-                    supervisorFacultyId: "",
-                    supervisorDepartmentId: "",
-                    supervisorProgramId: "",
-                    irebFacultyIds: [],
-                    irebScopeAll: true,
-                  });
+                  onFormChange({ role: val });
                 }}
                 className={selectClass}
               >
@@ -738,140 +500,8 @@ function FacultyFormDialog({
               </div>
             </div>
           </div>
-
-          {/* Role Scope */}
-          {form.role && (
-            <div className="mt-4">
-              <p className={labelClass}>Role Scope</p>
-              <ScopeFields
-                role={form.role}
-                faculties={orgData?.scopeFaculties ?? []}
-                departments={orgData?.departments ?? []}
-                programs={orgData?.scopePrograms ?? []}
-                supervisorFacultyId={form.supervisorFacultyId}
-                supervisorDepartmentId={form.supervisorDepartmentId}
-                supervisorProgramId={form.supervisorProgramId}
-                irebFacultyIds={form.irebFacultyIds}
-                irebScopeAll={form.irebScopeAll}
-                idPrefix={isEdit ? "edit" : "create"}
-                onSupervisorFacultyChange={(val) =>
-                  onFormChange({
-                    supervisorFacultyId: val,
-                    supervisorDepartmentId: "",
-                    supervisorProgramId: "",
-                  })
-                }
-                onSupervisorDepartmentChange={(val) =>
-                  onFormChange({
-                    supervisorDepartmentId: val,
-                    supervisorProgramId: "",
-                  })
-                }
-                onSupervisorProgramChange={(val) =>
-                  onFormChange({ supervisorProgramId: val })
-                }
-                onIrebFacultyIdsChange={(val) =>
-                  onFormChange({ irebFacultyIds: val })
-                }
-                onIrebScopeAllChange={(val) =>
-                  onFormChange({ irebScopeAll: val })
-                }
-              />
-            </div>
-          )}
         </section>
       </form>
-    </Modal>
-  );
-}
-
-// ─── Sync Result Dialog ───
-
-function SyncResultDialog({
-  open,
-  result,
-  onClose,
-}: {
-  open: boolean;
-  result: SyncResult | null;
-  onClose: () => void;
-}) {
-  const success = result?.ok ?? false;
-  const r = result?.report;
-  const stats = success && r
-    ? [
-        { label: "Total Records", value: r.totalRecords, variant: "blue" as const },
-        { label: "Academic Employees", value: r.academicEmployees, variant: "blue" as const },
-        { label: "Inserted", value: r.inserted, variant: "green" as const },
-        { label: "Updated", value: r.updated, variant: "blue" as const },
-        { label: "Faculty Mapped", value: r.facultyMapped, variant: "green" as const },
-        { label: "Faculty Mapping Failed", value: r.facultyMappingFailed, variant: "amber" as const },
-        { label: "Department Not Found", value: r.departmentNotFound, variant: "amber" as const },
-        { label: "Skipped", value: r.skipped, variant: "amber" as const },
-        { label: "Failed", value: r.failed, variant: "amber" as const },
-      ]
-    : [];
-
-  const footer = (
-    <ModalButton variant="primary" onClick={onClose}>
-      Close
-    </ModalButton>
-  );
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={success ? "Sync Complete" : "Sync Failed"}
-      size="md"
-      footer={footer}
-    >
-      {success ? (
-        <>
-          <p className="text-sm text-dark-5 dark:text-dark-6">
-            Faculty member synchronization from SAP has completed. The report
-            below shows counts for each stage of the filtering and mapping
-            pipeline.
-          </p>
-          <div className="mt-4 space-y-2">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className="flex items-center justify-between rounded-lg border border-stroke px-3 py-2 dark:border-dark-3"
-              >
-                <span className="text-sm text-dark-5">{s.label}</span>
-                <span
-                  className={cn(
-                    "inline-flex rounded-md px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-                    s.variant === "green" && "bg-[#10B981]/[0.12] text-green",
-                    s.variant === "amber" && "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-                    s.variant === "blue" && "bg-primary/10 text-primary",
-                  )}
-                >
-                  {String(s.value)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {r && r.facultyMappingFailed > 0 && (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              {r.facultyMappingFailed} faculty member(s) were saved without
-              faculty/department mapping because their SAP department could not
-              be matched to the organization hierarchy. These members will be
-              automatically mapped on the next sync if the department is added
-              to the system.
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="rounded-lg bg-red/5 px-3 py-2 text-sm text-red dark:bg-red/10">
-          {result?.error === "SAP_TIMEOUT"
-            ? "SAP did not respond within the timeout period. The SAP server may be slow or unavailable. Please try again later."
-            : result?.error === "SAP_ERROR"
-              ? "The SAP service returned an error or could not be reached. Check server logs for details."
-              : result?.error ?? result?.errorCode ?? "An unexpected error occurred during sync."}
-        </p>
-      )}
     </Modal>
   );
 }
@@ -1019,7 +649,7 @@ function EmptyState({
       <p className="mt-1.5 max-w-sm text-sm text-dark-5">
         {hasFilters
           ? "Try adjusting your search or filters to find what you're looking for."
-          : "Get started by adding a faculty member manually, or sync from SAP to import all academic employees."}
+          : "Get started by adding a faculty member manually."}
       </p>
       <div className="mt-5 flex gap-2">
         {hasFilters ? (
@@ -1057,11 +687,6 @@ const emptyForm: FacultyForm = {
   role: "",
   password: "",
   status: "active",
-  supervisorFacultyId: "",
-  supervisorDepartmentId: "",
-  supervisorProgramId: "",
-  irebFacultyIds: [],
-  irebScopeAll: true,
 };
 
 export default function FacultyMembersPage() {
@@ -1071,6 +696,7 @@ export default function FacultyMembersPage() {
     total: 0,
     active: 0,
     inactive: 0,
+    withUser: 0,
     lastSynced: null,
   });
   const [loading, setLoading] = useState(true);
@@ -1090,12 +716,6 @@ export default function FacultyMembersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
-  // Sync state
-  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [showSyncResult, setShowSyncResult] = useState(false);
-
   // Form dialog state (create/edit)
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -1103,12 +723,9 @@ export default function FacultyMembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submittingForm, setSubmittingForm] = useState(false);
 
-  // Org data for forms (departments for org assignment,
-  // faculties/programs for RBAC scope fields)
+  // Org data for forms (departments for org assignment)
   const [orgData, setOrgData] = useState<{
     departments: OrgDepartment[];
-    scopeFaculties: OrgFaculty[];
-    scopePrograms: OrgProgram[];
   } | null>(null);
 
   // Delete confirmation
@@ -1160,27 +777,22 @@ export default function FacultyMembersPage() {
 
   // Load org data for forms
   const fetchOrgData = useCallback(async () => {
-    if (orgData) return;
+    if (orgData && orgData.departments.length > 0) return;
     try {
-      const [dRes, fRes, pRes] = await Promise.all([
-        fetch("/api/admin/departments?all=1", { cache: "no-store" }),
-        fetch("/api/admin/faculties", { cache: "no-store" }),
-        fetch("/api/admin/programs?all=1", { cache: "no-store" }),
-      ]);
+      const dRes = await fetch("/api/admin/departments?all=1", { cache: "no-store" });
       const dBody = (await dRes.json()) as { ok: boolean; departments?: OrgDepartment[] };
-      const fBody = (await fRes.json()) as { ok: boolean; faculties?: OrgFaculty[] };
-      const pBody = (await pRes.json()) as { ok: boolean; programs?: OrgProgram[] };
-      if (dBody.ok) {
-        setOrgData({
-          departments: dBody.departments ?? [],
-          scopeFaculties: fBody.ok ? (fBody.faculties ?? []) : [],
-          scopePrograms: pBody.ok ? (pBody.programs ?? []) : [],
-        });
-      }
+      setOrgData({
+        departments: dBody.ok ? (dBody.departments ?? []) : [],
+      });
     } catch {
       /* ignore */
     }
   }, [orgData]);
+
+  // Fetch org data on mount (same pattern as /organizations page)
+  useEffect(() => {
+    void fetchOrgData();
+  }, [fetchOrgData]);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -1232,6 +844,7 @@ export default function FacultyMembersPage() {
           total: 0,
           active: 0,
           inactive: 0,
+          withUser: 0,
           lastSynced: null,
         },
       );
@@ -1327,49 +940,6 @@ export default function FacultyMembersPage() {
     [filterOptions],
   );
 
-  const handleSync = async () => {
-    setSyncing(true);
-    setError(null);
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 300000);
-      let response: Response;
-      try {
-        response = await fetch("/api/admin/sync-faculty-members", {
-          method: "POST",
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-      const payload = (await response.json()) as SyncResult;
-      setSyncResult(payload);
-      setShowSyncResult(true);
-      if (payload.ok) {
-        toast.success("Faculty sync completed.");
-        await Promise.all([fetchMembers(), refreshFilterOptions()]);
-      } else {
-        toast.error(payload.error ?? payload.errorCode ?? "Sync failed.");
-      }
-    } catch (err) {
-      const isAbort = err instanceof Error && err.name === "AbortError";
-      const failResult: SyncResult = {
-        ok: false,
-        error: isAbort ? "SAP_TIMEOUT" : "Network error during sync.",
-      };
-      setSyncResult(failResult);
-      setShowSyncResult(true);
-      toast.error(
-        isAbort
-          ? "Sync timed out. SAP may be slow or unavailable."
-          : "Network error during sync.",
-      );
-    } finally {
-      setSyncing(false);
-      setShowSyncConfirm(false);
-    }
-  };
-
   // ─── Create / Edit handlers ───
 
   const openCreateForm = async () => {
@@ -1412,11 +982,6 @@ export default function FacultyMembersPage() {
         role: (u?.role as AdminRole) ?? "",
         password: "",
         status: (u?.status as "active" | "inactive") ?? "active",
-        supervisorFacultyId: s?.supervisorFacultyId ?? "",
-        supervisorDepartmentId: s?.supervisorDepartmentId ?? "",
-        supervisorProgramId: s?.supervisorProgramId ?? "",
-        irebFacultyIds: s?.irebFacultyIds ?? [],
-        irebScopeAll: (s?.irebFacultyIds ?? []).length === 0,
       });
       setFormMode("edit");
       setEditingId(member.id);
@@ -1431,6 +996,20 @@ export default function FacultyMembersPage() {
     setSubmittingForm(true);
     setError(null);
 
+    // Derive supervisor faculty/department from the selected department.
+    // The department's faculty_id is used as the supervisor's faculty scope.
+    const selectedDept = orgData?.departments.find(
+      (d) => d.id === formData.departmentId,
+    );
+    const supervisorFacultyId =
+      formData.role === "supervisor" && selectedDept?.faculty_id
+        ? Number(selectedDept.faculty_id)
+        : null;
+    const supervisorDepartmentId =
+      formData.role === "supervisor" && formData.departmentId
+        ? Number(formData.departmentId)
+        : null;
+
     try {
       if (formMode === "create") {
         const payload = {
@@ -1443,20 +1022,8 @@ export default function FacultyMembersPage() {
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
-          supervisorFacultyId:
-            formData.role === "supervisor"
-              ? formData.supervisorFacultyId || null
-              : null,
-          supervisorDepartmentId:
-            formData.role === "supervisor"
-              ? formData.supervisorDepartmentId || null
-              : null,
-          supervisorProgramId:
-            formData.role === "supervisor"
-              ? formData.supervisorProgramId || null
-              : null,
-          irebFacultyIds:
-            formData.role === "ireb" ? formData.irebFacultyIds : [],
+          supervisorFacultyId,
+          supervisorDepartmentId,
         };
 
         const res = await fetch("/api/admin/faculty-members", {
@@ -1481,20 +1048,8 @@ export default function FacultyMembersPage() {
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
-          supervisorFacultyId:
-            formData.role === "supervisor"
-              ? formData.supervisorFacultyId || null
-              : null,
-          supervisorDepartmentId:
-            formData.role === "supervisor"
-              ? formData.supervisorDepartmentId || null
-              : null,
-          supervisorProgramId:
-            formData.role === "supervisor"
-              ? formData.supervisorProgramId || null
-              : null,
-          irebFacultyIds:
-            formData.role === "ireb" ? formData.irebFacultyIds : [],
+          supervisorFacultyId,
+          supervisorDepartmentId,
         };
 
         const res = await fetch(`/api/admin/faculty-members/${editingId}`, {
@@ -1592,27 +1147,6 @@ export default function FacultyMembersPage() {
     setCurrentPage(1);
   };
 
-  // Sync confirm footer
-  const syncConfirmFooter = (
-    <>
-      <ModalButton
-        onClick={() => {
-          if (!syncing) setShowSyncConfirm(false);
-        }}
-        disabled={syncing}
-      >
-        Cancel
-      </ModalButton>
-      <ModalButton
-        variant="primary"
-        onClick={() => void handleSync()}
-        disabled={syncing}
-      >
-        {syncing ? "Syncing…" : "Start sync"}
-      </ModalButton>
-    </>
-  );
-
   // Delete confirm footer
   const deleteConfirmFooter = (
     <>
@@ -1644,7 +1178,7 @@ export default function FacultyMembersPage() {
           </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-dark-5 dark:text-dark-6">
             Manage faculty profiles, user accounts, roles, and organization
-            access in one place. Use sync to refresh from SAP.
+            access in one place.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -1656,18 +1190,6 @@ export default function FacultyMembersPage() {
             <Plus className="size-4" aria-hidden />
             Add Faculty Member
           </button>
-          <button
-            type="button"
-            disabled={syncing}
-            onClick={() => setShowSyncConfirm(true)}
-            className="btn-press inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <RefreshCw
-              className={cn("size-4", syncing && "animate-spin")}
-              aria-hidden
-            />
-            {syncing ? "Syncing…" : "Sync from SAP"}
-          </button>
         </div>
       </div>
 
@@ -1677,7 +1199,7 @@ export default function FacultyMembersPage() {
           <StatCard
             label="Total Faculty"
             value={String(stats.total)}
-            helper="All synced from SAP"
+            helper="All faculty members"
             icon={<Users className="size-5" aria-hidden />}
             accent="primary"
           />
@@ -1700,17 +1222,7 @@ export default function FacultyMembersPage() {
             accent="amber"
           />
         </div>
-        <div className="animate-stagger-4">
-          <StatCard
-            label={""}
-            value={
-              stats.lastSynced ? formatDate(stats.lastSynced) : "Never"
-            }
-            helper="Most recent SAP sync"
-            icon={<RefreshCw className="size-5" aria-hidden />}
-            accent="neutral"
-          />
-        </div>
+       
       </div>
 
       {/* ─── Main Card: Filters + Table ─── */}
@@ -1861,13 +1373,13 @@ export default function FacultyMembersPage() {
           <Table unwrapped>
             <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-dark">
               <TableRow className="[&>th]:px-4 [&>th]:py-3">
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
+                <TableHead className="min-w-28 whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   SAP ID
                 </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
+                <TableHead className="min-w-40 whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   Name
                 </TableHead>
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
+                <TableHead className="min-w-56 whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   Email
                 </TableHead>
                 <ColumnHeaderFilter
@@ -1877,6 +1389,7 @@ export default function FacultyMembersPage() {
                   onChange={setDesignationFilters}
                   searchPlaceholder="Search designations…"
                   disabled={filtersLoading}
+                  className="min-w-40 text-xs font-semibold uppercase tracking-wider"
                 />
                 <ColumnHeaderFilter
                   label="Department"
@@ -1885,6 +1398,7 @@ export default function FacultyMembersPage() {
                   onChange={setDepartmentIds}
                   searchPlaceholder="Search departments…"
                   disabled={filtersLoading}
+                  className="min-w-48 text-xs font-semibold uppercase tracking-wider"
                 />
                 <ColumnHeaderFilter
                   label="Role"
@@ -1894,6 +1408,7 @@ export default function FacultyMembersPage() {
                   searchPlaceholder="Search roles…"
                   disabled={filtersLoading}
                   showSelectAll={false}
+                  className="min-w-32 text-xs font-semibold uppercase tracking-wider"
                 />
                 <ColumnHeaderFilter
                   label="Status"
@@ -1903,11 +1418,12 @@ export default function FacultyMembersPage() {
                   searchPlaceholder="Search statuses…"
                   disabled={filtersLoading}
                   showSelectAll={false}
+                  className="min-w-28 text-xs font-semibold uppercase tracking-wider"
                 />
-                <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
+                <TableHead className="min-w-36 whitespace-nowrap text-xs font-semibold uppercase tracking-wider">
                   Last Synced
                 </TableHead>
-                <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">
+                <TableHead className="min-w-24 text-right text-xs font-semibold uppercase tracking-wider">
                   Actions
                 </TableHead>
               </TableRow>
@@ -2008,34 +1524,6 @@ export default function FacultyMembersPage() {
       </div>
 
       {/* ─── Dialogs ─── */}
-
-      {/* Sync Confirmation */}
-      <Modal
-        open={showSyncConfirm}
-        onClose={() => {
-          if (!syncing) setShowSyncConfirm(false);
-        }}
-        title="Sync faculty members from SAP?"
-        size="md"
-        footer={syncConfirmFooter}
-      >
-        <p className="text-sm text-dark-5 dark:text-dark-6">
-          This will fetch all employees from the SAP Employee API (can be
-          80,000+ records), filter for academic faculty, map departments to the
-          organization hierarchy, and upsert eligible records. This may take up
-          to 5 minutes. Do not close or navigate away from this page during sync.
-        </p>
-      </Modal>
-
-      {/* Sync Result */}
-      <SyncResultDialog
-        open={showSyncResult}
-        result={syncResult}
-        onClose={() => {
-          setShowSyncResult(false);
-          setSyncResult(null);
-        }}
-      />
 
       {/* Create / Edit Form */}
       <FacultyFormDialog
