@@ -605,7 +605,17 @@ export default function ProfileDashboard() {
       if (!response.ok || !payload.ok || !payload.submission) {
         throw new Error(payload.error || "Unable to load application details.");
       }
-      setLocalStepperViewData(payload.submission);
+      const sub = payload.submission;
+      // Resolve requiredForm from ethics_json so the correct form layout renders.
+      const ethics =
+        sub.ethics_json && typeof sub.ethics_json === "object" && !Array.isArray(sub.ethics_json)
+          ? (sub.ethics_json as Record<string, unknown>)
+          : {};
+      const reqForm = ethics.requiredForm;
+      if (reqForm && typeof reqForm === "object" && !Array.isArray(reqForm)) {
+        setLocalRequiredForm(reqForm as RequiredForm);
+      }
+      setLocalStepperViewData(buildStepperViewDataFromSubmission(sub));
       setLocalStepperMode("view");
       setLocalIsStepperOpen(true);
     } catch (error) {
