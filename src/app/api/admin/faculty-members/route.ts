@@ -47,15 +47,8 @@ function parsePositiveInt(value: string | null, fallback: number): number {
 }
 
 export async function GET(request: NextRequest) {
-  // Debug: compare auth state with departments route
-  const cookieNames = request.cookies.getAll().map((c) => c.name);
-  console.log("[faculty-members:GET] cookies:", cookieNames, "count:", request.cookies.size);
-
   const admin = await assertActiveAdmin(request);
-  console.log("[faculty-members:GET] admin:", admin ? { id: admin.adminId, role: admin.role } : null);
-
   if (!admin || !isAdministrator(admin)) {
-    console.log("[faculty-members:GET] FORBIDDEN");
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
