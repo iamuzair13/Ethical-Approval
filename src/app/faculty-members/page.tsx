@@ -777,7 +777,7 @@ export default function FacultyMembersPage() {
 
   // Load org data for forms
   const fetchOrgData = useCallback(async () => {
-    if (orgData && orgData.departments.length > 0) return;
+    if (orgData) return; // Already fetched (even if empty — avoids infinite loop on error)
     try {
       const dRes = await fetch("/api/admin/departments?all=1", { cache: "no-store" });
       const dBody = (await dRes.json()) as { ok: boolean; departments?: OrgDepartment[] };
@@ -789,7 +789,7 @@ export default function FacultyMembersPage() {
     }
   }, [orgData]);
 
-  // Fetch org data on mount (same pattern as /organizations page)
+  // Fetch org data on mount
   useEffect(() => {
     void fetchOrgData();
   }, [fetchOrgData]);

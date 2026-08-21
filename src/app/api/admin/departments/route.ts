@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { createDepartment, listDepartments } from "@/lib/admin-repository";
 import { logActivityFromRequest } from "@/lib/activity-log";
+import { getToken } from "next-auth/jwt";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 // This route reads cookies (auth) and must never be cached/prerendered.
 // Without this, Next.js production builds may serve a stale 403 response.
@@ -9,8 +11,17 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export async function GET(request: NextRequest) {
+  // Debug: log what auth state we see on production
+  const cookieNames = request.cookies.getAll().map((c) => c.name);
+  console.log("[departments:GET] cookies:", cookieNames, "count:", request.cookies.size);
+  const token = await getToken({ req: request, secret: getAuthSecret() });
+  console.log("[departments:GET] token exists:", !!token, "adminId:", token?.adminId, "adminRole:", token?.adminRole);
+
   const actor = await assertActiveAdmin(request);
+  console.log("[departments:GET] actor:", actor ? { id: actor.adminId, role: actor.role, status: actor.status } : null);
+
   if (!actor || !isAdministrator(actor)) {
+    console.log("[departments:GET] FORBIDDEN — actor:", !!actor, "isAdministrator:", actor ? isAdministrator(actor) : false);
     return NextResponse.json(
       { ok: false, error: "Forbidden." },
       { status: 403, headers: { "Cache-Control": "no-store" } },
