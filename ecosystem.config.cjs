@@ -32,8 +32,8 @@ module.exports = {
   apps: [
     {
       name: "ireb",
-      script: "node_modules/next/dist/bin/next",
-      args: "start -p 3004",
+      script: "npm",
+      args: "start",
       cwd: __dirname,
       env: envVars,
       instances: 1,
