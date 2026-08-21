@@ -1,0 +1,102 @@
+﻿
+> free-nextadmin-nextjs@1.2.3 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 12.4s
+  Running TypeScript ...
+  Collecting page data using 5 workers ...
+  Generating static pages using 5 workers (0/57) ...
+  Generating static pages using 5 workers (14/57) 
+  Generating static pages using 5 workers (28/57) 
+  Generating static pages using 5 workers (42/57) 
+Γ£ô Generating static pages using 5 workers (57/57) in 2.6s
+  Finalizing page optimization ...
+
+Route (app)
+Γöî ╞Æ /
+Γö£ Γùï /_not-found
+Γö£ Γùï /activity-center
+Γö£ Γùï /activity-logs
+Γö£ Γùï /admin/login
+Γö£ ╞Æ /admin/submissions/[id]/profile
+Γö£ Γùï /administrator
+Γö£ ╞Æ /api/activity-events
+Γö£ ╞Æ /api/activity-events/export
+Γö£ ╞Æ /api/activity-events/filters
+Γö£ ╞Æ /api/admin/activity-logs
+Γö£ ╞Æ /api/admin/assign-faculty
+Γö£ ╞Æ /api/admin/bootstrap/faculties
+Γö£ ╞Æ /api/admin/bootstrap/supervisors
+Γö£ ╞Æ /api/admin/create-user
+Γö£ ╞Æ /api/admin/departments
+Γö£ ╞Æ /api/admin/departments/[id]
+Γö£ ╞Æ /api/admin/faculties
+Γö£ ╞Æ /api/admin/faculties/[id]
+Γö£ ╞Æ /api/admin/faculty-members
+Γö£ ╞Æ /api/admin/faculty-members/[id]
+Γö£ ╞Æ /api/admin/faculty-members/[id]/status
+Γö£ ╞Æ /api/admin/faculty-members/filters
+Γö£ ╞Æ /api/admin/login
+Γö£ ╞Æ /api/admin/programs
+Γö£ ╞Æ /api/admin/programs/[id]
+Γö£ ╞Æ /api/admin/reports/[type]
+Γö£ ╞Æ /api/admin/reports/report-filters
+Γö£ ╞Æ /api/admin/reports/supervisors
+Γö£ ╞Æ /api/admin/users
+Γö£ ╞Æ /api/admin/users/[id]
+Γö£ ╞Æ /api/admin/users/[id]/status
+Γö£ ╞Æ /api/admin/view-as/options
+Γö£ ╞Æ /api/admin/view-as/start
+Γö£ ╞Æ /api/admin/view-as/stop
+Γö£ ╞Æ /api/auth/[...nextauth]
+Γö£ ╞Æ /api/auth/verify-student
+Γö£ ╞Æ /api/dashboard/data
+Γö£ ╞Æ /api/db/health
+Γö£ ╞Æ /api/profile/faculty-departments
+Γö£ ╞Æ /api/profile/faculty-eligibility
+Γö£ ╞Æ /api/profile/me
+Γö£ ╞Æ /api/profile/me/avatar
+Γö£ ╞Æ /api/profile/submissions
+Γö£ ╞Æ /api/profile/submissions/[id]
+Γö£ ╞Æ /api/profile/submissions/[id]/attachment
+Γö£ ╞Æ /api/profile/submissions/draft
+Γö£ ╞Æ /api/profile/supervisor-departments
+Γö£ ╞Æ /api/profile/supervisors
+Γö£ ╞Æ /api/submissions
+Γö£ ╞Æ /api/submissions/[id]
+Γö£ ╞Æ /api/submissions/[id]/action-options
+Γö£ ╞Æ /api/submissions/[id]/attachment
+Γö£ ╞Æ /api/submissions/[id]/dean-decision
+Γö£ ╞Æ /api/submissions/[id]/decision
+Γö£ ╞Æ /api/submissions/[id]/ireb-decision
+Γö£ Γùï /auth/sign-in
+Γö£ Γùï /calendar
+Γö£ ╞Æ /charts/basic-chart
+Γö£ ╞Æ /EthicalCommiteePanel
+Γö£ Γùï /faculty-members
+Γö£ ╞Æ /forms
+Γö£ ╞Æ /forms/[formId]
+Γö£ Γùï /forms/form-elements
+Γö£ Γùï /forms/form-layout
+Γö£ Γùï /my-applications
+Γö£ Γùï /organizations
+Γö£ Γùï /pages/settings
+Γö£ Γùï /profile
+Γö£ Γùï /profile/full
+Γö£ ╞Æ /reports
+Γö£ ╞Æ /SupervisorPanel
+Γö£ Γùï /tables
+Γö£ Γùï /ui-elements/alerts
+Γö£ Γùï /ui-elements/buttons
+Γöö Γùï /users
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
