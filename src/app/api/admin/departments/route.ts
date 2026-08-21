@@ -3,10 +3,18 @@ import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { createDepartment, listDepartments } from "@/lib/admin-repository";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
+// This route reads cookies (auth) and must never be cached/prerendered.
+// Without this, Next.js production builds may serve a stale 403 response.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export async function GET(request: NextRequest) {
   const actor = await assertActiveAdmin(request);
   if (!actor || !isAdministrator(actor)) {
-    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+    return NextResponse.json(
+      { ok: false, error: "Forbidden." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   const includeInactive = request.nextUrl.searchParams.get("all") === "1";
@@ -14,7 +22,10 @@ export async function GET(request: NextRequest) {
   const facultyId = facultyIdRaw && /^\d+$/.test(facultyIdRaw) ? Number(facultyIdRaw) : undefined;
 
   const departments = await listDepartments({ includeInactive, facultyId });
-  return NextResponse.json({ ok: true, departments });
+  return NextResponse.json(
+    { ok: true, departments },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 type CreateDepartmentBody = {
@@ -25,7 +36,10 @@ type CreateDepartmentBody = {
 export async function POST(request: NextRequest) {
   const actor = await assertActiveAdmin(request);
   if (!actor || !isAdministrator(actor)) {
-    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+    return NextResponse.json(
+      { ok: false, error: "Forbidden." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   let body: CreateDepartmentBody;
