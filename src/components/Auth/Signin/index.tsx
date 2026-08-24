@@ -144,9 +144,8 @@ export default function Signin() {
         return;
       }
       toast.success("Login successful.");
-      // Use replace (not push + refresh) so the sign-in page is removed from
-      // history and the navigation is not interrupted by a competing refresh.
-      router.replace(res.redirectUrl);
+      // Use a full-page navigation to ensure the auth cookie is sent.
+      window.location.href = res.redirectUrl;
     } finally {
       setLoadingGoogle(false);
     }
@@ -217,9 +216,12 @@ export default function Signin() {
       toast.success("Login successful.");
       const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
       console.log("[signin] redirectUrl:", redirectUrl);
-      // Use replace (not push + refresh) so the sign-in page is removed from
-      // history and the navigation is not interrupted by a competing refresh.
-      router.replace(redirectUrl);
+      // Use a full-page navigation (window.location) instead of router.replace
+      // to ensure the auth cookie is sent with the request and the middleware
+      // sees the authenticated session. router.replace can fail silently on
+      // production when the middleware redirects back to sign-in because the
+      // client-side router doesn't re-send cookies the same way.
+      window.location.href = redirectUrl;
     } catch (err) {
       console.error("[signin] handleManualSubmit error:", err);
       const message = "Sign-in failed. Please try again.";
