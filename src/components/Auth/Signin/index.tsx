@@ -202,6 +202,8 @@ export default function Signin() {
         callbackUrl,
       });
 
+      console.log("[signin] signIn result:", result);
+
       if (result?.error) {
         const message = "Sign-in failed after verification. Please try again.";
         setFormError(message);
@@ -209,13 +211,20 @@ export default function Signin() {
         return;
       }
 
-      if (result?.ok) {
-        toast.success("Login successful.");
-        const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
-        // Use replace (not push + refresh) so the sign-in page is removed from
-        // history and the navigation is not interrupted by a competing refresh.
-        router.replace(redirectUrl);
-      }
+      // Treat any non-error response as success. Some next-auth v4 versions
+      // don't set `ok: true` explicitly, so checking `!result?.error` is
+      // more reliable than `result?.ok`.
+      toast.success("Login successful.");
+      const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
+      console.log("[signin] redirectUrl:", redirectUrl);
+      // Use replace (not push + refresh) so the sign-in page is removed from
+      // history and the navigation is not interrupted by a competing refresh.
+      router.replace(redirectUrl);
+    } catch (err) {
+      console.error("[signin] handleManualSubmit error:", err);
+      const message = "Sign-in failed. Please try again.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setLoadingManual(false);
     }
