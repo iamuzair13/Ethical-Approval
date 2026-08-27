@@ -83,7 +83,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <div className="w-full bg-gray-2 dark:bg-[#020d1a]">
+      <div className="min-w-0 w-full bg-gray-2 dark:bg-[#020d1a]">
         <Header />
         <ViewAsBanner />
 
