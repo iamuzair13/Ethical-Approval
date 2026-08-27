@@ -67,8 +67,6 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
   toggleCsvOption,
   attachmentFiles,
   handleRequiredAttachmentUpload,
-  facultyOptions,
-  getDepartmentsForFaculty,
 }: CommonFormProps) {
   /* ---------- STEP 0: Scholar Information ---------- */
   if (currentStep === 0) {
@@ -98,8 +96,6 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
           form={form}
           setForm={setForm}
           onFieldChange={onFieldChange}
-          facultyOptions={facultyOptions}
-          getDepartmentsForFaculty={getDepartmentsForFaculty}
           defaultKeys={{
             type: "publicationCoAuthor1Type",
             uol: {

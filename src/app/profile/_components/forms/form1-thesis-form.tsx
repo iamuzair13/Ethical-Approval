@@ -147,8 +147,6 @@ export function Form1ThesisForm({
   extraUploadFiles,
   setExtraUploadFiles,
   handleExtraUploadChange,
-  facultyOptions,
-  getDepartmentsForFaculty,
   onClearSubmitError,
 }: Form1ThesisFormProps) {
   const declarationName =
@@ -184,9 +182,6 @@ export function Form1ThesisForm({
             form={form}
             setForm={setForm}
             onFieldChange={onFieldChange}
-            facultyOptions={facultyOptions}
-            getDepartmentsForFaculty={getDepartmentsForFaculty}
-            useCentralizedDepartments
             defaultKeys={{
               type: "coSupervisorType",
               uol: {

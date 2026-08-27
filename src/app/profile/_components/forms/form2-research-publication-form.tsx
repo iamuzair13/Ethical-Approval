@@ -92,8 +92,6 @@ export function Form2ResearchPublicationForm({
   toggleCsvOption,
   attachmentFiles,
   handleRequiredAttachmentUpload,
-  facultyOptions,
-  getDepartmentsForFaculty,
 }: CommonFormProps) {
   const onValueChange =
     (key: keyof typeof form) =>
@@ -135,8 +133,6 @@ export function Form2ResearchPublicationForm({
           form={form}
           setForm={setForm}
           onFieldChange={onFieldChange}
-          facultyOptions={facultyOptions}
-          getDepartmentsForFaculty={getDepartmentsForFaculty}
           defaultKeys={{
             type: "publicationCoAuthor1Type",
             uol: {

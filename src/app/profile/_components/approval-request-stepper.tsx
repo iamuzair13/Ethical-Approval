@@ -520,8 +520,6 @@ export default function ApprovalRequestStepper({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [facultyOptions, setFacultyOptions] = useState<string[]>([]);
-  const [departmentsByFaculty, setDepartmentsByFaculty] = useState<Record<string, string[]>>({});
   const [resolvedDraftSubmissionId, setResolvedDraftSubmissionId] = useState<number | null>(
     typeof serverDraftSubmissionId === "number" && serverDraftSubmissionId > 0
       ? serverDraftSubmissionId
@@ -882,35 +880,6 @@ export default function ApprovalRequestStepper({
     setSubmitError(null);
   }, [activeSteps.length, isPreloadedMode, open, viewSubmissionData]);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch("/api/profile/faculty-departments", {
-          method: "GET",
-          cache: "no-store",
-        });
-        const payload = (await response.json()) as {
-          ok: boolean;
-          faculties?: Array<{ name: string; departments: string[] }>;
-        };
-        if (!response.ok || !payload.ok || !Array.isArray(payload.faculties) || cancelled) return;
-        const faculties = payload.faculties.map((item) => item.name).filter(Boolean);
-        const map: Record<string, string[]> = {};
-        for (const item of payload.faculties) {
-          map[item.name] = item.departments ?? [];
-        }
-        setFacultyOptions(faculties);
-        setDepartmentsByFaculty(map);
-      } catch {
-        if (cancelled) return;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
 
   useEffect(() => {
     if (
@@ -1031,9 +1000,6 @@ export default function ApprovalRequestStepper({
       });
       setSubmitError(null);
     };
-
-  const getDepartmentsForFaculty = (facultyName: string): string[] =>
-    departmentsByFaculty[facultyName] ?? [];
 
   const hasValue = (value: string) => value.trim().length > 0;
   const hasSelectedCsvValue = (value: string) =>
@@ -1849,8 +1815,7 @@ export default function ApprovalRequestStepper({
                 toggleCsvOption={toggleCsvOption as never}
                 attachmentFiles={attachmentFiles}
                 handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
                 onClearSubmitError={() => setSubmitError(null)}
               />
             )}
@@ -1867,8 +1832,7 @@ export default function ApprovalRequestStepper({
                 extraUploadFiles={extraUploadFiles}
                 setExtraUploadFiles={setExtraUploadFiles}
                 handleExtraUploadChange={handleExtraUploadChange}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
                 onClearSubmitError={() => setSubmitError(null)}
               />
             )}
@@ -1886,8 +1850,7 @@ export default function ApprovalRequestStepper({
                 extraUploadFiles={extraUploadFiles}
                 setExtraUploadFiles={setExtraUploadFiles}
                 handleExtraUploadChange={handleExtraUploadChange}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
               />
             )}
 
@@ -1901,8 +1864,7 @@ export default function ApprovalRequestStepper({
                 toggleCsvOption={toggleCsvOption as never}
                 attachmentFiles={attachmentFiles}
                 handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
               />
             )}
 
@@ -1916,8 +1878,7 @@ export default function ApprovalRequestStepper({
                 toggleCsvOption={toggleCsvOption as never}
                 attachmentFiles={attachmentFiles}
                 handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
               />
             )}
 
@@ -1931,8 +1892,7 @@ export default function ApprovalRequestStepper({
                 toggleCsvOption={toggleCsvOption as never}
                 attachmentFiles={attachmentFiles}
                 handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
               />
             )}
 
@@ -1946,8 +1906,7 @@ export default function ApprovalRequestStepper({
                 toggleCsvOption={toggleCsvOption as never}
                 attachmentFiles={attachmentFiles}
                 handleRequiredAttachmentUpload={handleRequiredAttachmentUpload}
-                facultyOptions={facultyOptions}
-                getDepartmentsForFaculty={getDepartmentsForFaculty}
+
               />
             )}
 

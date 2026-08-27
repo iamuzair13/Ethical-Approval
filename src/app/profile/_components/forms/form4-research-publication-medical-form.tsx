@@ -79,8 +79,6 @@ export function Form4ResearchPublicationMedicalForm({
   toggleCsvOption,
   attachmentFiles,
   handleRequiredAttachmentUpload,
-  facultyOptions,
-  getDepartmentsForFaculty,
   onClearSubmitError,
 }: Form4ResearchPublicationMedicalFormProps) {
   return (
@@ -108,8 +106,6 @@ export function Form4ResearchPublicationMedicalForm({
             form={form}
             setForm={setForm}
             onFieldChange={onFieldChange}
-            facultyOptions={facultyOptions}
-            getDepartmentsForFaculty={getDepartmentsForFaculty}
             defaultKeys={{
               type: "publicationCoAuthor1Type",
               uol: {

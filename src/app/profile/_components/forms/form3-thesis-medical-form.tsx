@@ -166,8 +166,6 @@ export function Form3ThesisMedicalForm({
   extraUploadFiles,
   setExtraUploadFiles,
   handleExtraUploadChange,
-  facultyOptions,
-  getDepartmentsForFaculty,
 }: Form3ThesisMedicalFormProps) {
 
   /* ---------- STEP 0: Researcher & Thesis ---------- */
@@ -201,9 +199,6 @@ export function Form3ThesisMedicalForm({
           form={form}
           setForm={setForm}
           onFieldChange={onFieldChange}
-          facultyOptions={facultyOptions}
-          getDepartmentsForFaculty={getDepartmentsForFaculty}
-          useCentralizedDepartments
           defaultKeys={{
             type: "coSupervisorType",
             uol: {
