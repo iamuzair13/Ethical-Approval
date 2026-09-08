@@ -15,7 +15,7 @@ import { Required } from "./required";
 
 type DepartmentOption = { id: number; name: string };
 
-type SupervisorOption = {
+type HodOption = {
   userId: string;
   facultyMemberId: string;
   sapId: string;
@@ -26,10 +26,10 @@ type SupervisorOption = {
   faculty: string | null;
 };
 
-type SupervisorPickerProps = {
+type HodPickerProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
-  /** Title for the section (e.g. "1.2 Supervisor's Information"). */
+  /** Title for the section (e.g. "1.2 HOD's Information"). */
   sectionTitle?: string;
   /** When true, the picker is read-only (view mode). */
   readOnly?: boolean;
@@ -38,36 +38,36 @@ type SupervisorPickerProps = {
 // ─── Component ───
 
 /**
- * Reusable Department -> Supervisor -> auto-fill picker.
+ * Reusable Department -> HOD -> auto-fill picker.
  *
- * Replaces the old manually-typed supervisor fields on the student thesis
+ * Replaces the old manually-typed hod fields on the student thesis
  * forms (Form 1 and Form 3). The student:
  *   1. Selects a Department (populated from the centralized `departments`
  *      table — all active departments, no Faculty/Program dependency).
- *   2. Selects a Supervisor (filtered to active supervisors in that
+ *   2. Selects a HOD (filtered to active hods in that
  *      department, matched by `faculty_members.department_id`).
- *   3. The supervisor's SAP ID, name, email, faculty and department are
+ *   3. The hod's SAP ID, name, email, faculty and department are
  *      auto-populated as read-only fields.
  *
- * The authoritative value is `form.supervisorUserId` (the admin_users id).
- * `form.supervisorDepartmentId` stores the selected department's numeric ID
+ * The authoritative value is `form.hodUserId` (the admin_users id).
+ * `form.hodDepartmentId` stores the selected department's numeric ID
  * (used for server-side validation). The snapshot text fields
- * (supervisorName, supervisorSapId, ...) are derived from the database and
+ * (hodName, hodSapId, ...) are derived from the database and
  * stored on the form for display/submission, but the server re-validates
- * everything from supervisorUserId + supervisorDepartmentId alone.
+ * everything from hodUserId + hodDepartmentId alone.
  *
  * Both dropdowns include built-in client-side search (case-insensitive).
  */
-export function SupervisorPicker({
+export function HodPicker({
   form,
   setForm,
-  sectionTitle = "1.2 Supervisor's Information",
+  sectionTitle = "1.2 HOD's Information",
   readOnly = false,
-}: SupervisorPickerProps) {
+}: HodPickerProps) {
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
-  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
-  const [supervisorsLoading, setSupervisorsLoading] = useState(false);
+  const [hods, setHods] = useState<HodOption[]>([]);
+  const [hodsLoading, setHodsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Track the in-flight department id so a slow response for a previous
@@ -79,7 +79,7 @@ export function SupervisorPicker({
     let cancelled = false;
     setDepartmentsLoading(true);
     setLoadError(null);
-    fetch("/api/profile/supervisor-departments")
+    fetch("/api/profile/hod-departments")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data?.ok) return;
@@ -96,36 +96,36 @@ export function SupervisorPicker({
     };
   }, []);
 
-  // ─── Load supervisors when the selected department changes ───
-  const selectedDepartmentId = form.supervisorDepartmentId ?? "";
+  // ─── Load hods when the selected department changes ───
+  const selectedDepartmentId = form.hodDepartmentId ?? "";
   useEffect(() => {
     const deptId = selectedDepartmentId.trim();
     if (!deptId) {
-      setSupervisors([]);
+      setHods([]);
       return;
     }
     departmentRequestRef.current = deptId;
     let cancelled = false;
-    setSupervisorsLoading(true);
+    setHodsLoading(true);
     setLoadError(null);
-    fetch(`/api/profile/supervisors?departmentId=${encodeURIComponent(deptId)}`)
+    fetch(`/api/profile/hods?departmentId=${encodeURIComponent(deptId)}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || departmentRequestRef.current !== deptId) return;
         if (!data?.ok) {
-          setSupervisors([]);
+          setHods([]);
           return;
         }
-        setSupervisors(data.supervisors as SupervisorOption[]);
+        setHods(data.hods as HodOption[]);
       })
       .catch(() => {
         if (cancelled || departmentRequestRef.current !== deptId) return;
-        setLoadError("Failed to load supervisors.");
-        setSupervisors([]);
+        setLoadError("Failed to load hods.");
+        setHods([]);
       })
       .finally(() => {
         if (cancelled || departmentRequestRef.current !== deptId) return;
-        setSupervisorsLoading(false);
+        setHodsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -139,47 +139,47 @@ export function SupervisorPicker({
     const dept = departments.find((d) => String(d.id) === deptId);
     setForm((prev) => ({
       ...prev,
-      supervisorDepartmentId: deptId,
-      supervisorDepartment: dept?.name ?? "",
-      // Clear the supervisor selection and all auto-filled fields when the
-      // department changes — a supervisor from the previous department must
+      hodDepartmentId: deptId,
+      hodDepartment: dept?.name ?? "",
+      // Clear the hod selection and all auto-filled fields when the
+      // department changes — a hod from the previous department must
       // not remain selected.
-      supervisorUserId: "",
-      supervisorSapId: "",
-      supervisorName: "",
-      supervisorEmail: "",
-      supervisorFaculty: "",
-      supervisorDesignation: "",
+      hodUserId: "",
+      hodSapId: "",
+      hodName: "",
+      hodEmail: "",
+      hodFaculty: "",
+      hodDesignation: "",
     }));
   };
 
-  const handleSupervisorChange = (value: string) => {
+  const handleHodChange = (value: string) => {
     const userId = value;
     if (!userId) {
       setForm((prev) => ({
         ...prev,
-        supervisorUserId: "",
-        supervisorSapId: "",
-        supervisorName: "",
-        supervisorEmail: "",
-        supervisorFaculty: "",
-        supervisorDesignation: "",
+        hodUserId: "",
+        hodSapId: "",
+        hodName: "",
+        hodEmail: "",
+        hodFaculty: "",
+        hodDesignation: "",
       }));
       return;
     }
-    const selected = supervisors.find((s) => s.userId === userId);
+    const selected = hods.find((s) => s.userId === userId);
     if (!selected) return;
     setForm((prev) => ({
       ...prev,
-      supervisorUserId: selected.userId,
-      supervisorSapId: selected.sapId,
-      supervisorName: selected.name,
-      supervisorEmail: selected.email,
-      supervisorFaculty: selected.faculty ?? "",
-      supervisorDesignation: selected.designation ?? "",
+      hodUserId: selected.userId,
+      hodSapId: selected.sapId,
+      hodName: selected.name,
+      hodEmail: selected.email,
+      hodFaculty: selected.faculty ?? "",
+      hodDesignation: selected.designation ?? "",
       // Department is already set by the department dropdown, but ensure it
-      // matches the supervisor's record exactly.
-      supervisorDepartment: selected.department,
+      // matches the hod's record exactly.
+      hodDepartment: selected.department,
     }));
   };
 
@@ -190,7 +190,7 @@ export function SupervisorPicker({
     label: d.name,
   }));
 
-  const supervisorOptions: SearchableOption[] = supervisors.map((s) => ({
+  const hodOptions: SearchableOption[] = hods.map((s) => ({
     value: s.userId,
     label: s.name,
     hint: s.sapId,
@@ -199,7 +199,7 @@ export function SupervisorPicker({
   // ─── Render ───
 
   const departmentDisabled = readOnly || departmentsLoading;
-  const supervisorDisabled = readOnly || supervisorsLoading || !selectedDepartmentId;
+  const hodDisabled = readOnly || hodsLoading || !selectedDepartmentId;
 
   return (
     <FormSection title={sectionTitle}>
@@ -207,7 +207,7 @@ export function SupervisorPicker({
         <Required label="Department *">
           <SearchableSelect
             options={departmentOptions}
-            value={form.supervisorDepartmentId ?? ""}
+            value={form.hodDepartmentId ?? ""}
             onChange={handleDepartmentChange}
             disabled={departmentDisabled}
             loading={departmentsLoading}
@@ -220,25 +220,25 @@ export function SupervisorPicker({
           />
         </Required>
 
-        <Required label="Supervisor *">
+        <Required label="HOD *">
           <SearchableSelect
-            options={supervisorOptions}
-            value={form.supervisorUserId ?? ""}
-            onChange={handleSupervisorChange}
-            disabled={supervisorDisabled}
-            loading={supervisorsLoading}
-            searchPlaceholder="Search supervisors…"
+            options={hodOptions}
+            value={form.hodUserId ?? ""}
+            onChange={handleHodChange}
+            disabled={hodDisabled}
+            loading={hodsLoading}
+            searchPlaceholder="Search hods…"
             defaultPlaceholder={
               !selectedDepartmentId
                 ? "Select Department First"
-                : supervisorsLoading
-                  ? "Loading supervisors…"
-                  : supervisors.length === 0
-                    ? "No supervisors available for this department."
-                    : "Select Supervisor"
+                : hodsLoading
+                  ? "Loading hods…"
+                  : hods.length === 0
+                    ? "No hods available for this department."
+                    : "Select HOD"
             }
-            emptyMessage="No supervisors available for this department."
-            noResultsMessage='No supervisors match your search.'
+            emptyMessage="No hods available for this department."
+            noResultsMessage='No hods match your search.'
           />
         </Required>
       </FieldRow>
@@ -247,32 +247,32 @@ export function SupervisorPicker({
         <p className="mt-2 text-xs text-red-600 dark:text-red-400">{loadError}</p>
       )}
 
-      {/* Auto-populated read-only supervisor details */}
+      {/* Auto-populated read-only hod details */}
       <FieldRow className="mt-4">
         <Required label="SAP ID">
           <ReadOnlyInput
-            value={form.supervisorSapId ?? ""}
-            placeholder="Auto-filled from supervisor selection"
+            value={form.hodSapId ?? ""}
+            placeholder="Auto-filled from hod selection"
           />
         </Required>
         <Required label="Email">
           <ReadOnlyInput
-            value={form.supervisorEmail ?? ""}
-            placeholder="Auto-filled from supervisor selection"
+            value={form.hodEmail ?? ""}
+            placeholder="Auto-filled from hod selection"
           />
         </Required>
       </FieldRow>
       <FieldRow className="mt-4">
         <Required label="Designation">
           <ReadOnlyInput
-            value={form.supervisorDesignation ?? ""}
-            placeholder="Auto-filled from supervisor selection"
+            value={form.hodDesignation ?? ""}
+            placeholder="Auto-filled from hod selection"
           />
         </Required>
          <Required label="Department">
           <ReadOnlyInput
-            value={form.supervisorDepartment ?? ""}
-            placeholder="Auto-filled from supervisor selection"
+            value={form.hodDepartment ?? ""}
+            placeholder="Auto-filled from hod selection"
           />
         </Required>
       </FieldRow>

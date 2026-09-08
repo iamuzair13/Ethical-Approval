@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
   applyIrebScope,
-  assignSupervisorFaculty,
+  assignHodFaculty,
   getAdminUserById,
 } from "@/lib/admin-repository";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
 type AssignFacultyBody = {
   adminUserId?: string;
-  role?: "supervisor" | "ireb";
+  role?: "hod" | "ireb";
   facultyId?: number;
   facultyIds?: number[];
   departmentId?: number;
@@ -42,14 +42,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
   }
 
-  if (body.role === "supervisor") {
+  if (body.role === "hod") {
     if (typeof body.facultyId !== "number" || typeof body.departmentId !== "number") {
       return NextResponse.json(
-        { ok: false, error: "facultyId and departmentId are required for supervisor assignment." },
+        { ok: false, error: "facultyId and departmentId are required for hod assignment." },
         { status: 400 },
       );
     }
-    await assignSupervisorFaculty({
+    await assignHodFaculty({
       adminUserId: body.adminUserId,
       facultyId: body.facultyId,
       departmentId: body.departmentId,
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
       assignedBy: actor.adminId,
     });
     void logActivityFromRequest(request, {
-      actionCode: "admin.faculty.assign_supervisor",
-      targetType: "supervisor",
+      actionCode: "admin.faculty.assign_hod",
+      targetType: "hod",
       targetId: body.adminUserId,
       targetLabel: target.name,
       facultyId: body.facultyId,

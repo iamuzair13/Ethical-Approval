@@ -3,13 +3,13 @@ export const OVERDUE_THRESHOLD_DAYS = 2;
 export type OverdueLeadInput = {
   currentStatus: string;
   submittedAt: string;
-  supervisorDecisionAt: string | null;
+  hodDecisionAt: string | null;
 };
 
-export type OverdueRole = "administrator" | "supervisor" | "ireb" | null;
+export type OverdueRole = "administrator" | "hod" | "ireb" | null;
 
 export type OverdueScope = {
-  supervisorOnly?: boolean;
+  hodOnly?: boolean;
   ethicalOnly?: boolean;
 };
 
@@ -23,7 +23,7 @@ export function daysBetween(start: Date, end: Date): number {
   return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86400000));
 }
 
-export function isSupervisorReviewOverdue({
+export function isHodReviewOverdue({
   currentStatus,
   submittedAt,
   now = new Date(),
@@ -32,7 +32,7 @@ export function isSupervisorReviewOverdue({
   submittedAt: string | Date;
   now?: Date;
 }): boolean {
-  if (currentStatus !== "Under Review by Supervisor") return false;
+  if (currentStatus !== "Under Review by HOD") return false;
   const submitted = parseLeadDate(submittedAt);
   if (!submitted) return false;
   return daysBetween(submitted, now) > OVERDUE_THRESHOLD_DAYS;
@@ -41,16 +41,16 @@ export function isSupervisorReviewOverdue({
 export function isIrebReviewOverdue({
   currentStatus,
   submittedAt,
-  supervisorDecisionAt,
+  hodDecisionAt,
   now = new Date(),
 }: {
   currentStatus: string;
   submittedAt: string | Date;
-  supervisorDecisionAt: string | Date | null;
+  hodDecisionAt: string | Date | null;
   now?: Date;
 }): boolean {
   if (currentStatus !== "Under Review by IREB") return false;
-  const stageStart = parseLeadDate(supervisorDecisionAt) ?? parseLeadDate(submittedAt);
+  const stageStart = parseLeadDate(hodDecisionAt) ?? parseLeadDate(submittedAt);
   if (!stageStart) return false;
   return daysBetween(stageStart, now) > OVERDUE_THRESHOLD_DAYS;
 }
@@ -61,7 +61,7 @@ export function isLeadOverdueForRole(
   scope: OverdueScope = {},
   now: Date = new Date(),
 ): boolean {
-  const supervisorOverdue = isSupervisorReviewOverdue({
+  const hodOverdue = isHodReviewOverdue({
     currentStatus: lead.currentStatus,
     submittedAt: lead.submittedAt,
     now,
@@ -69,24 +69,24 @@ export function isLeadOverdueForRole(
   const irebOverdue = isIrebReviewOverdue({
     currentStatus: lead.currentStatus,
     submittedAt: lead.submittedAt,
-    supervisorDecisionAt: lead.supervisorDecisionAt,
+    hodDecisionAt: lead.hodDecisionAt,
     now,
   });
 
-  if (role === "supervisor") return supervisorOverdue;
+  if (role === "hod") return hodOverdue;
   if (role === "ireb") return irebOverdue;
-  if (role === "administrator") return supervisorOverdue || irebOverdue;
+  if (role === "administrator") return hodOverdue || irebOverdue;
 
-  if (scope.supervisorOnly) return supervisorOverdue;
+  if (scope.hodOnly) return hodOverdue;
   if (scope.ethicalOnly) return irebOverdue;
-  return supervisorOverdue || irebOverdue;
+  return hodOverdue || irebOverdue;
 }
 
 export function getStagePendingDays(
-  lead: OverdueLeadInput & { stage: "supervisor" | "ireb" | "completed" },
+  lead: OverdueLeadInput & { stage: "hod" | "ireb" | "completed" },
   now: Date = new Date(),
 ): number | null {
-  if (lead.stage === "supervisor" && lead.currentStatus === "Under Review by Supervisor") {
+  if (lead.stage === "hod" && lead.currentStatus === "Under Review by HOD") {
     const submitted = parseLeadDate(lead.submittedAt);
     if (!submitted) return null;
     return Math.max(1, daysBetween(submitted, now) || 1);
@@ -94,7 +94,7 @@ export function getStagePendingDays(
 
   if (lead.stage === "ireb" && lead.currentStatus === "Under Review by IREB") {
     const stageStart =
-      parseLeadDate(lead.supervisorDecisionAt) ?? parseLeadDate(lead.submittedAt);
+      parseLeadDate(lead.hodDecisionAt) ?? parseLeadDate(lead.submittedAt);
     if (!stageStart) return null;
     return Math.max(1, daysBetween(stageStart, now) || 1);
   }

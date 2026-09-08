@@ -2,15 +2,15 @@ import { db } from "@/lib/db";
 
 // ─── Types ───
 
-export type SupervisorDepartment = {
+export type HodDepartment = {
   /** departments.id — the centralized department entity. */
   id: number;
   /** departments.name — the display name. */
   name: string;
 };
 
-export type SupervisorOption = {
-  /** admin_users.id — the stable identifier stored on submissions.supervisor_user_id. */
+export type HodOption = {
+  /** admin_users.id — the stable identifier stored on submissions.hod_user_id. */
   userId: string;
   /** faculty_members.id — used for the submission_participants FK. */
   facultyMemberId: string;
@@ -22,7 +22,7 @@ export type SupervisorOption = {
   faculty: string | null;
 };
 
-export type VerifiedSupervisor = SupervisorOption & {
+export type VerifiedHod = HodOption & {
   facultyId: number | null;
   departmentId: number | null;
 };
@@ -32,14 +32,14 @@ export type VerifiedSupervisor = SupervisorOption & {
 /**
  * All active departments from the centralized `departments` table.
  *
- * Returns every active department regardless of whether a supervisor is
- * currently assigned to it. The supervisor filtering happens at the
- * supervisor dropdown level (by department_id), not here.
+ * Returns every active department regardless of whether a hod is
+ * currently assigned to it. The hod filtering happens at the
+ * hod dropdown level (by department_id), not here.
  *
  * This is the Department-only organization model source — no dependency
  * on Faculty or Program entities.
  */
-export async function listSupervisorDepartments(): Promise<SupervisorDepartment[]> {
+export async function listHodDepartments(): Promise<HodDepartment[]> {
   const result = await db.query<{ id: number; name: string }>(
     `
       SELECT id, name
@@ -56,25 +56,25 @@ export async function listSupervisorDepartments(): Promise<SupervisorDepartment[
 }
 
 /**
- * All active faculty members in a given department, eligible for supervisor
+ * All active faculty members in a given department, eligible for hod
  * selection.
  *
  * The department match is performed on faculty_members.department_id (the FK
  * to the centralized departments table). Any active faculty member with a
  * linked, active admin_users account is eligible — regardless of their admin
- * role (administrator, supervisor, ireb, or no role). This means a super
- * admin who is also a faculty member can be selected as a supervisor.
+ * role (administrator, hod, ireb, or no role). This means a super
+ * admin who is also a faculty member can be selected as a hod.
  *
  * The admin_faculty_assignments / admin_department_assignments RBAC scope
- * (supervisor_primary) is NOT used to filter this list — that scope controls
- * which admin actions a supervisor can perform (e.g., approving submissions),
- * not whether a student can select them as their supervisor. Using it here
+ * (hod_primary) is NOT used to filter this list — that scope controls
+ * which admin actions a hod can perform (e.g., approving submissions),
+ * not whether a student can select them as their hod. Using it here
  * caused the dropdown to return empty for most departments because only a
- * handful of supervisors had the RBAC assignment configured.
+ * handful of hods had the RBAC assignment configured.
  */
-export async function listSupervisorsForDepartment(
+export async function listHodsForDepartment(
   departmentId: number,
-): Promise<SupervisorOption[]> {
+): Promise<HodOption[]> {
   if (!Number.isInteger(departmentId) || departmentId <= 0) return [];
 
   const result = await db.query<{
@@ -125,17 +125,17 @@ export async function listSupervisorsForDepartment(
 
 /**
  * Fetch a single faculty member's full details by admin_users id, for
- * supervisor selection.
+ * hod selection.
  *
  * Returns null if the user does not exist, is inactive, or has no linked
- * active faculty_members profile. Any admin role (administrator, supervisor,
- * ireb, or no role) is eligible — the role does not affect supervisor
+ * active faculty_members profile. Any admin role (administrator, hod,
+ * ireb, or no role) is eligible — the role does not affect hod
  * selection eligibility.
  */
-export async function getSupervisorForSelection(
-  supervisorUserId: string,
-): Promise<VerifiedSupervisor | null> {
-  const trimmedId = supervisorUserId.trim();
+export async function getHodForSelection(
+  hodUserId: string,
+): Promise<VerifiedHod | null> {
+  const trimmedId = hodUserId.trim();
   if (!trimmedId) return null;
 
   const result = await db.query<{
@@ -194,51 +194,51 @@ export async function getSupervisorForSelection(
 }
 
 /**
- * Verify that a faculty member is eligible to be selected as a supervisor
+ * Verify that a faculty member is eligible to be selected as a hod
  * for a given department.
  *
  * This is the authoritative server-side check used at submission time. The
- * client-submitted supervisor name/email/sapId are NEVER trusted; only the
- * supervisor user id is, and even that is re-validated against the database.
+ * client-submitted hod name/email/sapId are NEVER trusted; only the
+ * hod user id is, and even that is re-validated against the database.
  *
  * The department is verified by department_id (the FK to the centralized
  * departments table), not by text matching.
  *
  * Any active faculty member with an active admin_users account is eligible,
- * regardless of their admin role (administrator, supervisor, ireb, or none).
+ * regardless of their admin role (administrator, hod, ireb, or none).
  *
- * Returns the verified supervisor record, or null if:
+ * Returns the verified hod record, or null if:
  *   - the user does not exist
  *   - the user is inactive / soft-deleted
  *   - the faculty profile is missing or inactive
- *   - the supervisor's department_id does not match the selected department
+ *   - the hod's department_id does not match the selected department
  */
-export async function verifySupervisorEligibility(
-  supervisorUserId: string,
+export async function verifyHodEligibility(
+  hodUserId: string,
   expectedDepartmentId: number,
-): Promise<VerifiedSupervisor | null> {
-  const supervisor = await getSupervisorForSelection(supervisorUserId);
-  if (!supervisor) return null;
+): Promise<VerifiedHod | null> {
+  const hod = await getHodForSelection(hodUserId);
+  if (!hod) return null;
 
-  if (Number(supervisor.departmentId) !== Number(expectedDepartmentId)) return null;
+  if (Number(hod.departmentId) !== Number(expectedDepartmentId)) return null;
 
-  return supervisor;
+  return hod;
 }
 
 // ─── Ethics payload extraction ───
 
 /**
- * Extracts the supervisor user id and selected department from an ethics
+ * Extracts the hod user id and selected department from an ethics
  * payload's form state.
  *
  * The ethics payload shape at submit/draft time is:
- *   { form: { supervisorUserId, supervisorDepartment, ... }, requiredForm, ... }
+ *   { form: { hodUserId, hodDepartment, ... }, requiredForm, ... }
  *
- * Returns null if no supervisorUserId is present.
+ * Returns null if no hodUserId is present.
  */
-export function extractSupervisorFromEthics(
+export function extractHodFromEthics(
   ethics: Record<string, unknown> | undefined,
-): { supervisorUserId: string; departmentId: number } | null {
+): { hodUserId: string; departmentId: number } | null {
   if (!ethics) return null;
 
   // The form state is nested under `form` in the standard payload shape.
@@ -250,11 +250,11 @@ export function extractSupervisorFromEthics(
 
   // Also check the top-level ethics object as a fallback (some older code
   // paths may spread form fields directly).
-  const supervisorUserIdRaw = form?.supervisorUserId ?? ethics.supervisorUserId;
+  const hodUserIdRaw = form?.hodUserId ?? ethics.hodUserId;
   const departmentIdRaw =
-    form?.supervisorDepartmentId ?? ethics.supervisorDepartmentId;
+    form?.hodDepartmentId ?? ethics.hodDepartmentId;
 
-  if (typeof supervisorUserIdRaw !== "string" || !supervisorUserIdRaw.trim()) {
+  if (typeof hodUserIdRaw !== "string" || !hodUserIdRaw.trim()) {
     return null;
   }
 
@@ -266,36 +266,36 @@ export function extractSupervisorFromEthics(
         : NaN;
 
   return {
-    supervisorUserId: supervisorUserIdRaw.trim(),
+    hodUserId: hodUserIdRaw.trim(),
     departmentId,
   };
 }
 
 /**
- * Result of validating the supervisor for a submission.
+ * Result of validating the hod for a submission.
  */
-export type SupervisorValidationResult =
-  | { ok: true; supervisor: VerifiedSupervisor }
+export type HodValidationResult =
+  | { ok: true; hod: VerifiedHod }
   | { ok: false; error: string };
 
 /**
- * Validates the supervisor selection for a student thesis submission.
+ * Validates the hod selection for a student thesis submission.
  *
  * This is the authoritative server-side check. The client-submitted
- * supervisor name/email/sapId are NEVER trusted — only the supervisorUserId
+ * hod name/email/sapId are NEVER trusted — only the hodUserId
  * is, and even that is re-validated against the database.
  *
- * Returns `{ ok: true, supervisor }` if the supervisor is eligible, or
+ * Returns `{ ok: true, hod }` if the hod is eligible, or
  * `{ ok: false, error }` with a user-facing error message otherwise.
  */
-export async function validateSupervisorForSubmission(
+export async function validateHodForSubmission(
   ethics: Record<string, unknown> | undefined,
-): Promise<SupervisorValidationResult> {
-  const extracted = extractSupervisorFromEthics(ethics);
-  if (!extracted || !extracted.supervisorUserId) {
+): Promise<HodValidationResult> {
+  const extracted = extractHodFromEthics(ethics);
+  if (!extracted || !extracted.hodUserId) {
     return {
       ok: false,
-      error: "Please select a supervisor before submitting.",
+      error: "Please select a hod before submitting.",
     };
   }
 
@@ -306,18 +306,18 @@ export async function validateSupervisorForSubmission(
     };
   }
 
-  const supervisor = await verifySupervisorEligibility(
-    extracted.supervisorUserId,
+  const hod = await verifyHodEligibility(
+    extracted.hodUserId,
     extracted.departmentId,
   );
 
-  if (!supervisor) {
+  if (!hod) {
     return {
       ok: false,
       error:
-        "The selected supervisor is not eligible. Please select a valid supervisor from the list.",
+        "The selected hod is not eligible. Please select a valid hod from the list.",
     };
   }
 
-  return { ok: true, supervisor };
+  return { ok: true, hod };
 }

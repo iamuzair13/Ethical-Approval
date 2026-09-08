@@ -155,7 +155,6 @@ const FORM_4_STEPS = [
 const FORM_3_MEDICAL_THESIS_STEPS = [
   "Researcher(s) and Thesis/Project Information",
   "Ethical Considerations",
-  "Biomedical & Pharmaceutical Aspects",
   "Data Management",
   "Institutional Approvals & Collaborations",
   "Required Attachments",
@@ -203,14 +202,14 @@ const FORM_5_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
-  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
+  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my hod and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
 
 const INITIAL_FORM = {
   researcherName: "",
   discipline: "",
-  supervisorName: "",
-  coSupervisorName: "",
+  hodName: "",
+  coHodName: "",
   projectTitle: "",
   projectObjectives: "",
   expectedResponseDays: "2",
@@ -238,49 +237,49 @@ const INITIAL_FORM = {
   scholarFaculty: "",
   scholarDepartment: "",
   scholarProgram: "",
-  supervisorUserId: "",
-  supervisorSapId: "",
-  supervisorEmail: "",
-  supervisorFaculty: "",
-  supervisorDepartment: "",
-  supervisorDepartmentId: "",
-  supervisorDesignation: "",
-  coSupervisorType: "UOL",
-  uolCoSupervisorSapId: "",
-  uolCoSupervisorName: "",
-  uolCoSupervisorEmail: "",
-  uolCoSupervisorFaculty: "",
-  uolCoSupervisorDepartment: "",
-  externalCoSupervisorName: "",
-  externalCoSupervisorRegNo: "",
-  externalCoSupervisorEmail: "",
+  hodUserId: "",
+  hodSapId: "",
+  hodEmail: "",
+  hodFaculty: "",
+  hodDepartment: "",
+  hodDepartmentId: "",
+  hodDesignation: "",
+  coHodType: "UOL",
+  uolCoHodSapId: "",
+  uolCoHodName: "",
+  uolCoHodEmail: "",
+  uolCoHodFaculty: "",
+  uolCoHodDepartment: "",
+  externalCoHodName: "",
+  externalCoHodRegNo: "",
+  externalCoHodEmail: "",
   externalUniversity: "",
   externalFaculty: "",
   externalDepartment: "",
-  coSupervisor2Type: "",
-  uolCoSupervisor2SapId: "",
-  uolCoSupervisor2Name: "",
-  uolCoSupervisor2Email: "",
-  uolCoSupervisor2Faculty: "",
-  uolCoSupervisor2Department: "",
-  externalCoSupervisor2Name: "",
-  externalCoSupervisor2RegNo: "",
-  externalCoSupervisor2Email: "",
-  externalCoSupervisor2University: "",
-  externalCoSupervisor2Faculty: "",
-  externalCoSupervisor2Department: "",
-  coSupervisor3Type: "",
-  uolCoSupervisor3SapId: "",
-  uolCoSupervisor3Name: "",
-  uolCoSupervisor3Email: "",
-  uolCoSupervisor3Faculty: "",
-  uolCoSupervisor3Department: "",
-  externalCoSupervisor3Name: "",
-  externalCoSupervisor3RegNo: "",
-  externalCoSupervisor3Email: "",
-  externalCoSupervisor3University: "",
-  externalCoSupervisor3Faculty: "",
-  externalCoSupervisor3Department: "",
+  coHod2Type: "",
+  uolCoHod2SapId: "",
+  uolCoHod2Name: "",
+  uolCoHod2Email: "",
+  uolCoHod2Faculty: "",
+  uolCoHod2Department: "",
+  externalCoHod2Name: "",
+  externalCoHod2RegNo: "",
+  externalCoHod2Email: "",
+  externalCoHod2University: "",
+  externalCoHod2Faculty: "",
+  externalCoHod2Department: "",
+  coHod3Type: "",
+  uolCoHod3SapId: "",
+  uolCoHod3Name: "",
+  uolCoHod3Email: "",
+  uolCoHod3Faculty: "",
+  uolCoHod3Department: "",
+  externalCoHod3Name: "",
+  externalCoHod3RegNo: "",
+  externalCoHod3Email: "",
+  externalCoHod3University: "",
+  externalCoHod3Faculty: "",
+  externalCoHod3Department: "",
   thesisTitle: "",
   expectedStartDate: "",
   expectedEndDate: "",
@@ -297,6 +296,7 @@ const INITIAL_FORM = {
   participantsEstimate: "",
   sdgs: "",
   involveHumanParticipants: "",
+  thesisSubjectType: "",
   collectPii: "",
   piiTypes: "",
   recruitmentChannels: "",
@@ -377,6 +377,7 @@ const INITIAL_FORM = {
   publicationPopulationType: "",
   publicationMethodology: "",
   publicationHumanSubjects: "",
+  publicationSubjectType: "",
   publicationRecruitmentChannels: "",
   publicationInformedConsent: "",
   publicationPreApprovalDataCollected: "",
@@ -970,13 +971,13 @@ export default function ApprovalRequestStepper({
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setForm((prev) => {
         const next = { ...prev, [key]: e.target.value };
-        if (key === "supervisorFaculty") next.supervisorDepartment = "";
-        if (key === "uolCoSupervisorFaculty") next.uolCoSupervisorDepartment = "";
+        if (key === "hodFaculty") next.hodDepartment = "";
+        if (key === "uolCoHodFaculty") next.uolCoHodDepartment = "";
         if (key === "externalFaculty") next.externalDepartment = "";
-        if (key === "uolCoSupervisor2Faculty") next.uolCoSupervisor2Department = "";
-        if (key === "externalCoSupervisor2Faculty") next.externalCoSupervisor2Department = "";
-        if (key === "uolCoSupervisor3Faculty") next.uolCoSupervisor3Department = "";
-        if (key === "externalCoSupervisor3Faculty") next.externalCoSupervisor3Department = "";
+        if (key === "uolCoHod2Faculty") next.uolCoHod2Department = "";
+        if (key === "externalCoHod2Faculty") next.externalCoHod2Department = "";
+        if (key === "uolCoHod3Faculty") next.uolCoHod3Department = "";
+        if (key === "externalCoHod3Faculty") next.externalCoHod3Department = "";
         if (key === "coauthorFaculty") next.coauthorDepartment = "";
         if (key === "publicationAuthor1UolFaculty") next.publicationAuthor1UolDepartment = "";
         if (key === "publicationAuthor1ExternalFaculty") next.publicationAuthor1ExternalDepartment = "";
@@ -1087,7 +1088,7 @@ export default function ApprovalRequestStepper({
       return null;
     }
 
-    if (formMode === "form3-thesis-medical" && currentStep === 5) {
+    if (formMode === "form3-thesis-medical" && currentStep === 4) {
       for (const label of FORM_3_MANDATORY_ATTACHMENTS) {
         if (!hasCsvOption("requiredAttachments", label)) {
           return `Required field: tick "${shortenToastLabel(label)}".`;
@@ -1114,51 +1115,51 @@ export default function ApprovalRequestStepper({
     if (formMode !== "form1-thesis" && formMode !== "form3-thesis-medical") return null;
 
     if (currentStep === 0) {
-      // Supervisor selection is now driven by the Department -> Supervisor
-      // picker. The authoritative value is supervisorUserId; the auto-filled
+      // HOD selection is now driven by the Department -> HOD
+      // picker. The authoritative value is hodUserId; the auto-filled
       // text fields are derived from it and re-validated server-side.
-      if (!hasValue(form.supervisorUserId)) {
-        return "Please select a Department and Supervisor.";
+      if (!hasValue(form.hodUserId)) {
+        return "Please select a Department and HOD.";
       }
-      const supervisorRequired = [
-        form.supervisorSapId,
-        form.supervisorEmail,
-        form.supervisorDepartment,
+      const hodRequired = [
+        form.hodSapId,
+        form.hodEmail,
+        form.hodDepartment,
       ].every(hasValue);
-      if (!supervisorRequired) {
-        return "Please complete all required Supervisor(s)'s Information fields.";
+      if (!hodRequired) {
+        return "Please complete all required HOD(s)'s Information fields.";
       }
 
-      const coSupervisorTouched = [
-        form.uolCoSupervisorSapId,
-        form.uolCoSupervisorName,
-        form.uolCoSupervisorEmail,
-        form.uolCoSupervisorDepartment,
-        form.externalCoSupervisorName,
-        form.externalCoSupervisorRegNo,
-        form.externalCoSupervisorEmail,
+      const coHodTouched = [
+        form.uolCoHodSapId,
+        form.uolCoHodName,
+        form.uolCoHodEmail,
+        form.uolCoHodDepartment,
+        form.externalCoHodName,
+        form.externalCoHodRegNo,
+        form.externalCoHodEmail,
         form.externalUniversity,
         form.externalDepartment,
       ].some(hasValue);
-      if (coSupervisorTouched) {
-        const coSupervisorRequired =
-          form.coSupervisorType === "UOL"
+      if (coHodTouched) {
+        const coHodRequired =
+          form.coHodType === "UOL"
             ? [
-                form.uolCoSupervisorSapId,
-                form.uolCoSupervisorName,
-                form.uolCoSupervisorEmail,
-                form.uolCoSupervisorDepartment,
+                form.uolCoHodSapId,
+                form.uolCoHodName,
+                form.uolCoHodEmail,
+                form.uolCoHodDepartment,
               ].every(hasValue)
-            : form.coSupervisorType === "External"
+            : form.coHodType === "External"
               ? [
-                  form.externalCoSupervisorName,
-                  form.externalCoSupervisorEmail,
+                  form.externalCoHodName,
+                  form.externalCoHodEmail,
                   form.externalUniversity,
                   form.externalDepartment,
                 ].every(hasValue)
               : false;
-        if (!coSupervisorRequired) {
-          return "Please complete all required Co-supervisor fields.";
+        if (!coHodRequired) {
+          return "Please complete all required Co-hod fields.";
         }
       }
 
@@ -1199,7 +1200,19 @@ export default function ApprovalRequestStepper({
       // dataRetentionYears is in Step 3 (Data Management) for form3.
       // form3 uses vulnerableGroups (checkbox group) instead of
       // vulnerablePopulation (select).
+      //
+      // Form3's Step 2 also merges the old "Biomedical & Pharmaceutical"
+      // step: the applicant first picks Human vs. Animal subjects, and only
+      // the fields for the selected type are shown/required. The Animal
+      // branch (Pharma + Animal Subjects) has never had enforced required
+      // fields here (only the type selection itself is required).
       const isForm3 = formMode === "form3-thesis-medical";
+      if (isForm3 && !hasValue(form.thesisSubjectType)) {
+        return "Please select whether this thesis involves Human or Animal subjects in Step 2.";
+      }
+      if (isForm3 && form.thesisSubjectType === "Animal Subjects") {
+        return null;
+      }
       const baseRequired = isForm3
         ? [
             form.involveHumanParticipants,
@@ -1268,11 +1281,11 @@ export default function ApprovalRequestStepper({
     
 
     // Form 1: step 3 = Attachments, step 4 = Declaration
-    // Form 3: step 3 = Data Management, step 4 = Institutional Approvals,
-    //         step 5 = Attachments, step 6 = Declaration
+    // Form 3: step 2 = Data Management, step 3 = Institutional Approvals,
+    //         step 4 = Attachments, step 5 = Declaration
     const isForm3 = formMode === "form3-thesis-medical";
-    const attachmentsStep = isForm3 ? 5 : 3;
-    const declarationStep = isForm3 ? 6 : 4;
+    const attachmentsStep = isForm3 ? 4 : 3;
+    const declarationStep = isForm3 ? 5 : 4;
 
     if (currentStep === 3 && !isForm3) {
       const missingRequiredSelection = FORM_3_MANDATORY_ATTACHMENTS.some(
@@ -1306,13 +1319,13 @@ export default function ApprovalRequestStepper({
           !hasCsvOption("requiredAttachments", label) && !hasRequiredAttachmentUpload(label),
       );
       if (missingRequiredSelection) {
-        return "Please select all required attachment items in Step 6.";
+        return "Please select all required attachment items in Step 5.";
       }
       const missingRequiredUpload = FORM_3_MANDATORY_ATTACHMENTS.some(
         (label) => !hasRequiredAttachmentUpload(label),
       );
       if (missingRequiredUpload) {
-        return "Please upload files for all required attachment items in Step 6.";
+        return "Please upload files for all required attachment items in Step 5.";
       }
       // Optional attachments: if ticked but no file uploaded, that's allowed.
       return null;
@@ -1925,30 +1938,30 @@ export default function ApprovalRequestStepper({
                   </div>
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3 md:grid-cols-2">
-                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.2 Supervisor(s)&apos;s Information</h4>
-                  <input value={form.supervisorSapId} onChange={onFieldChange("supervisorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                  <input value={form.supervisorName} onChange={onFieldChange("supervisorName")} placeholder="Supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                  <input value={form.supervisorEmail} onChange={onFieldChange("supervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                  <input value={form.supervisorFaculty} onChange={onFieldChange("supervisorFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                  <input value={form.supervisorDepartment} onChange={onFieldChange("supervisorDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                  <h4 className="font-semibold text-dark dark:text-white md:col-span-2">1.2 HOD(s)&apos;s Information</h4>
+                  <input value={form.hodSapId} onChange={onFieldChange("hodSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                  <input value={form.hodName} onChange={onFieldChange("hodName")} placeholder="HOD's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                  <input value={form.hodEmail} onChange={onFieldChange("hodEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                  <input value={form.hodFaculty} onChange={onFieldChange("hodFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                  <input value={form.hodDepartment} onChange={onFieldChange("hodDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
                 </div>
                 <div className="grid gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-                  <h4 className="font-semibold text-dark dark:text-white">1.3 Co-supervisor</h4>
-                  <select value={form.coSupervisorType} onChange={onFieldChange("coSupervisorType")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"><option value="UOL">Option 1: UOL</option><option value="External">Option 2: External</option></select>
+                  <h4 className="font-semibold text-dark dark:text-white">1.3 Co-hod</h4>
+                  <select value={form.coHodType} onChange={onFieldChange("coHodType")} className="max-w-xs rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white"><option value="UOL">Option 1: UOL</option><option value="External">Option 2: External</option></select>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {form.coSupervisorType === "UOL" ? (
+                    {form.coHodType === "UOL" ? (
                       <>
-                        <input value={form.uolCoSupervisorSapId} onChange={onFieldChange("uolCoSupervisorSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.uolCoSupervisorName} onChange={onFieldChange("uolCoSupervisorName")} placeholder="Supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.uolCoSupervisorEmail} onChange={onFieldChange("uolCoSupervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.uolCoSupervisorFaculty} onChange={onFieldChange("uolCoSupervisorFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.uolCoSupervisorDepartment} onChange={onFieldChange("uolCoSupervisorDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.uolCoHodSapId} onChange={onFieldChange("uolCoHodSapId")} placeholder="SAP ID" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.uolCoHodName} onChange={onFieldChange("uolCoHodName")} placeholder="HOD's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.uolCoHodEmail} onChange={onFieldChange("uolCoHodEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.uolCoHodFaculty} onChange={onFieldChange("uolCoHodFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.uolCoHodDepartment} onChange={onFieldChange("uolCoHodDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
                       </>
                     ) : (
                       <>
-                        <input value={form.externalCoSupervisorName} onChange={onFieldChange("externalCoSupervisorName")} placeholder="Co-supervisor's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.externalCoSupervisorRegNo} onChange={onFieldChange("externalCoSupervisorRegNo")} placeholder="Reg. No." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
-                        <input value={form.externalCoSupervisorEmail} onChange={onFieldChange("externalCoSupervisorEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.externalCoHodName} onChange={onFieldChange("externalCoHodName")} placeholder="Co-hod's Name" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.externalCoHodRegNo} onChange={onFieldChange("externalCoHodRegNo")} placeholder="Reg. No." className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
+                        <input value={form.externalCoHodEmail} onChange={onFieldChange("externalCoHodEmail")} placeholder="Email" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
                         <input value={form.externalUniversity} onChange={onFieldChange("externalUniversity")} placeholder="University" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
                         <input value={form.externalFaculty} onChange={onFieldChange("externalFaculty")} placeholder="Faculty" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
                         <input value={form.externalDepartment} onChange={onFieldChange("externalDepartment")} placeholder="Department" className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 text-dark dark:border-dark-3 dark:bg-gray-dark dark:text-white" />
@@ -2084,15 +2097,15 @@ export default function ApprovalRequestStepper({
                     className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
                   />
                   <input
-                    value={form.supervisorName}
-                    onChange={onFieldChange("supervisorName")}
-                    placeholder="Supervisor Name"
+                    value={form.hodName}
+                    onChange={onFieldChange("hodName")}
+                    placeholder="HOD Name"
                     className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
                   />
                   <input
-                    value={form.coSupervisorName}
-                    onChange={onFieldChange("coSupervisorName")}
-                    placeholder="Co-Supervisor Name"
+                    value={form.coHodName}
+                    onChange={onFieldChange("coHodName")}
+                    placeholder="Co-HOD Name"
                     className="rounded-lg border border-stroke bg-transparent px-4 py-2.5 outline-none focus:border-primary dark:border-dark-3"
                   />
                   <input
@@ -2308,7 +2321,7 @@ export default function ApprovalRequestStepper({
                     and health sciences research. The information provided in this application is
                     accurate and complete to the best of my knowledge. I will conduct this research
                     strictly according to the approved protocol. I will report all adverse events
-                    and protocol deviations to my supervisor and the IREB immediately. I will obtain
+                    and protocol deviations to my hod and the IREB immediately. I will obtain
                     updated approvals if any significant changes to the protocol are necessary. I
                     will not proceed with data collection without formal ethical approval.
                     <RequiredMark />

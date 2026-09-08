@@ -9,8 +9,8 @@ import type { AuthenticatedAdmin } from "@/lib/admin-auth";
  *   department IDs derived from their faculty scope (via
  *   admin_department_assignments with assignment_type = 'ireb_scope'
  *   if present, or all departments under their assigned faculties)
- * - Supervisor: returns their assigned department IDs from
- *   admin_department_assignments with assignment_type = 'supervisor_primary'
+ * - HOD: returns their assigned department IDs from
+ *   admin_department_assignments with assignment_type = 'hod_primary'
  */
 export async function resolveDepartmentIdsForAdmin(
   admin: AuthenticatedAdmin,
@@ -46,14 +46,14 @@ export async function resolveDepartmentIdsForAdmin(
     return deptIds.length > 0 ? deptIds : null;
   }
 
-  // Supervisor: get their primary department assignment
-  if (admin.role === "supervisor") {
+  // HOD: get their primary department assignment
+  if (admin.role === "hod") {
     const result = await db.query<{ department_id: number }>(
       `
         SELECT ada.department_id
         FROM admin_department_assignments ada
         WHERE ada.admin_user_id = $1
-          AND ada.assignment_type = 'supervisor_primary'
+          AND ada.assignment_type = 'hod_primary'
           AND ada.deleted_at IS NULL
           AND ada.department_id IS NOT NULL
         ORDER BY ada.id DESC

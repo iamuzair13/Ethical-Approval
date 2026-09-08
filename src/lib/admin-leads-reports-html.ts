@@ -9,7 +9,7 @@
 
 import {
   daysBetween,
-  isSupervisorReviewOverdue,
+  isHodReviewOverdue,
   isIrebReviewOverdue,
   OVERDUE_THRESHOLD_DAYS,
 } from "@/lib/lead-overdue";
@@ -49,8 +49,8 @@ export type AdminReportSubmission = {
   applicant_attempt_number?: number;
   /** Total non-draft submissions made by this applicant. */
   applicant_total_submissions?: number;
-  /** Latest supervisor decision timestamp on this submission, if any. */
-  supervisor_decision_at?: string | Date | null;
+  /** Latest hod decision timestamp on this submission, if any. */
+  hod_decision_at?: string | Date | null;
   /** Latest IREB decision timestamp on this submission, if any. */
   ireb_decision_at?: string | Date | null;
   /** Count of files uploaded by the applicant at submission stage. */
@@ -123,12 +123,12 @@ function mapSubmissionStatus(cs: string | undefined): string {
   switch (cs) {
     case "submitted":
       return "Submitted";
-    case "under_supervisor_review":
-      return "Pending at Supervisor";
-    case "supervisor_approved":
-      return "Approved by Supervisor";
-    case "supervisor_rejected":
-      return "Rejected by Supervisor";
+    case "under_hod_review":
+      return "Pending at HOD";
+    case "hod_approved":
+      return "Approved by HOD";
+    case "hod_rejected":
+      return "Rejected by HOD";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":
@@ -140,10 +140,10 @@ function mapSubmissionStatus(cs: string | undefined): string {
   }
 }
 
-function supervisorDecisionShort(cs: string | undefined): string {
+function hodDecisionShort(cs: string | undefined): string {
   if (!cs) return "—";
-  if (cs === "supervisor_rejected") return "Rejected";
-  if (cs === "submitted" || cs === "under_supervisor_review") return "Pending";
+  if (cs === "hod_rejected") return "Rejected";
+  if (cs === "submitted" || cs === "under_hod_review") return "Pending";
   return "Approved";
 }
 
@@ -158,9 +158,9 @@ function irebDecisionShort(cs: string | undefined): string {
 function toOverdueStatusLabel(cs: string | undefined, leadStatus: string): string {
   switch (cs) {
     case "submitted":
-    case "under_supervisor_review":
-      return "Under Review by Supervisor";
-    case "supervisor_approved":
+    case "under_hod_review":
+      return "Under Review by HOD";
+    case "hod_approved":
     case "under_ireb_review":
       return "Under Review by IREB";
     default:
@@ -215,9 +215,9 @@ function statusPieSvg(lead: LeadReportRow, submissionStatus?: string): string {
   const cs = submissionStatus ?? "";
   let fill = "#5750f1";
   let label = lead.currentStatus;
-  if (cs === "under_supervisor_review" || cs === "submitted") {
+  if (cs === "under_hod_review" || cs === "submitted") {
     fill = "#f59e0b";
-    label = "Pending at Supervisor";
+    label = "Pending at HOD";
   } else if (cs === "under_ireb_review") {
     fill = "#0ea5e9";
     label = "Pending at IREB";
@@ -411,13 +411,13 @@ function buildIndividualAnalysisReportHtml(
           : "—";
 
   const intl = yesNoUnknown(formStr(form, "internationalCollaboration"));
-  const coSupType = formStr(form, "coSupervisorType").trim().toLowerCase();
+  const coSupType = formStr(form, "coHodType").trim().toLowerCase();
   const hasExternalCoSupDetails = Boolean(
-    formStr(form, "externalCoSupervisorName").trim() ||
-      formStr(form, "externalCoSupervisorRegNo").trim() ||
-      formStr(form, "externalCoSupervisorEmail").trim(),
+    formStr(form, "externalCoHodName").trim() ||
+      formStr(form, "externalCoHodRegNo").trim() ||
+      formStr(form, "externalCoHodEmail").trim(),
   );
-  const externalCosupervisor =
+  const externalCohod =
     coSupType === "external" || hasExternalCoSupDetails ? "Yes" : "No";
 
   const attemptNumber =
@@ -437,13 +437,13 @@ function buildIndividualAnalysisReportHtml(
         : "No"
       : "—";
 
-  const supervisorDecisionAt = toValidDate(submission?.supervisor_decision_at);
+  const hodDecisionAt = toValidDate(submission?.hod_decision_at);
   const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
-  const timeForSupervisorDecision = formatTimeBetween(validDate, supervisorDecisionAt);
-  // Time at IREB starts when the application leaves the supervisor's queue
-  // (fall back to submission time if the supervisor stage was skipped).
+  const timeForHodDecision = formatTimeBetween(validDate, hodDecisionAt);
+  // Time at IREB starts when the application leaves the hod's queue
+  // (fall back to submission time if the hod stage was skipped).
   const timeForIrebDecision = formatTimeBetween(
-    supervisorDecisionAt ?? validDate,
+    hodDecisionAt ?? validDate,
     irebDecisionAt,
   );
 
@@ -481,7 +481,7 @@ function buildIndividualAnalysisReportHtml(
       statusPieSvg(lead, cs) + `<div style="margin-top:10px;font-size:12px;">${escapeHtml(mapSubmissionStatus(cs) || lead.currentStatus)}</div>`,
     ],
     ["Total Processing Days", escapeHtml(totalProcessingDays)],
-    ["Supervisor's Decision (Approved/Rejected)", escapeHtml(supervisorDecisionShort(cs))],
+    ["HOD's Decision (Approved/Rejected)", escapeHtml(hodDecisionShort(cs))],
     ["IREB Decision (Approved/Rejected)", escapeHtml(irebDecisionShort(cs))],
     ["Approved IREB Number (Ethical Approval Number)", "—"],
   ];
@@ -489,8 +489,8 @@ function buildIndividualAnalysisReportHtml(
   const timelineRows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],
     ["Form Submission Time", escapeHtml(subTime)],
-    ["Supervisor Decision", escapeHtml(supervisorDecisionShort(cs))],
-    ["Time for Supervisor's Decision", escapeHtml(timeForSupervisorDecision)],
+    ["HOD Decision", escapeHtml(hodDecisionShort(cs))],
+    ["Time for HOD's Decision", escapeHtml(timeForHodDecision)],
     ["IREB Decision", escapeHtml(irebDecisionShort(cs))],
     ["Time for IREB's Decision", escapeHtml(timeForIrebDecision)],
     ["Resubmission (Yes/No)", escapeHtml(isResubmission)],
@@ -502,7 +502,7 @@ function buildIndividualAnalysisReportHtml(
     ["Research Purpose", escapeHtml(researchPurpose)],
     ["Funded (Yes/No)", escapeHtml(funded)],
     ["International/Outside Collaboration (Yes/No)", escapeHtml(intl)],
-    ["External Co-Supervisor (Yes/No)", escapeHtml(externalCosupervisor)],
+    ["External Co-HOD (Yes/No)", escapeHtml(externalCohod)],
   ];
 
   const footerRows: [string, string][] = [
@@ -594,36 +594,36 @@ export function buildApplicationStatusReportHtml(
     mapSubmissionStatus(cs) !== "—" ? mapSubmissionStatus(cs) : lead.currentStatus,
   );
 
-  const supervisorDecisionAt = toValidDate(submission?.supervisor_decision_at);
+  const hodDecisionAt = toValidDate(submission?.hod_decision_at);
   const irebDecisionAt = toValidDate(submission?.ireb_decision_at);
-  const supervisorDecisionDate = supervisorDecisionAt ? formatDateOnly(supervisorDecisionAt) : "—";
+  const hodDecisionDate = hodDecisionAt ? formatDateOnly(hodDecisionAt) : "—";
   const irebDecisionDate = irebDecisionAt ? formatDateOnly(irebDecisionAt) : "—";
 
   const overdueStatusLabel = toOverdueStatusLabel(cs, lead.currentStatus);
   const submittedIso = validDate?.toISOString() ?? "";
-  const supervisorDecisionIso = supervisorDecisionAt?.toISOString() ?? null;
+  const hodDecisionIso = hodDecisionAt?.toISOString() ?? null;
 
-  const supervisorOverdueYes = validDate
-    ? isSupervisorReviewOverdue({
+  const hodOverdueYes = validDate
+    ? isHodReviewOverdue({
         currentStatus: overdueStatusLabel,
         submittedAt: submittedIso,
         now: generatedAt,
       })
     : false;
-  const overdueSupervisor = validDate ? (supervisorOverdueYes ? "Yes" : "No") : "—";
-  const overdueSupervisorDays =
-    supervisorOverdueYes && validDate
+  const overdueHod = validDate ? (hodOverdueYes ? "Yes" : "No") : "—";
+  const overdueHodDays =
+    hodOverdueYes && validDate
       ? String(daysBetween(validDate, generatedAt) - OVERDUE_THRESHOLD_DAYS)
       : "—";
 
-  const pendingSupervisorDays =
-    cs === "under_supervisor_review" || cs === "submitted"
+  const pendingHodDays =
+    cs === "under_hod_review" || cs === "submitted"
       ? validDate
         ? String(daysBetween(validDate, generatedAt))
         : "—"
       : "0";
 
-  const irebStageStart = supervisorDecisionAt ?? validDate;
+  const irebStageStart = hodDecisionAt ?? validDate;
   const irebStageEnd =
     irebDecisionAt ?? (cs === "under_ireb_review" ? generatedAt : null);
   const irebElapsedDays =
@@ -636,7 +636,7 @@ export function buildApplicationStatusReportHtml(
   const irebOverdueYes = isIrebReviewOverdue({
     currentStatus: overdueStatusLabel,
     submittedAt: submittedIso,
-    supervisorDecisionAt: supervisorDecisionIso,
+    hodDecisionAt: hodDecisionIso,
     now: generatedAt,
   });
   const overdueIreb = irebElapsedDays == null ? "—" : irebOverdueYes ? "Yes" : "No";
@@ -645,12 +645,12 @@ export function buildApplicationStatusReportHtml(
       ? String(irebElapsedDays - OVERDUE_THRESHOLD_DAYS)
       : "—";
 
-  // The form "reaches IREB" the moment the supervisor approves it (for students)
-  // or immediately after submission (for non-students who skip supervisor).
-  // A supervisor rejection means it never reached IREB.
+  // The form "reaches IREB" the moment the hod approves it (for students)
+  // or immediately after submission (for non-students who skip hod).
+  // A hod rejection means it never reached IREB.
   const isStudent = isStudentApplicantEmail(lead.email);
-  const reachedIrebOnSupervisor = isStudent
-    ? cs === "supervisor_approved" ||
+  const reachedIrebOnHod = isStudent
+    ? cs === "hod_approved" ||
       cs === "under_ireb_review" ||
       cs === "approved" ||
       cs === "rejected"
@@ -658,25 +658,25 @@ export function buildApplicationStatusReportHtml(
       cs === "approved" ||
       cs === "rejected";
   const formReachedIrebDate =
-    reachedIrebOnSupervisor && (supervisorDecisionAt || (!isStudent && validDate))
-      ? formatDateOnly(isStudent ? supervisorDecisionAt! : validDate!)
+    reachedIrebOnHod && (hodDecisionAt || (!isStudent && validDate))
+      ? formatDateOnly(isStudent ? hodDecisionAt! : validDate!)
       : "—";
 
   const rows: [string, string][] = [
     ["Form Submission Date", escapeHtml(subDate)],
     [
-      "Current Status (Approved/Rejected/Pending at Supervisor/Pending at IREB)",
+      "Current Status (Approved/Rejected/Pending at HOD/Pending at IREB)",
       escapeHtml(currentStatusPdf),
     ],
     ["Form Number", escapeHtml(submission?.application_id ?? lead.applicationId)],
     [
-      "Reached at Supervisor's Dashboard",
+      "Reached at HOD's Dashboard",
       escapeHtml(cs && cs !== "submitted" ? subDate : validDate ? subDate : "—"),
     ],
-    ["Request Pending at Supervisor (Days)", escapeHtml(pendingSupervisorDays)],
-    ["Rejected/Approved by Supervisor (Date)", escapeHtml(supervisorDecisionDate)],
-    ["Form Overdue by Supervisor (Yes/No)", escapeHtml(overdueSupervisor)],
-    ["Overdue Days", escapeHtml(overdueSupervisorDays)],
+    ["Request Pending at HOD (Days)", escapeHtml(pendingHodDays)],
+    ["Rejected/Approved by HOD (Date)", escapeHtml(hodDecisionDate)],
+    ["Form Overdue by HOD (Yes/No)", escapeHtml(overdueHod)],
+    ["Overdue Days", escapeHtml(overdueHodDays)],
     ["Approved Form Reached at IREB's Dashboard", escapeHtml(formReachedIrebDate)],
     ["Request Pending at IREB (Days)", escapeHtml(pendingIrebDays)],
     ["Form Overdue by IREB (Yes/No)", escapeHtml(overdueIreb)],

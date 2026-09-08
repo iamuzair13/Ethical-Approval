@@ -3,7 +3,7 @@ import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import {
   applyIrebScope,
-  assignSupervisorFaculty,
+  assignHodFaculty,
   createAdminUser,
   getAdminUserByEmail,
   findOrCreateUserForFaculty,
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
   // Role — multi-select OR. au.role is an admin_role enum; "none" means no
   // admin user. We handle "none" separately with an OR branch.
   const validRoles = roleValues.filter(
-    (r) => r === "administrator" || r === "supervisor" || r === "ireb",
+    (r) => r === "administrator" || r === "hod" || r === "ireb",
   );
   const hasNoneRole = roleValues.includes("none");
   if (validRoles.length > 0 && !hasNoneRole) {
@@ -337,10 +337,10 @@ type CreateFacultyBody = {
   role?: string;
   password?: string;
   status?: string;
-  // Supervisor scope
-  supervisorFacultyId?: number | null;
-  supervisorDepartmentId?: number | null;
-  supervisorProgramId?: number | null;
+  // HOD scope
+  hodFacultyId?: number | null;
+  hodDepartmentId?: number | null;
+  hodProgramId?: number | null;
   // IREB scope
   irebFacultyIds?: number[];
 };
@@ -370,10 +370,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid role." }, { status: 400 });
   }
 
-  if (role === "supervisor") {
-    if (typeof body.supervisorFacultyId !== "number" || typeof body.supervisorDepartmentId !== "number") {
+  if (role === "hod") {
+    if (typeof body.hodFacultyId !== "number" || typeof body.hodDepartmentId !== "number") {
       return NextResponse.json(
-        { ok: false, error: "Supervisor requires faculty and department selection." },
+        { ok: false, error: "HOD requires faculty and department selection." },
         { status: 400 },
       );
     }
@@ -415,7 +415,7 @@ export async function POST(request: NextRequest) {
         name: body.name.trim(),
         email,
         passwordHash,
-        role: role as "administrator" | "supervisor" | "ireb" | null,
+        role: role as "administrator" | "hod" | "ireb" | null,
         sapId,
         facultyId: body.facultyId ?? null,
         createdBy: actor.adminId,
@@ -482,12 +482,12 @@ export async function POST(request: NextRequest) {
     await linkFacultyMemberToUser(facultyMemberId, userId);
 
     // 4. Assign role scope
-    if (role === "supervisor" && body.supervisorFacultyId && body.supervisorDepartmentId) {
-      await assignSupervisorFaculty({
+    if (role === "hod" && body.hodFacultyId && body.hodDepartmentId) {
+      await assignHodFaculty({
         adminUserId: userId,
-        facultyId: body.supervisorFacultyId,
-        departmentId: body.supervisorDepartmentId,
-        programId: typeof body.supervisorProgramId === "number" ? body.supervisorProgramId : undefined,
+        facultyId: body.hodFacultyId,
+        departmentId: body.hodDepartmentId,
+        programId: typeof body.hodProgramId === "number" ? body.hodProgramId : undefined,
         assignedBy: actor.adminId,
       });
     }
@@ -512,13 +512,13 @@ export async function POST(request: NextRequest) {
     // 6. Audit log
     void logActivityFromRequest(request, {
       actionCode: "admin.faculty.create",
-      targetType: role === "supervisor" ? "supervisor" : role === "ireb" ? "ireb_member" : "administrator",
+      targetType: role === "hod" ? "hod" : role === "ireb" ? "ireb_member" : "administrator",
       targetId: userId,
       targetLabel: body.name.trim(),
       effective: {
         adminId: userId,
         name: body.name.trim(),
-        role: (role ?? "faculty") as "administrator" | "supervisor" | "ireb" | "faculty",
+        role: (role ?? "faculty") as "administrator" | "hod" | "ireb" | "faculty",
       },
     });
 

@@ -3,7 +3,7 @@ import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import {
   applyIrebScope,
-  assignSupervisorFaculty,
+  assignHodFaculty,
   clearAdminScopeAssignments,
   findOrCreateUserForFaculty,
   getAdminUserByEmailExcludingId,
@@ -47,9 +47,9 @@ type DepartmentNameRow = { name: string };
 type ProgramNameRow = { name: string };
 
 type ScopeRow = {
-  supervisor_faculty_id: number | null;
-  supervisor_department_id: number | null;
-  supervisor_program_id: number | null;
+  hod_faculty_id: number | null;
+  hod_department_id: number | null;
+  hod_program_id: number | null;
   ireb_faculty_ids: number[];
 };
 
@@ -105,9 +105,9 @@ export async function GET(
         ? db.query<ScopeRow>(
             `
               SELECT
-                (SELECT faculty_id FROM admin_faculty_assignments WHERE admin_user_id = $1 AND assignment_type = 'supervisor_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS supervisor_faculty_id,
-                (SELECT department_id FROM admin_department_assignments WHERE admin_user_id = $1 AND assignment_type = 'supervisor_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS supervisor_department_id,
-                (SELECT program_id FROM admin_program_assignments WHERE admin_user_id = $1 AND assignment_type = 'supervisor_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS supervisor_program_id,
+                (SELECT faculty_id FROM admin_faculty_assignments WHERE admin_user_id = $1 AND assignment_type = 'hod_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS hod_faculty_id,
+                (SELECT department_id FROM admin_department_assignments WHERE admin_user_id = $1 AND assignment_type = 'hod_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS hod_department_id,
+                (SELECT program_id FROM admin_program_assignments WHERE admin_user_id = $1 AND assignment_type = 'hod_primary' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1) AS hod_program_id,
                 COALESCE(
                   (SELECT array_agg(faculty_id) FROM admin_faculty_assignments WHERE admin_user_id = $1 AND assignment_type = 'ireb_scope' AND deleted_at IS NULL),
                   ARRAY[]::bigint[]
@@ -156,9 +156,9 @@ export async function GET(
         : null,
       scope: scope
         ? {
-            supervisorFacultyId: scope.supervisor_faculty_id,
-            supervisorDepartmentId: scope.supervisor_department_id,
-            supervisorProgramId: scope.supervisor_program_id,
+            hodFacultyId: scope.hod_faculty_id,
+            hodDepartmentId: scope.hod_department_id,
+            hodProgramId: scope.hod_program_id,
             irebFacultyIds: scope.ireb_faculty_ids ?? [],
           }
         : null,
@@ -185,10 +185,10 @@ type UpdateFacultyBody = {
   role?: string | null;
   password?: string;
   status?: string;
-  // Supervisor scope
-  supervisorFacultyId?: number | null;
-  supervisorDepartmentId?: number | null;
-  supervisorProgramId?: number | null;
+  // HOD scope
+  hodFacultyId?: number | null;
+  hodDepartmentId?: number | null;
+  hodProgramId?: number | null;
   // IREB scope
   irebFacultyIds?: number[];
 };
@@ -337,7 +337,7 @@ export async function PATCH(
         id: effectiveUserId,
         name: body.name?.trim() ?? current.name,
         email: body.email?.trim() ?? current.email,
-        role: roleValue as "administrator" | "supervisor" | "ireb" | null,
+        role: roleValue as "administrator" | "hod" | "ireb" | null,
         sapId: newSapId ?? current.sap_id,
         passwordHash,
       });
@@ -359,12 +359,12 @@ export async function PATCH(
         await clearAdminScopeAssignments(effectiveUserId);
       }
 
-      if (newRole === "supervisor" && body.supervisorFacultyId && body.supervisorDepartmentId) {
-        await assignSupervisorFaculty({
+      if (newRole === "hod" && body.hodFacultyId && body.hodDepartmentId) {
+        await assignHodFaculty({
           adminUserId: effectiveUserId,
-          facultyId: body.supervisorFacultyId,
-          departmentId: body.supervisorDepartmentId,
-          programId: typeof body.supervisorProgramId === "number" ? body.supervisorProgramId : undefined,
+          facultyId: body.hodFacultyId,
+          departmentId: body.hodDepartmentId,
+          programId: typeof body.hodProgramId === "number" ? body.hodProgramId : undefined,
           assignedBy: actor.adminId,
         });
       }
@@ -384,13 +384,13 @@ export async function PATCH(
     if (effectiveUserId) {
       void logActivityFromRequest(request, {
         actionCode: body.password ? "admin.user.password_reset" : "admin.faculty.update",
-        targetType: current.user_role === "supervisor" ? "supervisor" : current.user_role === "ireb" ? "ireb_member" : "administrator",
+        targetType: current.user_role === "hod" ? "hod" : current.user_role === "ireb" ? "ireb_member" : "administrator",
         targetId: effectiveUserId,
         targetLabel: body.name?.trim() ?? current.name,
         effective: {
           adminId: effectiveUserId,
           name: body.name?.trim() ?? current.name,
-          role: (current.user_role ?? "faculty") as "administrator" | "supervisor" | "ireb" | "faculty",
+          role: (current.user_role ?? "faculty") as "administrator" | "hod" | "ireb" | "faculty",
         },
       });
     }
@@ -470,13 +470,13 @@ export async function DELETE(
     if (current.user_id) {
       void logActivityFromRequest(request, {
         actionCode: "admin.user.delete",
-        targetType: current.user_role === "supervisor" ? "supervisor" : current.user_role === "ireb" ? "ireb_member" : "administrator",
+        targetType: current.user_role === "hod" ? "hod" : current.user_role === "ireb" ? "ireb_member" : "administrator",
         targetId: current.user_id,
         targetLabel: current.name,
         effective: {
           adminId: current.user_id,
           name: current.name,
-          role: (current.user_role ?? "faculty") as "administrator" | "supervisor" | "ireb" | "faculty",
+          role: (current.user_role ?? "faculty") as "administrator" | "hod" | "ireb" | "faculty",
         },
       });
     }

@@ -7,7 +7,7 @@ import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
 import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
 import { isFormAllowedForApplicant } from "@/lib/form-eligibility";
-import { validateSupervisorForSubmission, type VerifiedSupervisor } from "@/lib/supervisor-selection";
+import { validateHodForSubmission, type VerifiedHod } from "@/lib/hod-selection";
 import { db } from "@/lib/db";
 
 type ProfileSubmissionRow = {
@@ -17,9 +17,9 @@ type ProfileSubmissionRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -29,8 +29,8 @@ type ProfileSubmissionRow = {
   ethics_json: unknown;
   latest_feedback_comment: string | null;
   faculty: string;
-  supervisor_name_snapshot: string | null;
-  supervisor_department_snapshot: string | null;
+  hod_name_snapshot: string | null;
+  hod_department_snapshot: string | null;
 };
 
 export async function GET() {
@@ -53,8 +53,8 @@ export async function GET() {
         src.objectives,
         sep.ethics_json,
         sas.faculty,
-        s.supervisor_name_snapshot,
-        s.supervisor_department_snapshot,
+        s.hod_name_snapshot,
+        s.hod_department_snapshot,
         afd.latest_feedback_comment
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
@@ -75,33 +75,33 @@ export async function GET() {
     [sapId],
   );
 
-  // Supervisor name: prefer the per-application snapshot (authoritative for
+  // HOD name: prefer the per-application snapshot (authoritative for
   // new submissions). Fall back to faculty-scoped lookup for legacy
-  // submissions that don't have a supervisor_user_id yet.
+  // submissions that don't have a hod_user_id yet.
   const facultyValues = Array.from(
     new Set(
       result.rows
-        .filter((r) => !r.supervisor_name_snapshot)
+        .filter((r) => !r.hod_name_snapshot)
         .map((r) => r.faculty)
         .filter(Boolean),
     ),
   );
-  const legacySupervisorMap = new Map<string, string | null>();
+  const legacyHodMap = new Map<string, string | null>();
   for (const facultyValue of facultyValues) {
     const facultyIds = await resolveFacultyIdsFromSnapshotValue(facultyValue);
     if (facultyIds.length === 0) {
-      legacySupervisorMap.set(facultyValue, null);
+      legacyHodMap.set(facultyValue, null);
       continue;
     }
-    const supervisorResult = await db.query<{ name: string }>(
+    const hodResult = await db.query<{ name: string }>(
       `
         SELECT au.name
         FROM admin_users au
         INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
-        WHERE au.role = 'supervisor'
+        WHERE au.role = 'hod'
           AND au.status = 'active'
           AND au.deleted_at IS NULL
-          AND afa.assignment_type = 'supervisor_primary'
+          AND afa.assignment_type = 'hod_primary'
           AND afa.deleted_at IS NULL
           AND afa.faculty_id = ANY($1::bigint[])
         ORDER BY au.updated_at DESC
@@ -109,14 +109,14 @@ export async function GET() {
       `,
       [facultyIds],
     );
-    legacySupervisorMap.set(facultyValue, supervisorResult.rows[0]?.name ?? null);
+    legacyHodMap.set(facultyValue, hodResult.rows[0]?.name ?? null);
   }
 
   const submissions = result.rows.map((row) => ({
     ...row,
     latest_feedback_comment: stripAdminAuditNote(row.latest_feedback_comment),
-    supervisor_name: row.supervisor_name_snapshot ?? legacySupervisorMap.get(row.faculty) ?? null,
-    supervisor_department: row.supervisor_department_snapshot ?? null,
+    hod_name: row.hod_name_snapshot ?? legacyHodMap.get(row.faculty) ?? null,
+    hod_department: row.hod_department_snapshot ?? null,
   }));
 
   return NextResponse.json({ ok: true, submissions });
@@ -168,7 +168,7 @@ function resolveResubmissionStatus(
   isStudent: boolean,
   type: "thesis" | "publication" | undefined,
 ): ProfileSubmissionRow["current_status"] {
-  // If IREB rejected a student submission, supervisor approval remains valid.
+  // If IREB rejected a student submission, hod approval remains valid.
   if (previousStatus === "rejected" && isStudent) {
     return "under_ireb_review";
   }
@@ -179,19 +179,19 @@ function resolveResubmissionStatus(
     return "under_ireb_review";
   }
 
-  // If supervisor rejected (or anything else), restart from the beginning.
-  // Student thesis → supervisor stage; everything else → IREB directly.
+  // If hod rejected (or anything else), restart from the beginning.
+  // Student thesis → hod stage; everything else → IREB directly.
   return resolveInitialStatus(isStudent, type);
 }
 
 /**
- * Determines whether a submission requires a supervisor selection.
+ * Determines whether a submission requires a hod selection.
  *
  * Only student thesis applications (Form 1 and Form 3) go through the
- * supervisor approval stage. Student publications and all faculty
+ * hod approval stage. Student publications and all faculty
  * submissions go directly to IREB.
  */
-function requiresSupervisor(
+function requiresHod(
   isStudent: boolean,
   type: "thesis" | "publication" | undefined,
 ): boolean {
@@ -203,33 +203,33 @@ function requiresSupervisor(
  * the applicant role and application type.
  *
  * Routing rules (the single centralized point that determines the workflow):
- *   - Student THESIS       → 'submitted'              (supervisor stage first)
- *   - Student PUBLICATION  → 'under_ireb_review'      (IREB directly, no supervisor)
- *   - Faculty (any type)   → 'under_ireb_review'      (IREB directly, no supervisor)
+ *   - Student THESIS       → 'submitted'              (hod stage first)
+ *   - Student PUBLICATION  → 'under_ireb_review'      (IREB directly, no hod)
+ *   - Faculty (any type)   → 'under_ireb_review'      (IREB directly, no hod)
  */
 function resolveInitialStatus(
   isStudent: boolean,
   type: "thesis" | "publication" | undefined,
 ): ProfileSubmissionRow["current_status"] {
-  if (requiresSupervisor(isStudent, type)) {
+  if (requiresHod(isStudent, type)) {
     return "submitted";
   }
   return "under_ireb_review";
 }
 
 /**
- * Persists the supervisor relationship for a submission.
+ * Persists the hod relationship for a submission.
  *
- * Stores the authoritative supervisor_user_id FK plus snapshot columns on
+ * Stores the authoritative hod_user_id FK plus snapshot columns on
  * the submissions row, and inserts a submission_participants row with
  * source='internal_faculty' for the historical record.
  *
  * Must be called inside an open transaction.
  */
-async function persistSupervisorRelationship(
+async function persistHodRelationship(
   client: { query: typeof db.query },
   submissionId: number,
-  supervisor: {
+  hod: {
     userId: string;
     facultyMemberId: string;
     sapId: string;
@@ -244,30 +244,30 @@ async function persistSupervisorRelationship(
     `
       UPDATE submissions
       SET
-        supervisor_user_id = $2,
-        supervisor_name_snapshot = $3,
-        supervisor_sap_id_snapshot = $4,
-        supervisor_email_snapshot = $5,
-        supervisor_department_snapshot = $6,
-        supervisor_faculty_snapshot = $7
+        hod_user_id = $2,
+        hod_name_snapshot = $3,
+        hod_sap_id_snapshot = $4,
+        hod_email_snapshot = $5,
+        hod_department_snapshot = $6,
+        hod_faculty_snapshot = $7
       WHERE id = $1
     `,
     [
       submissionId,
-      supervisor.userId,
-      supervisor.name,
-      supervisor.sapId,
-      supervisor.email,
-      supervisor.department,
-      supervisor.faculty ?? null,
+      hod.userId,
+      hod.name,
+      hod.sapId,
+      hod.email,
+      hod.department,
+      hod.faculty ?? null,
     ],
   );
 
-  // Replace any existing supervisor participant row for this submission.
+  // Replace any existing hod participant row for this submission.
   await client.query(
     `
       DELETE FROM submission_participants
-      WHERE submission_id = $1 AND participant_role = 'supervisor'
+      WHERE submission_id = $1 AND participant_role = 'hod'
     `,
     [submissionId],
   );
@@ -276,7 +276,7 @@ async function persistSupervisorRelationship(
   // falling back to 'internal_erp' when faculty_member_id is missing (uses
   // sap_id only). The submission_participants_source_check constraint
   // requires faculty_member_id IS NOT NULL for 'internal_faculty' source.
-  const hasFacultyMemberId = Boolean(supervisor.facultyMemberId?.trim());
+  const hasFacultyMemberId = Boolean(hod.facultyMemberId?.trim());
   if (hasFacultyMemberId) {
     await client.query(
       `
@@ -291,16 +291,16 @@ async function persistSupervisorRelationship(
           internal_faculty,
           internal_department
         )
-        VALUES ($1, 'supervisor', 'internal_faculty', $2, $3, $4, $5, $6, $7)
+        VALUES ($1, 'hod', 'internal_faculty', $2, $3, $4, $5, $6, $7)
       `,
       [
         submissionId,
-        supervisor.facultyMemberId,
-        supervisor.sapId,
-        supervisor.name,
-        supervisor.email,
-        supervisor.faculty ?? null,
-        supervisor.department,
+        hod.facultyMemberId,
+        hod.sapId,
+        hod.name,
+        hod.email,
+        hod.faculty ?? null,
+        hod.department,
       ],
     );
   } else {
@@ -317,15 +317,15 @@ async function persistSupervisorRelationship(
           internal_faculty,
           internal_department
         )
-        VALUES ($1, 'supervisor', 'internal_erp', $2, $3, $4, $5, $6, $7)
+        VALUES ($1, 'hod', 'internal_erp', $2, $3, $4, $5, $6, $7)
       `,
       [
         submissionId,
-        supervisor.sapId,
-        supervisor.name,
-        supervisor.email,
-        supervisor.faculty ?? null,
-        supervisor.department,
+        hod.sapId,
+        hod.name,
+        hod.email,
+        hod.faculty ?? null,
+        hod.department,
       ],
     );
   }
@@ -412,23 +412,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate supervisor selection for student thesis applications.
-  // The supervisor is verified server-side from supervisorUserId alone;
+  // Validate hod selection for student thesis applications.
+  // The hod is verified server-side from hodUserId alone;
   // client-submitted name/email/sapId are never trusted as authoritative.
-  const needsSupervisor = requiresSupervisor(isStudent, type);
-  let verifiedSupervisor: VerifiedSupervisor | null = null;
+  const needsHod = requiresHod(isStudent, type);
+  let verifiedHod: VerifiedHod | null = null;
 
-  if (needsSupervisor) {
-    const supervisorValidation = await validateSupervisorForSubmission(
+  if (needsHod) {
+    const hodValidation = await validateHodForSubmission(
       body.ethics as Record<string, unknown> | undefined,
     );
-    if (!supervisorValidation.ok) {
+    if (!hodValidation.ok) {
       return NextResponse.json(
-        { ok: false, error: supervisorValidation.error },
+        { ok: false, error: hodValidation.error },
         { status: 400 },
       );
     }
-    verifiedSupervisor = supervisorValidation.supervisor;
+    verifiedHod = hodValidation.hod;
   }
 
   const client = await db.connect();
@@ -530,10 +530,10 @@ export async function POST(request: NextRequest) {
         [revisionSubmissionId, JSON.stringify(mergedEthics)],
       );
 
-      // Re-validate and persist the supervisor relationship on resubmission.
-      // The student may have changed the supervisor during revision.
-      if (needsSupervisor && verifiedSupervisor) {
-        await persistSupervisorRelationship(client, revisionSubmissionId, verifiedSupervisor);
+      // Re-validate and persist the hod relationship on resubmission.
+      // The student may have changed the hod during revision.
+      if (needsHod && verifiedHod) {
+        await persistHodRelationship(client, revisionSubmissionId, verifiedHod);
       }
 
       const revisionNumber =
@@ -664,9 +664,9 @@ export async function POST(request: NextRequest) {
         [draftSubmissionId, JSON.stringify(mergedEthics)],
       );
 
-      // Persist the supervisor relationship for the promoted submission.
-      if (needsSupervisor && verifiedSupervisor) {
-        await persistSupervisorRelationship(client, draftSubmissionId, verifiedSupervisor);
+      // Persist the hod relationship for the promoted submission.
+      if (needsHod && verifiedHod) {
+        await persistHodRelationship(client, draftSubmissionId, verifiedHod);
       }
 
       await client.query("COMMIT");
@@ -774,9 +774,9 @@ export async function POST(request: NextRequest) {
         [latestDraft.id, JSON.stringify(mergedEthics)],
       );
 
-      // Persist the supervisor relationship for the promoted submission.
-      if (needsSupervisor && verifiedSupervisor) {
-        await persistSupervisorRelationship(client, latestDraft.id, verifiedSupervisor);
+      // Persist the hod relationship for the promoted submission.
+      if (needsHod && verifiedHod) {
+        await persistHodRelationship(client, latestDraft.id, verifiedHod);
       }
 
       await client.query("COMMIT");
@@ -857,9 +857,9 @@ export async function POST(request: NextRequest) {
       [submission.id, JSON.stringify(mergedEthics)],
     );
 
-    // Persist the supervisor relationship for the new submission.
-    if (needsSupervisor && verifiedSupervisor) {
-      await persistSupervisorRelationship(client, submission.id, verifiedSupervisor);
+    // Persist the hod relationship for the new submission.
+    if (needsHod && verifiedHod) {
+      await persistHodRelationship(client, submission.id, verifiedHod);
     }
 
     await client.query("COMMIT");

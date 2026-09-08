@@ -70,9 +70,9 @@ export type { Lead, LeadStatus } from "./types";
 
 const STATUS_ORDER: LeadStatus[] = [
   "Submitted",
-  "Under Review by Supervisor",
-  "Approved by Supervisor",
-  "Rejected by Supervisor",
+  "Under Review by HOD",
+  "Approved by HOD",
+  "Rejected by HOD",
   "Under Review by IREB",
   "Approved by IREB",
   "Rejected by IREB",
@@ -109,10 +109,10 @@ const LEADS: Lead[] = [
     department: "Computer Science",
     project: "12 Jan 2026 - 18 Jan 2026",
     duration: "6 days",
-    currentStatus: "Rejected by Supervisor",
+    currentStatus: "Rejected by HOD",
     stage: "completed",
     submittedAt: mockDaysAgoIso(6),
-    supervisorDecisionAt: mockDaysAgoIso(4),
+    hodDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-17.png",
   },
   {
@@ -129,7 +129,7 @@ const LEADS: Lead[] = [
     currentStatus: "Under Review by IREB",
     stage: "ireb",
     submittedAt: mockDaysAgoIso(10),
-    supervisorDecisionAt: mockDaysAgoIso(4),
+    hodDecisionAt: mockDaysAgoIso(4),
     avatar: "/images/user/user-15.png",
   },
   {
@@ -146,7 +146,7 @@ const LEADS: Lead[] = [
     currentStatus: "Approved by IREB",
     stage: "completed",
     submittedAt: mockDaysAgoIso(14),
-    supervisorDecisionAt: mockDaysAgoIso(10),
+    hodDecisionAt: mockDaysAgoIso(10),
     avatar: "/images/user/user-19.png",
   },
   {
@@ -160,10 +160,10 @@ const LEADS: Lead[] = [
     department: "Pharmacy",
     project: "01 Apr 2026 - 04 Apr 2026",
     duration: "4 days",
-    currentStatus: "Under Review by Supervisor",
-    stage: "supervisor",
+    currentStatus: "Under Review by HOD",
+    stage: "hod",
     submittedAt: mockDaysAgoIso(4),
-    supervisorDecisionAt: null,
+    hodDecisionAt: null,
     avatar: "/images/user/user-14.png",
   },
   {
@@ -180,18 +180,18 @@ const LEADS: Lead[] = [
     currentStatus: "Rejected by IREB",
     stage: "completed",
     submittedAt: mockDaysAgoIso(12),
-    supervisorDecisionAt: mockDaysAgoIso(8),
+    hodDecisionAt: mockDaysAgoIso(8),
     avatar: "/images/user/user-21.png",
   },
 ];
 
 type PropsType = {
   className?: string;
-  supervisorOnly?: boolean;
+  hodOnly?: boolean;
   ethicalOnly?: boolean;
   title?: string;
   leads?: Lead[];
-  currentRole?: "administrator" | "supervisor" | "ireb" | null;
+  currentRole?: "administrator" | "hod" | "ireb" | null;
 };
 
 function parseAttachmentSlotMap(raw: unknown): Record<string, SlotFileInfo | null> {
@@ -276,7 +276,7 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
 
 export function LeadsReport({
   className,
-  supervisorOnly = false,
+  hodOnly = false,
   ethicalOnly = false,
   title = "Leads Report",
   leads: providedLeads,
@@ -292,9 +292,9 @@ export function LeadsReport({
   const [decisionComment, setDecisionComment] = useState("");
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [adminOptions, setAdminOptions] = useState<{
-    supervisorOption: AdminOption | null;
+    hodOption: AdminOption | null;
     irebOptions: AdminOption[];
-  }>({ supervisorOption: null, irebOptions: [] });
+  }>({ hodOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [facultyFilter, setFacultyFilter] = useState<string[]>([]);
@@ -334,10 +334,10 @@ export function LeadsReport({
   const sourceLeads = providedLeads ?? LEADS;
   const scopeFilteredLeads = useMemo(() => {
     if (providedLeads) return sourceLeads;
-    if (supervisorOnly) return sourceLeads.filter(({ stage }) => stage === "supervisor");
+    if (hodOnly) return sourceLeads.filter(({ stage }) => stage === "hod");
     if (ethicalOnly) return sourceLeads.filter(({ stage }) => stage === "ireb");
     return sourceLeads;
-  }, [providedLeads, supervisorOnly, ethicalOnly, sourceLeads]);
+  }, [providedLeads, hodOnly, ethicalOnly, sourceLeads]);
 
   const leads = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -380,7 +380,7 @@ export function LeadsReport({
     applicationTypeFilter,
   ]);
 
-  // Live counts (entity + count) â€” derived from the scope (e.g. supervisor-only,
+  // Live counts (entity + count) â€” derived from the scope (e.g. hod-only,
   // ireb-only, or all). Always shows the maximum possible count regardless of
   // which other filter chips are active.
   const facultyCounts = useMemo(
@@ -459,14 +459,14 @@ export function LeadsReport({
   // Reset filters when the source data scope changes.
   useEffect(() => {
     clearAllFilters();
-  }, [supervisorOnly, ethicalOnly, providedLeads, clearAllFilters]);
+  }, [hodOnly, ethicalOnly, providedLeads, clearAllFilters]);
 
   const overdueLeads = useMemo(
     () =>
       leads.filter((lead) =>
-        isLeadOverdueForRole(lead, currentRole, { supervisorOnly, ethicalOnly }),
+        isLeadOverdueForRole(lead, currentRole, { hodOnly, ethicalOnly }),
       ),
-    [leads, currentRole, supervisorOnly, ethicalOnly],
+    [leads, currentRole, hodOnly, ethicalOnly],
   );
 
   useEffect(() => {
@@ -475,7 +475,7 @@ export function LeadsReport({
 
   const approvedLeads = useMemo(
     () =>
-      currentRole === "supervisor"
+      currentRole === "hod"
         ? leads.filter((lead) => lead.stage === "ireb" || lead.stage === "completed")
         : leads.filter((lead) => lead.currentStatus === "Approved by IREB"),
     [leads, currentRole],
@@ -483,18 +483,18 @@ export function LeadsReport({
 
   const pendingLeads = useMemo(
     () =>
-      currentRole === "supervisor"
-        ? leads.filter((lead) => lead.stage === "supervisor")
+      currentRole === "hod"
+        ? leads.filter((lead) => lead.stage === "hod")
         : currentRole === "ireb"
           ? leads.filter((lead) => lead.stage === "ireb")
-          : leads.filter((lead) => lead.stage === "supervisor" || lead.stage === "ireb"),
+          : leads.filter((lead) => lead.stage === "hod" || lead.stage === "ireb"),
     [leads, currentRole],
   );
 
   const rejectedLeads = useMemo(
     () =>
-      currentRole === "supervisor"
-        ? leads.filter((lead) => lead.currentStatus === "Rejected by Supervisor" || lead.currentStatus === "Rejected by IREB")
+      currentRole === "hod"
+        ? leads.filter((lead) => lead.currentStatus === "Rejected by HOD" || lead.currentStatus === "Rejected by IREB")
         : leads.filter((lead) => lead.currentStatus === "Rejected by IREB"),
     [leads, currentRole],
   );
@@ -541,7 +541,7 @@ export function LeadsReport({
         facultyFilter,
         departmentFilter,
         currentStatusFilter,
-        supervisorOnly,
+        hodOnly,
         ethicalOnly,
         scopeDatasetSize: scopeFilteredLeads.length,
       });
@@ -554,7 +554,7 @@ export function LeadsReport({
   }, [
     activeTab,
     currentStatusFilter,
-    supervisorOnly,
+    hodOnly,
     departmentFilter,
     ethicalOnly,
     exportColState,
@@ -570,7 +570,7 @@ export function LeadsReport({
   }, [
     activeTab,
     searchQuery,
-    supervisorOnly,
+    hodOnly,
     ethicalOnly,
     providedLeads,
     facultyFilter,
@@ -600,16 +600,16 @@ export function LeadsReport({
         });
         const payload = (await response.json()) as {
           ok: boolean;
-          supervisorOption?: AdminOption | null;
+          hodOption?: AdminOption | null;
           irebOptions?: AdminOption[];
         };
         if (!response.ok || !payload.ok || cancelled) return;
         setAdminOptions({
-          supervisorOption: payload.supervisorOption ?? null,
+          hodOption: payload.hodOption ?? null,
           irebOptions: payload.irebOptions ?? [],
         });
-        if (decisionLead.stage === "supervisor" && payload.supervisorOption?.id) {
-          setSelectedOnBehalfOf(payload.supervisorOption.id);
+        if (decisionLead.stage === "hod" && payload.hodOption?.id) {
+          setSelectedOnBehalfOf(payload.hodOption.id);
         }
         if (decisionLead.stage === "ireb" && payload.irebOptions?.[0]?.id) {
           setSelectedOnBehalfOf(payload.irebOptions[0].id);
@@ -629,7 +629,7 @@ export function LeadsReport({
     setDecisionComment("");
     setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
-    setAdminOptions({ supervisorOption: null, irebOptions: [] });
+    setAdminOptions({ hodOption: null, irebOptions: [] });
   };
 
   const openDecisionModal = (lead: Lead, action: DecisionAction) => {
@@ -638,7 +638,7 @@ export function LeadsReport({
     setDecisionComment("");
     setSelectedRejectionReasons([]);
     setSelectedOnBehalfOf("");
-    setAdminOptions({ supervisorOption: null, irebOptions: [] });
+    setAdminOptions({ hodOption: null, irebOptions: [] });
     setDecisionLead(lead);
   };
 
@@ -1103,7 +1103,7 @@ export function LeadsReport({
                       </a>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={lead.currentStatus} supervisorName={lead.supervisorName} />
+                      <StatusBadge status={lead.currentStatus} hodName={lead.hodName} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <ApplicationTypeBadge type={lead.applicationType} />

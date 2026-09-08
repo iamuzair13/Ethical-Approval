@@ -1,10 +1,10 @@
-import type { SupervisorApprovalIrebInput, MailPayload } from "../types";
+import type { HodApprovalIrebInput, MailPayload } from "../types";
 import { escapeHtml } from "../html-escape";
 
-export function buildSupervisorApprovalIrebEmail(
-  input: SupervisorApprovalIrebInput,
+export function buildHodApprovalIrebEmail(
+  input: HodApprovalIrebInput,
 ): MailPayload {
-  const subject = `IERB Ethical Approval — Supervisor Approved: ${input.applicationId}`;
+  const subject = `IERB Ethical Approval — HOD Approved: ${input.applicationId}`;
   const loginLine = input.publicAppUrl
     ? `Please log in to the <a href="${escapeHtml(input.publicAppUrl)}">Ethical Review Process website</a> to review this application.`
     : "Please log in to the Ethical Review Process website to review this application.";
@@ -14,12 +14,12 @@ export function buildSupervisorApprovalIrebEmail(
 <html>
 <body style="font-family: Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 1.5; color: #111;">
 <p>Dear IREB Member,</p>
-<p>A supervisor has approved an Ethical Approval application and it is now ready for IREB review.</p>
+<p>A hod has approved an Ethical Approval application and it is now ready for IREB review.</p>
 <ul>
   <li><strong>Application ID:</strong> ${escapeHtml(input.applicationId)}</li>
   <li><strong>Applicant:</strong> ${escapeHtml(input.applicantName)}</li>
   <li><strong>Research Title:</strong> ${escapeHtml(input.title || "N/A")}</li>
-  <li><strong>Supervisor:</strong> ${escapeHtml(input.supervisorName)}</li>
+  <li><strong>HOD:</strong> ${escapeHtml(input.hodName)}</li>
 </ul>
 <p>${loginLine}</p>
 <p>Regards,<br>
@@ -31,12 +31,12 @@ The University of Lahore</p>
   const text = [
     "Dear IREB Member,",
     "",
-    "A supervisor has approved an Ethical Approval application and it is now ready for IREB review.",
+    "A hod has approved an Ethical Approval application and it is now ready for IREB review.",
     "",
     `Application ID: ${input.applicationId}`,
     `Applicant: ${input.applicantName}`,
     `Research Title: ${input.title || "N/A"}`,
-    `Supervisor: ${input.supervisorName}`,
+    `HOD: ${input.hodName}`,
     "",
     input.publicAppUrl
       ? `Please log in to the Ethical Review Process website (${input.publicAppUrl}) to review this application.`

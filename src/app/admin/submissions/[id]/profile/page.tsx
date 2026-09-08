@@ -30,25 +30,25 @@ function formatValue(value: unknown): string {
 function formatSubmissionStatus(
   status:
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected",
-  supervisorName?: string | null,
+  hodName?: string | null,
 ): string {
   switch (status) {
     case "submitted":
-    case "under_supervisor_review":
-      return supervisorName
-        ? `Under Review by ${supervisorName}`
-        : "Supervisor not Assigned";
-    case "supervisor_approved":
+    case "under_hod_review":
+      return hodName
+        ? `Under Review by ${hodName}`
+        : "HOD not Assigned";
+    case "hod_approved":
     case "under_ireb_review":
       return "Under Review by IREB";
-    case "supervisor_rejected":
-      return "Rejected by Supervisor";
+    case "hod_rejected":
+      return "Rejected by HOD";
     case "approved":
       return "Approved by IREB";
     case "rejected":
@@ -163,11 +163,11 @@ export default async function AdminSubmissionProfilePage({
   const researchTitle =
     submission.title?.trim() || formStr(formData, "thesisTitle") || "—";
 
-  // Use the supervisor name snapshot stored at submission time (authoritative,
+  // Use the hod name snapshot stored at submission time (authoritative,
   // per-application routing) instead of the old faculty-scoped lookup.
-  const supervisorName = submission.supervisor_name_snapshot ?? null;
+  const hodName = submission.hod_name_snapshot ?? null;
 
-  const statusLabel = formatSubmissionStatus(submission.current_status, supervisorName);
+  const statusLabel = formatSubmissionStatus(submission.current_status, hodName);
   const documents = listSubmissionDocuments(submissionId, ethics);
 
   return (

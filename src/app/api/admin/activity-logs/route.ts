@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         submission_id: e.submissionId ?? 0,
         application_id: e.targetLabel ?? e.targetId ?? "",
         applicant_name: e.metadata?.applicantName ?? "",
-        stage: (e.metadata?.stage as string) === "ireb" ? "ireb" : "supervisor",
+        stage: (e.metadata?.stage as string) === "ireb" ? "ireb" : "hod",
         decision: e.actionCode.includes("approve") ? "approved" : "rejected",
         comment: e.description,
         decided_by_name: e.actorName,

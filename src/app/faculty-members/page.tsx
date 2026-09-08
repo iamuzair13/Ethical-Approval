@@ -42,7 +42,7 @@ import {
 
 // ─── Types ───
 
-type AdminRole = "administrator" | "supervisor" | "ireb";
+type AdminRole = "administrator" | "hod" | "ireb";
 
 type FacultyMember = {
   id: string;
@@ -135,9 +135,9 @@ type FacultyUser = {
 };
 
 type FacultyScope = {
-  supervisorFacultyId: number | null;
-  supervisorDepartmentId: number | null;
-  supervisorProgramId: number | null;
+  hodFacultyId: number | null;
+  hodDepartmentId: number | null;
+  hodProgramId: number | null;
   irebFacultyIds: number[];
 } | null;
 
@@ -221,8 +221,8 @@ function RoleBadge({ role }: { role: string | null }) {
   const label =
     role === "administrator"
       ? "Super Admin"
-      : role === "supervisor"
-        ? "Supervisor"
+      : role === "hod"
+        ? "HOD"
         : role === "ireb"
           ? "IREB"
           : role;
@@ -231,7 +231,7 @@ function RoleBadge({ role }: { role: string | null }) {
       className={cn(
         "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         role === "administrator" && "bg-primary/10 text-primary",
-        role === "supervisor" && "bg-[#3C50E0]/10 text-[#3C50E0] dark:text-blue-400",
+        role === "hod" && "bg-[#3C50E0]/10 text-[#3C50E0] dark:text-blue-400",
         role === "ireb" && "bg-[#10B981]/[0.12] text-green",
       )}
     >
@@ -432,7 +432,7 @@ function FacultyFormDialog({
               />
               {!form.departmentId && (
                 <p className="mt-1 text-xs text-dark-5 dark:text-dark-6">
-                  Department is required. It determines the supervisor's scope
+                  Department is required. It determines the hod's scope
                   for student application selection.
                 </p>
               )}
@@ -456,7 +456,7 @@ function FacultyFormDialog({
               >
                 <option value="">No admin role (faculty only)</option>
                 <option value="administrator">Administrator</option>
-                <option value="supervisor">Supervisor</option>
+                <option value="hod">HOD</option>
                 <option value="ireb">IREB</option>
               </select>
             </label>
@@ -996,17 +996,17 @@ export default function FacultyMembersPage() {
     setSubmittingForm(true);
     setError(null);
 
-    // Derive supervisor faculty/department from the selected department.
-    // The department's faculty_id is used as the supervisor's faculty scope.
+    // Derive hod faculty/department from the selected department.
+    // The department's faculty_id is used as the hod's faculty scope.
     const selectedDept = orgData?.departments.find(
       (d) => d.id === formData.departmentId,
     );
-    const supervisorFacultyId =
-      formData.role === "supervisor" && selectedDept?.faculty_id
+    const hodFacultyId =
+      formData.role === "hod" && selectedDept?.faculty_id
         ? Number(selectedDept.faculty_id)
         : null;
-    const supervisorDepartmentId =
-      formData.role === "supervisor" && formData.departmentId
+    const hodDepartmentId =
+      formData.role === "hod" && formData.departmentId
         ? Number(formData.departmentId)
         : null;
 
@@ -1022,8 +1022,8 @@ export default function FacultyMembersPage() {
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
-          supervisorFacultyId,
-          supervisorDepartmentId,
+          hodFacultyId,
+          hodDepartmentId,
         };
 
         const res = await fetch("/api/admin/faculty-members", {
@@ -1048,8 +1048,8 @@ export default function FacultyMembersPage() {
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
-          supervisorFacultyId,
-          supervisorDepartmentId,
+          hodFacultyId,
+          hodDepartmentId,
         };
 
         const res = await fetch(`/api/admin/faculty-members/${editingId}`, {

@@ -7,8 +7,8 @@ import {
 } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import {
-  scheduleSupervisorRejectionEmail,
-  scheduleSupervisorApprovalToIrebEmail,
+  scheduleHodRejectionEmail,
+  scheduleHodApprovalToIrebEmail,
   scheduleIrebApprovalEmail,
   scheduleIrebRejectionEmail,
 } from "@/lib/email";
@@ -29,9 +29,9 @@ type DecisionBody = {
   onBehalfOfAdminId?: string;
 };
 
-function getStageFromStatus(status: string): "supervisor" | "ireb" | "completed" {
-  if (status === "submitted" || status === "under_supervisor_review") return "supervisor";
-  if (status === "supervisor_approved" || status === "under_ireb_review") return "ireb";
+function getStageFromStatus(status: string): "hod" | "ireb" | "completed" {
+  if (status === "submitted" || status === "under_hod_review") return "hod";
+  if (status === "hod_approved" || status === "under_ireb_review") return "ireb";
   return "completed";
 }
 
@@ -117,20 +117,20 @@ export async function POST(
   let effectiveAdmin = effectiveAdminUser;
   let auditNote: string | null = recorderContext.auditNote;
 
-  // Per-application supervisor authorization.
-  // When a submission has a supervisor_user_id, only that specific supervisor
-  // can approve/reject it at the supervisor stage. Administrators must act on
-  // behalf of that specific supervisor, not just any supervisor.
-  const assignedSupervisorId = submission.supervisor_user_id;
+  // Per-application hod authorization.
+  // When a submission has a hod_user_id, only that specific hod
+  // can approve/reject it at the hod stage. Administrators must act on
+  // behalf of that specific hod, not just any hod.
+  const assignedHodId = submission.hod_user_id;
 
   if (recorderContext.isViewAs) {
     if (actor.role !== stage) {
       return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
     }
-    // View-as: the impersonated supervisor must be the assigned one.
-    if (stage === "supervisor" && assignedSupervisorId && actor.adminId !== assignedSupervisorId) {
+    // View-as: the impersonated hod must be the assigned one.
+    if (stage === "hod" && assignedHodId && actor.adminId !== assignedHodId) {
       return NextResponse.json(
-        { ok: false, error: "Only the assigned supervisor can review this application." },
+        { ok: false, error: "Only the assigned hod can review this application." },
         { status: 403 },
       );
     }
@@ -150,22 +150,22 @@ export async function POST(
       );
     }
     // Role check: the selected admin must match the stage role, UNLESS they
-    // are the assigned supervisor (supervisor_user_id) — the assignment is
+    // are the assigned hod (hod_user_id) — the assignment is
     // authoritative even if the admin's role has since changed (e.g. promoted
-    // from supervisor to administrator).
-    const isAssignedSupervisor =
-      stage === "supervisor" && assignedSupervisorId && selectedAdmin.id === assignedSupervisorId;
-    if (!isAssignedSupervisor) {
-      if ((stage === "supervisor" && selectedAdmin.role !== "supervisor") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
+    // from hod to administrator).
+    const isAssignedHod =
+      stage === "hod" && assignedHodId && selectedAdmin.id === assignedHodId;
+    if (!isAssignedHod) {
+      if ((stage === "hod" && selectedAdmin.role !== "hod") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
         return NextResponse.json(
           { ok: false, error: "Selected admin cannot act for this stage." },
           { status: 400 },
         );
       }
-      // Admin must act on behalf of the assigned supervisor, not just any supervisor.
-      if (stage === "supervisor" && assignedSupervisorId && selectedAdmin.id !== assignedSupervisorId) {
+      // Admin must act on behalf of the assigned hod, not just any hod.
+      if (stage === "hod" && assignedHodId && selectedAdmin.id !== assignedHodId) {
         return NextResponse.json(
-          { ok: false, error: "Only the assigned supervisor can review this application." },
+          { ok: false, error: "Only the assigned hod can review this application." },
           { status: 403 },
         );
       }
@@ -174,10 +174,10 @@ export async function POST(
     auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;
   } else if (actor.role !== stage) {
     return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
-  } else if (stage === "supervisor" && assignedSupervisorId && actor.adminId !== assignedSupervisorId) {
-    // Direct supervisor action: must be the assigned supervisor.
+  } else if (stage === "hod" && assignedHodId && actor.adminId !== assignedHodId) {
+    // Direct hod action: must be the assigned hod.
     return NextResponse.json(
-      { ok: false, error: "Only the assigned supervisor can review this application." },
+      { ok: false, error: "Only the assigned hod can review this application." },
       { status: 403 },
     );
   }
@@ -190,10 +190,10 @@ export async function POST(
     : effectiveAdmin.name;
 
   const nextStatus =
-    stage === "supervisor"
+    stage === "hod"
       ? body.decision === "approved"
         ? "under_ireb_review"
-        : "supervisor_rejected"
+        : "hod_rejected"
       : body.decision === "approved"
         ? "approved"
         : "rejected";
@@ -248,28 +248,28 @@ export async function POST(
 
     await client.query("COMMIT");
 
-    if (body.decision === "rejected" && stage === "supervisor") {
-      scheduleSupervisorRejectionEmail({
+    if (body.decision === "rejected" && stage === "hod") {
+      scheduleHodRejectionEmail({
         to: submission.applicant_email,
         applicantName: submission.applicant_name,
         facultyName: submission.applicant_faculty,
-        supervisorName: effectiveAdmin.name,
+        hodName: effectiveAdmin.name,
         comment: finalComment,
       });
-    } else if (body.decision === "approved" && stage === "supervisor") {
-      // Notify IREB members that the supervisor has approved and the
+    } else if (body.decision === "approved" && stage === "hod") {
+      // Notify IREB members that the hod has approved and the
       // application is now ready for IREB review.
       const facultyIds = await resolveFacultyIdsFromSnapshotValue(
         submission.applicant_faculty,
       );
       const irebEmails = await getIrebEmailsForFacultyIds(facultyIds);
       if (irebEmails.length > 0) {
-        scheduleSupervisorApprovalToIrebEmail({
+        scheduleHodApprovalToIrebEmail({
           irebEmails,
           applicantName: submission.applicant_name,
           title: submission.title,
           applicationId: submission.application_id,
-          supervisorName: effectiveAdmin.name,
+          hodName: effectiveAdmin.name,
         });
       }
     } else if (body.decision === "rejected" && stage === "ireb") {

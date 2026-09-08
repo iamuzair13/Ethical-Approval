@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     // Build role options with labels
     const roleLabels: Record<string, string> = {
       administrator: "Super Admin",
-      supervisor: "Supervisor",
+      hod: "HOD",
       ireb: "IREB",
     };
     const roles = rolesRes.rows.map((r) => ({

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 type DashboardApiProbeProps = {
-  tag: "home" | "supervisor" | "ireb";
+  tag: "home" | "hod" | "ireb";
 };
 
 export default function DashboardApiProbe({ tag }: DashboardApiProbeProps) {

@@ -3,7 +3,7 @@
  *
  * After a successful authentication, the user is redirected to a role-based
  * destination:
- *   - Admin users (administrator / supervisor / ireb) → "/"  (dashboard)
+ *   - Admin users (administrator / hod / ireb) → "/"  (dashboard)
  *   - Non-admin users (students, faculty without admin role) → "/profile"
  *
  * The role is read from the authenticated NextAuth session, NOT from stale
@@ -19,7 +19,7 @@
  */
 
 /**
- * Landing page for admin users (Super admin, IREB, Supervisor).
+ * Landing page for admin users (Super admin, IREB, HOD).
  */
 export const ADMIN_LANDING_PAGE = "/";
 
@@ -31,7 +31,7 @@ export const NON_ADMIN_LANDING_PAGE = "/profile";
 /**
  * Admin roles that redirect to the dashboard after login.
  */
-const ADMIN_ROLES = new Set(["administrator", "supervisor", "ireb"]);
+const ADMIN_ROLES = new Set(["administrator", "hod", "ireb"]);
 
 /**
  * Client-side post-login redirect resolver.
@@ -41,7 +41,7 @@ const ADMIN_ROLES = new Set(["administrator", "supervisor", "ireb"]);
  * read the authenticated user's `adminRole` and returns the correct
  * destination:
  *
- *   - adminRole is "administrator" | "supervisor" | "ireb" → "/"
+ *   - adminRole is "administrator" | "hod" | "ireb" → "/"
  *   - authenticated but no admin role → "/profile"
  *   - session cannot be loaded → `fallbackUrl`
  *

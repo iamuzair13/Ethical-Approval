@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
     // Single unified SSO provider for all user types:
     //   - Students: verified via SAP student service
     //   - Faculty: verified via local DB or SAP employee service
-    //   - Admins (supervisor/IREB/administrator): looked up in admin_users
+    //   - Admins (hod/IREB/administrator): looked up in admin_users
     //
     // All non-student emails go through the same flow:
     //   1. Look up admin_users by email (unified Users table)
@@ -108,7 +108,7 @@ export const authOptions: NextAuthOptions = {
               facultyDepartment?: string;
               facultyDesignation?: string | null;
               adminId?: string;
-              adminRole?: "administrator" | "supervisor" | "ireb";
+              adminRole?: "administrator" | "hod" | "ireb";
               adminStatus?: "active" | "inactive";
               adminScopeMode?: "all" | "restricted";
               adminFacultyIds?: number[];

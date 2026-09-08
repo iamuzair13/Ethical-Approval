@@ -6,12 +6,12 @@ export async function getDevicesUsedData(
 
   const data = [
     {
-      name: "Approved by Supervisor",
+      name: "Approved by HOD",
       percentage: 0.65,
       amount: 1625,
     },
     {
-      name: "Rejected by Supervisor",
+      name: "Rejected by HOD",
       percentage: 0.1,
       amount: 250,
     },

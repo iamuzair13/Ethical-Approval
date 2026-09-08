@@ -20,7 +20,7 @@ type SubmissionStageRow = {
   current_status: string;
   faculty: string;
   application_id: string;
-  supervisor_user_id: string | null;
+  hod_user_id: string | null;
 };
 
 export async function POST(
@@ -31,7 +31,7 @@ export async function POST(
   if (!admin) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
-  if (!canAccessSubmissionStage(admin, "supervisor")) {
+  if (!canAccessSubmissionStage(admin, "hod")) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
@@ -64,7 +64,7 @@ export async function POST(
 
   const submissionResult = await db.query<SubmissionStageRow>(
     `
-      SELECT s.current_status, sas.faculty, s.application_id, s.supervisor_user_id
+      SELECT s.current_status, sas.faculty, s.application_id, s.hod_user_id
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       WHERE s.id = $1
@@ -80,27 +80,27 @@ export async function POST(
   if (!(await canAccessFacultySnapshot(admin, submission.faculty))) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
-  // Per-application supervisor authorization: only the assigned supervisor
+  // Per-application hod authorization: only the assigned hod
   // can approve/reject this specific submission. Administrators are still
-  // allowed (they act on behalf of the assigned supervisor).
+  // allowed (they act on behalf of the assigned hod).
   if (
-    admin.role === "supervisor" &&
-    submission.supervisor_user_id &&
-    admin.adminId !== submission.supervisor_user_id
+    admin.role === "hod" &&
+    submission.hod_user_id &&
+    admin.adminId !== submission.hod_user_id
   ) {
     return NextResponse.json(
-      { ok: false, error: "Only the assigned supervisor can review this application." },
+      { ok: false, error: "Only the assigned hod can review this application." },
       { status: 403 },
     );
   }
-  if (submission.current_status !== "under_supervisor_review") {
+  if (submission.current_status !== "under_hod_review") {
     return NextResponse.json(
-      { ok: false, error: "Submission is not in supervisor review stage." },
+      { ok: false, error: "Submission is not in hod review stage." },
       { status: 409 },
     );
   }
 
-  const nextStatus = body.decision === "approved" ? "supervisor_approved" : "supervisor_rejected";
+  const nextStatus = body.decision === "approved" ? "hod_approved" : "hod_rejected";
   const commentForDb =
     body.decision === "rejected"
       ? formatRejectionDecisionComment(
@@ -137,7 +137,7 @@ export async function POST(
           comment,
           decided_by_sap_id,
           decided_by_name
-        ) VALUES ($1, 'supervisor', $2, $3, $4, $5)
+        ) VALUES ($1, 'hod', $2, $3, $4, $5)
       `,
       [
         submissionId,
@@ -159,7 +159,7 @@ export async function POST(
       `,
       [
         submissionId,
-        nextStatus === "supervisor_approved" ? "under_ireb_review" : "supervisor_rejected",
+        nextStatus === "hod_approved" ? "under_ireb_review" : "hod_rejected",
         decidedBySapId,
       ],
     );
@@ -177,7 +177,7 @@ export async function POST(
     applicationId: submission.application_id,
     applicantFaculty: submission.faculty,
     decision: body.decision,
-    stage: "supervisor",
+    stage: "hod",
   });
 
   return NextResponse.json({ ok: true });

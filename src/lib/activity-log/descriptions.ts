@@ -2,7 +2,7 @@ import type { ActivityActionCode, ActivityActorSnapshot, AdminRole, Impersonatio
 
 function roleLabel(role: AdminRole | string): string {
   if (role === "administrator") return "Administrator";
-  if (role === "supervisor") return "Supervisor";
+  if (role === "hod") return "HOD";
   if (role === "ireb") return "IREB Member";
   return String(role);
 }
@@ -18,7 +18,7 @@ function actionLabel(actionCode: string): string {
     "admin.faculty.update": "Update Faculty",
     "admin.faculty.delete": "Delete Faculty",
     "admin.faculty.sync": "Sync Faculty from SAP",
-    "admin.faculty.assign_supervisor": "Assign Supervisor",
+    "admin.faculty.assign_hod": "Assign HOD",
     "admin.faculty.assign_ireb": "Assign IREB Member",
     "admin.faculty.remove_ireb": "Remove IREB Assignment",
     "admin.department.create": "Create Department",

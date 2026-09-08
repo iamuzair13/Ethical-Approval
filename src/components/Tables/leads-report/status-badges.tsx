@@ -20,17 +20,17 @@ export function ApplicationIdBadge({ id }: { id: string }) {
   );
 }
 
-export function StatusBadge({ status, supervisorName }: { status: LeadStatus; supervisorName?: string | null }) {
+export function StatusBadge({ status, hodName }: { status: LeadStatus; hodName?: string | null }) {
   const isApproved =
-    status === "Approved by Supervisor" || status === "Approved by IREB";
+    status === "Approved by HOD" || status === "Approved by IREB";
   const isRejected =
-    status === "Rejected by Supervisor" || status === "Rejected by IREB";
-  const isSupervisorReview = status === "Under Review by Supervisor";
+    status === "Rejected by HOD" || status === "Rejected by IREB";
+  const isHodReview = status === "Under Review by HOD";
 
-  const displayText = isSupervisorReview
-    ? supervisorName
-      ? `Under Review by ${supervisorName}`
-      : "Supervisor not Assigned"
+  const displayText = isHodReview
+    ? hodName
+      ? `Under Review by ${hodName}`
+      : "HOD not Assigned"
     : status;
 
   if (isApproved) {

@@ -35,11 +35,11 @@ function fmtPct(n: number | null): string {
   return `${(Math.round(n * 10) / 10).toFixed(1)}%`;
 }
 
-function collectSupervisorResponseDays(rows: AggregateSubmissionInput[]): number[] {
+function collectHodResponseDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.supervisor_decision_at) continue;
-    out.push(daysBetween(r.submitted_at, r.supervisor_decision_at));
+    if (!r.hod_decision_at) continue;
+    out.push(daysBetween(r.submitted_at, r.hod_decision_at));
   }
   return out;
 }
@@ -47,8 +47,8 @@ function collectSupervisorResponseDays(rows: AggregateSubmissionInput[]): number
 function collectIrebPhaseDays(rows: AggregateSubmissionInput[]): number[] {
   const out: number[] = [];
   for (const r of rows) {
-    if (!r.supervisor_decision_at || !r.ireb_decision_at) continue;
-    out.push(daysBetween(r.supervisor_decision_at, r.ireb_decision_at));
+    if (!r.hod_decision_at || !r.ireb_decision_at) continue;
+    out.push(daysBetween(r.hod_decision_at, r.ireb_decision_at));
   }
   return out;
 }
@@ -59,9 +59,9 @@ function collectTerminalCycleDays(rows: AggregateSubmissionInput[]): number[] {
     const terminal =
       r.current_status === "approved" ||
       r.current_status === "rejected" ||
-      r.current_status === "supervisor_rejected";
+      r.current_status === "hod_rejected";
     if (!terminal) continue;
-    const end = r.ireb_decision_at ?? r.supervisor_decision_at;
+    const end = r.ireb_decision_at ?? r.hod_decision_at;
     if (!end) continue;
     out.push(daysBetween(r.submitted_at, end));
   }
@@ -143,8 +143,8 @@ function classifyProgramTier(program: string | null): ProgramTier {
   return "other";
 }
 
-function passedSupervisorStage(cs: AggregateSubmissionInput["current_status"]): boolean {
-  return ["supervisor_approved", "under_ireb_review", "approved", "rejected"].includes(cs);
+function passedHodStage(cs: AggregateSubmissionInput["current_status"]): boolean {
+  return ["hod_approved", "under_ireb_review", "approved", "rejected"].includes(cs);
 }
 
 function countByKey(rows: AggregateSubmissionInput[], keyFn: (r: AggregateSubmissionInput) => string): Map<string, number> {
@@ -193,14 +193,14 @@ function highestFacultyRequestsLine(rows: AggregateSubmissionInput[]): string {
   return `${ex.label} (${ex.count} requests; ${fmtPct(ex.pct)})`;
 }
 
-function highestStudentSupervisorApprovedByFaculty(studentRows: AggregateSubmissionInput[]): string {
-  const supervisorOk = studentRows.filter((r) => passedSupervisorStage(r.current_status));
-  if (supervisorOk.length === 0) return "—";
-  const byFac = countByKey(supervisorOk, (r) => r.faculty);
-  const ex = extremalShare(byFac, supervisorOk.length, "max");
+function highestStudentHodApprovedByFaculty(studentRows: AggregateSubmissionInput[]): string {
+  const hodOk = studentRows.filter((r) => passedHodStage(r.current_status));
+  if (hodOk.length === 0) return "—";
+  const byFac = countByKey(hodOk, (r) => r.faculty);
+  const ex = extremalShare(byFac, hodOk.length, "max");
   if (!ex) return "—";
-  const total = supervisorOk.length;
-  return `${ex.label} (${ex.count} of ${total} past supervisor; ${fmtPct((ex.count / total) * 100)})`;
+  const total = hodOk.length;
+  return `${ex.label} (${ex.count} of ${total} past hod; ${fmtPct((ex.count / total) * 100)})`;
 }
 
 function buildMetricsTableRows(studentRows: AggregateSubmissionInput[]): [string, string][] {
@@ -219,8 +219,8 @@ function buildMetricsTableRows(studentRows: AggregateSubmissionInput[]): [string
       ["Approval rate", "—"],
       ["Rejection rate", "—"],
       ["Average attempts", "—"],
-      ["Highest students requests approved by supervisor (faculty)", "—"],
-      ["Supervisor(s) average response days", "—"],
+      ["Highest students requests approved by hod (faculty)", "—"],
+      ["HOD(s) average response days", "—"],
       ["IREB average response days", "—"],
       ["Average processing days (overall)", "—"],
       ["Common SDGs (top 5)", "—"],
@@ -244,11 +244,11 @@ function buildMetricsTableRows(studentRows: AggregateSubmissionInput[]): [string
 
   const approved = studentRows.filter((r) => r.current_status === "approved").length;
   const rejected = studentRows.filter(
-    (r) => r.current_status === "rejected" || r.current_status === "supervisor_rejected",
+    (r) => r.current_status === "rejected" || r.current_status === "hod_rejected",
   ).length;
   const attemptMean = mean(studentRows.map((r) => r.applicant_attempt_number));
 
-  const supervisorDays = collectSupervisorResponseDays(studentRows);
+  const hodDays = collectHodResponseDays(studentRows);
   const irebDays = collectIrebPhaseDays(studentRows);
   const cycleDays = collectTerminalCycleDays(studentRows);
 
@@ -268,8 +268,8 @@ function buildMetricsTableRows(studentRows: AggregateSubmissionInput[]): [string
       "Average attempts",
       attemptMean != null ? (Math.round(attemptMean * 100) / 100).toFixed(2) : "—",
     ],
-    ["Highest students requests approved by supervisor (faculty)", highestStudentSupervisorApprovedByFaculty(studentRows)],
-    ["Supervisor(s) average response days", supervisorDays.length ? `${fmtDays(mean(supervisorDays))} days` : "—"],
+    ["Highest students requests approved by hod (faculty)", highestStudentHodApprovedByFaculty(studentRows)],
+    ["HOD(s) average response days", hodDays.length ? `${fmtDays(mean(hodDays))} days` : "—"],
     ["IREB average response days", irebDays.length ? `${fmtDays(mean(irebDays))} days` : "—"],
     ["Average processing days (overall)", cycleDays.length ? `${fmtDays(mean(cycleDays))} days` : "—"],
     ["Common SDGs (top 5)", topSdgsSummary(studentRows, 5)],
@@ -294,7 +294,7 @@ export function buildOverallStudentReportHtml(
     <code>@student.uol.edu.pk</code> (thesis and publication), same period and scope as the catalog.
     Program tier (undergraduate / MPhil / PhD) is inferred from the applicant program snapshot; rows that do not match any tier still count in the total <em>n</em> used as the denominator for each percentage, so the three program percentages may sum to less than 100%.
     Medical vs other faculties uses submission domain. &ldquo;Total students&rdquo; is the count of such submissions (requests), not distinct people unless each person submits once.
-    Supervisor / IREB / overall timing definitions match the faculty publication report.
+    HOD / IREB / overall timing definitions match the faculty publication report.
   </p>`;
   return wrapDocument(`${ctx.reportTitle} — ${ctx.periodLabel}`, inner);
 }

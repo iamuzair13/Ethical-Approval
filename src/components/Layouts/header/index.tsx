@@ -15,8 +15,8 @@ export function Header() {
   const pathname = usePathname();
 
   const dashboardLabel = (() => {
-    if (pathname.toLowerCase().includes("supervisorpanel")) {
-      return "Supervisor Approval Analysis";
+    if (pathname.toLowerCase().includes("hodpanel")) {
+      return "HOD Approval Analysis";
     }
 
     if (pathname.toLowerCase().includes("ethical")) {

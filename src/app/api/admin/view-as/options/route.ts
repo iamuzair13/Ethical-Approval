@@ -6,7 +6,7 @@ import {
 import { getToken } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth-secret";
 import {
-  listActiveSupervisorsForReportPicker,
+  listActiveHodsForReportPicker,
   listActiveIrebForViewAs,
 } from "@/lib/admin-repository";
 
@@ -22,16 +22,16 @@ export async function GET(request: NextRequest) {
   }
 
   const role = request.nextUrl.searchParams.get("role");
-  if (role !== "supervisor" && role !== "ireb") {
+  if (role !== "hod" && role !== "ireb") {
     return NextResponse.json(
-      { ok: false, error: "Invalid role. Use supervisor or ireb." },
+      { ok: false, error: "Invalid role. Use hod or ireb." },
       { status: 400 },
     );
   }
 
   const users =
-    role === "supervisor"
-      ? await listActiveSupervisorsForReportPicker()
+    role === "hod"
+      ? await listActiveHodsForReportPicker()
       : await listActiveIrebForViewAs();
 
   return NextResponse.json({ ok: true, users, role });

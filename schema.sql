@@ -8,23 +8,23 @@ CREATE TYPE applicant_role AS ENUM ('student', 'faculty');
 CREATE TYPE submission_status AS ENUM (
   'draft',
   'submitted',
-  'under_supervisor_review',
-  'supervisor_approved',
-  'supervisor_rejected',
+  'under_hod_review',
+  'hod_approved',
+  'hod_rejected',
   'under_ireb_review',
   'approved',
   'rejected'
 );
 
-CREATE TYPE review_stage AS ENUM ('supervisor', 'ireb');
+CREATE TYPE review_stage AS ENUM ('hod', 'ireb');
 CREATE TYPE review_decision AS ENUM ('approved', 'rejected');
 
-CREATE TYPE upload_stage AS ENUM ('submission', 'supervisor_review', 'ireb_review');
-CREATE TYPE uploader_role AS ENUM ('student', 'faculty', 'supervisor', 'ireb');
+CREATE TYPE upload_stage AS ENUM ('submission', 'hod_review', 'ireb_review');
+CREATE TYPE uploader_role AS ENUM ('student', 'faculty', 'hod', 'ireb');
 
 CREATE TYPE participant_role AS ENUM (
-  'supervisor',
-  'co_supervisor',
+  'hod',
+  'co_hod',
   'co_author',
   'external_researcher'
 );
@@ -52,8 +52,22 @@ CREATE TABLE submissions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   last_updated_at TIMESTAMPTZ,
-  last_updated_by_sap_id VARCHAR(50)
+  last_updated_by_sap_id VARCHAR(50),
+
+  -- Per-application HOD routing (the selected HOD is the only one who can
+  -- approve this specific application) + snapshot of their profile at
+  -- submission time (added in migration 021, renamed in migration 032).
+  hod_user_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+  hod_name_snapshot VARCHAR(255),
+  hod_sap_id_snapshot VARCHAR(50),
+  hod_email_snapshot VARCHAR(255),
+  hod_department_snapshot VARCHAR(255),
+  hod_faculty_snapshot VARCHAR(255)
 );
+
+CREATE INDEX IF NOT EXISTS idx_submissions_hod_user_id
+  ON submissions(hod_user_id)
+  WHERE hod_user_id IS NOT NULL;
 
 -- ERP snapshot for historical accuracy
 CREATE TABLE submission_applicant_snapshot (
@@ -109,7 +123,7 @@ CREATE TABLE submission_sdgs (
   PRIMARY KEY (submission_id, sdg_id)
 );
 
--- Supervisors / Co-supervisors / Co-authors / External researchers
+-- HODs / Co-HODs / Co-authors / External researchers
 CREATE TABLE submission_participants (
   id BIGSERIAL PRIMARY KEY,
   submission_id BIGINT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
@@ -124,7 +138,7 @@ CREATE TABLE submission_participants (
   internal_faculty VARCHAR(255),
   internal_department VARCHAR(255),
 
-  -- Internal faculty member (canonical, future supervisor/co-supervisor linkage)
+  -- Internal faculty member (canonical, future HOD/co-HOD linkage)
   faculty_member_id UUID REFERENCES faculty_members(id) ON DELETE SET NULL,
 
   -- External person fields
@@ -179,7 +193,7 @@ CREATE TABLE submission_attachments (
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Master faculty list for admin/supervisor/IREB assignment scopes
+-- Master faculty list for admin/HOD/IREB assignment scopes
 CREATE TABLE IF NOT EXISTS faculties (
   id BIGSERIAL PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -200,13 +214,13 @@ CREATE TABLE IF NOT EXISTS departments (
   UNIQUE (faculty_id, name)
 );
 
--- Department-level admin scope (supervisor primary / ireb scope)
+-- Department-level admin scope (hod primary / ireb scope)
 CREATE TABLE IF NOT EXISTS admin_department_assignments (
   id BIGSERIAL PRIMARY KEY,
   admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
   faculty_id BIGINT NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
   department_id BIGINT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
-  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('supervisor_primary', 'ireb_scope')),
+  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('hod_primary', 'ireb_scope')),
   assigned_by UUID REFERENCES admin_users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
@@ -223,14 +237,14 @@ CREATE TABLE IF NOT EXISTS programs (
   UNIQUE (department_id, name)
 );
 
--- Program-level admin scope (supervisor primary)
+-- Program-level admin scope (hod primary)
 CREATE TABLE IF NOT EXISTS admin_program_assignments (
   id BIGSERIAL PRIMARY KEY,
   admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
   faculty_id BIGINT NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
   department_id BIGINT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
   program_id BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('supervisor_primary', 'ireb_scope')),
+  assignment_type VARCHAR(30) NOT NULL CHECK (assignment_type IN ('hod_primary', 'ireb_scope')),
   assigned_by UUID REFERENCES admin_users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ

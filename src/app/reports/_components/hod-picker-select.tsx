@@ -2,16 +2,16 @@
 
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-type SupervisorOption = { id: string; name: string; email: string };
+type HodOption = { id: string; name: string; email: string };
 
-export function SupervisorPickerSelect({
-  supervisors,
+export function HodPickerSelect({
+  hods,
   value,
   onChange,
   disabled,
   loading,
 }: {
-  supervisors: SupervisorOption[];
+  hods: HodOption[];
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
@@ -19,12 +19,12 @@ export function SupervisorPickerSelect({
 }) {
   return (
     <SearchableSelect
-      label="Supervisor"
-      placeholder={loading ? "Loading…" : "Select a supervisor…"}
-      searchPlaceholder="Search supervisors…"
+      label="HOD"
+      placeholder={loading ? "Loading…" : "Select a hod…"}
+      searchPlaceholder="Search hods…"
       disabled={disabled || loading}
       loading={loading}
-      options={supervisors.map((d) => ({
+      options={hods.map((d) => ({
         value: d.id,
         label: d.name,
         hint: d.email,

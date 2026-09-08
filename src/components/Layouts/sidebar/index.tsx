@@ -29,7 +29,7 @@ export function Sidebar() {
       if (item.url === "/") return true;
 
       // My Applications is visible to every authenticated faculty member,
-      // regardless of admin role (supervisor, IREB, super admin, or none).
+      // regardless of admin role (hod, IREB, super admin, or none).
       if (item.url === "/my-applications") {
         return hasFacultyProfile;
       }

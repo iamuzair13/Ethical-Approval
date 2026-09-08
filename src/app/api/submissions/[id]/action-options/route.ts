@@ -8,7 +8,7 @@ import { getSubmissionDetailById } from "@/lib/submission-details";
 type AdminOption = {
   id: string;
   name: string;
-  role: "supervisor" | "ireb";
+  role: "hod" | "ireb";
 };
 
 export async function GET(
@@ -39,13 +39,13 @@ export async function GET(
 
   const facultyIds = await resolveFacultyIdsFromSnapshotValue(submission.applicant_faculty);
 
-  let supervisorOption: AdminOption | null = null;
+  let hodOption: AdminOption | null = null;
 
-  // Prefer the assigned supervisor (per-application routing) when available.
-  // The supervisor_user_id is authoritative regardless of the admin's current
-  // role — they may have been a supervisor at submission time and later
+  // Prefer the assigned hod (per-application routing) when available.
+  // The hod_user_id is authoritative regardless of the admin's current
+  // role — they may have been a hod at submission time and later
   // promoted to administrator, but they are still the assigned reviewer.
-  if (submission.supervisor_user_id) {
+  if (submission.hod_user_id) {
     const assignedResult = await db.query<{ id: string; name: string; role: string }>(
       `
         SELECT id, name, role
@@ -55,28 +55,28 @@ export async function GET(
           AND deleted_at IS NULL
         LIMIT 1
       `,
-      [submission.supervisor_user_id],
+      [submission.hod_user_id],
     );
     const row = assignedResult.rows[0];
     if (row) {
-      supervisorOption = {
+      hodOption = {
         id: row.id,
         name: row.name,
-        role: row.role as "supervisor" | "ireb",
+        role: row.role as "hod" | "ireb",
       };
     }
   }
 
-  if (!supervisorOption && facultyIds.length > 0) {
-    const supervisorResult = await db.query<AdminOption>(
+  if (!hodOption && facultyIds.length > 0) {
+    const hodResult = await db.query<AdminOption>(
       `
         SELECT au.id, au.name, au.role
         FROM admin_users au
         INNER JOIN admin_faculty_assignments afa ON afa.admin_user_id = au.id
-        WHERE au.role = 'supervisor'
+        WHERE au.role = 'hod'
           AND au.status = 'active'
           AND au.deleted_at IS NULL
-          AND afa.assignment_type = 'supervisor_primary'
+          AND afa.assignment_type = 'hod_primary'
           AND afa.deleted_at IS NULL
           AND afa.faculty_id = ANY($1::bigint[])
         ORDER BY au.updated_at DESC
@@ -84,15 +84,15 @@ export async function GET(
       `,
       [facultyIds],
     );
-    supervisorOption = supervisorResult.rows[0] ?? null;
+    hodOption = hodResult.rows[0] ?? null;
   }
 
-  if (!supervisorOption) {
-    const fallbackSupervisorResult = await db.query<AdminOption>(
+  if (!hodOption) {
+    const fallbackHodResult = await db.query<AdminOption>(
       `
         SELECT au.id, au.name, au.role
         FROM admin_users au
-        WHERE au.role = 'supervisor'
+        WHERE au.role = 'hod'
           AND au.status = 'active'
           AND au.deleted_at IS NULL
           AND au.faculty_id IS NOT NULL
@@ -100,14 +100,14 @@ export async function GET(
             SELECT 1
             FROM admin_faculty_assignments afa
             WHERE afa.admin_user_id = au.id
-              AND afa.assignment_type = 'supervisor_primary'
+              AND afa.assignment_type = 'hod_primary'
               AND afa.deleted_at IS NULL
           )
         ORDER BY au.updated_at DESC
         LIMIT 1
       `,
     );
-    supervisorOption = fallbackSupervisorResult.rows[0] ?? null;
+    hodOption = fallbackHodResult.rows[0] ?? null;
   }
 
   const irebResult = await db.query<AdminOption>(
@@ -124,7 +124,7 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     currentStatus: submission.current_status,
-    supervisorOption,
+    hodOption,
     irebOptions: irebResult.rows,
   });
 }

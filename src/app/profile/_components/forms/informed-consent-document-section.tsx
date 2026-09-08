@@ -39,7 +39,23 @@ export const EMPTY_INFORMED_CONSENT_FIELDS: Record<
   informedConsentDateUr: "",
 };
 
-export function InformedConsentDocumentSection() {
+export function InformedConsentDocumentSection({
+  answer,
+}: {
+  answer: string;
+}) {
+  if (answer === "No") {
+    return (
+      <ConditionalCallout className="mt-4">
+        <p className="text-sm leading-relaxed text-body dark:text-dark-6">
+          <strong>Note:</strong> Make sure to obtain informed consent from the participants.
+        </p>
+      </ConditionalCallout>
+    );
+  }
+
+  if (answer !== "Yes") return null;
+
   return (
     <ConditionalCallout className="mt-4">
       <FormSection
@@ -67,8 +83,8 @@ export function InformedConsentDocumentSection() {
         }
       >
         <p className="text-sm leading-relaxed text-body dark:text-dark-6">
-          Download the standard UOL informed consent form template above, complete it, and attach
-          the filled document as part of your application submission.
+          <strong>Note:</strong> Download the standard UOL informed consent form, complete it, and
+          attach it in the &quot;Required Documents&quot; section.
         </p>
       </FormSection>
     </ConditionalCallout>

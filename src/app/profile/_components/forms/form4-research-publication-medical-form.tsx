@@ -63,7 +63,7 @@ const PARTICIPANT_BANDS = [
 ] as const;
 
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
-  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
+  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my hod and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
 
 export type Form4ResearchPublicationMedicalFormProps = CommonFormProps & {
@@ -234,6 +234,22 @@ export function Form4ResearchPublicationMedicalForm({
 
           <FormSection>
             <Required
+              label="Is this manuscript based on human subjects or animal subjects? *"
+              className="w-full"
+            >
+              <BaseSelect
+                value={form.publicationSubjectType}
+                onChange={onFieldChange("publicationSubjectType")}
+              >
+                <option value="">Select</option>
+                <option value="Human Subjects">Human Subjects</option>
+                <option value="Animal Subjects">Animal Subjects</option>
+              </BaseSelect>
+            </Required>
+
+            {form.publicationSubjectType === "Human Subjects" && (
+              <>
+            <Required
               label="Does the article report findings from research involving human subjects? *"
               className="w-full"
             >
@@ -274,8 +290,6 @@ export function Form4ResearchPublicationMedicalForm({
               </BaseSelect>
             </Required>
 
-            <InformedConsentDocumentSection />
-
             <Required
               label="Have any research data been collected prior to receiving ethical approval? *"
               className="mt-4 w-full"
@@ -292,9 +306,9 @@ export function Form4ResearchPublicationMedicalForm({
               </BaseSelect>
             </Required>
 
-            {form.publicationPreApprovalDataCollected === "Yes" && (
-              <InformedConsentDocumentSection />
-            )}
+            <InformedConsentDocumentSection
+              answer={form.publicationPreApprovalDataCollected}
+            />
 
             <Required
               label="Can participants withdraw from the study at any time? *"
@@ -420,7 +434,11 @@ export function Form4ResearchPublicationMedicalForm({
                 />
               </div>
             )}
+              </>
+            )}
 
+            {form.publicationSubjectType === "Animal Subjects" && (
+              <>
             <Required
               label="Does the manuscript involve pharmacological or therapeutic interventions? *"
               className="mt-4 w-full"
@@ -503,6 +521,8 @@ export function Form4ResearchPublicationMedicalForm({
                 Note: Please attach the approval letter in the required attachments section.
               </p>
             </Required>
+              </>
+            )}
 
             <Required
               label="Are there any undisclosed conflicts of interest or funding sources? *"
@@ -778,7 +798,7 @@ export function Form4ResearchPublicationMedicalForm({
             health sciences research. The information provided in this application is accurate and
             complete to the best of my knowledge. I will conduct this research strictly according to
             the approved protocol. I will report all adverse events and protocol deviations to my
-            supervisor and the IREB immediately. I will obtain updated approvals if any significant
+            hod and the IREB immediately. I will obtain updated approvals if any significant
             changes to the protocol are necessary. I will not proceed with data collection without
             formal ethical approval.
             <RequiredMark />

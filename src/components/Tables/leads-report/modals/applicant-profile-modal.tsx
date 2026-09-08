@@ -46,7 +46,7 @@ type SubmissionDetail = {
   applicant_sap_id: string;
   applicant_attempt_number: number;
   applicant_total_submissions: number;
-  supervisor_decision_at: string | null;
+  hod_decision_at: string | null;
   ireb_decision_at: string | null;
   submission_attachment_count: number;
   start_date: string | null;
@@ -238,8 +238,8 @@ export function ApplicantProfileModal({ lead, onClose }: ApplicantProfileModalPr
   if (typeof document === "undefined") return null;
 
   const statusLabel =
-    lead.currentStatus === "Under Review by Supervisor" && lead.supervisorName
-      ? `Under Review by ${lead.supervisorName}`
+    lead.currentStatus === "Under Review by HOD" && lead.hodName
+      ? `Under Review by ${lead.hodName}`
       : lead.currentStatus;
   const isStudentApplicant = detail?.applicant_email
     .trim()
@@ -363,8 +363,8 @@ export function ApplicantProfileModal({ lead, onClose }: ApplicantProfileModalPr
               />
               {isStudentApplicant && (
                 <InfoRow
-                  label="Supervisor Decision"
-                  value={detail.supervisor_decision_at ? formatDate(detail.supervisor_decision_at) : "Pending"}
+                  label="HOD Decision"
+                  value={detail.hod_decision_at ? formatDate(detail.hod_decision_at) : "Pending"}
                   icon={CalendarClock}
                 />
               )}

@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 export type ViewAsSessionUpdate = {
   action?: "startViewAs" | "stopViewAs";
   targetAdminId?: string;
-  viewAsRole?: "supervisor" | "ireb";
+  viewAsRole?: "hod" | "ireb";
 };
 
 export type ViewAsPickerRow = {
@@ -90,7 +90,7 @@ export async function buildAdministratorRestoreTokenFields(
 export async function validateViewAsTarget(
   actingAdminId: string,
   targetAdminId: string,
-  expectedRole: "supervisor" | "ireb",
+  expectedRole: "hod" | "ireb",
 ): Promise<{ ok: true; target: AdminUserRecord } | { ok: false; error: string }> {
   if (actingAdminId === targetAdminId) {
     return { ok: false, error: "Cannot view as yourself." };
@@ -106,7 +106,7 @@ export async function validateViewAsTarget(
     return { ok: false, error: "Selected user is not available." };
   }
   if (target.role !== expectedRole) {
-    return { ok: false, error: `Selected user is not an ${expectedRole === "supervisor" ? "Supervisor" : "IREB member"}.` };
+    return { ok: false, error: `Selected user is not an ${expectedRole === "hod" ? "HOD" : "IREB member"}.` };
   }
 
   return { ok: true, target };

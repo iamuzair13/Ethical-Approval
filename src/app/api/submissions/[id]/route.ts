@@ -27,13 +27,13 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  // Per-application supervisor authorization: a supervisor can only view
+  // Per-application hod authorization: a hod can only view
   // submissions explicitly assigned to them. Administrators and IREB members
   // are still subject to the faculty-scope check above.
   if (
-    admin.role === "supervisor" &&
-    submission.supervisor_user_id &&
-    admin.adminId !== submission.supervisor_user_id
+    admin.role === "hod" &&
+    submission.hod_user_id &&
+    admin.adminId !== submission.hod_user_id
   ) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }

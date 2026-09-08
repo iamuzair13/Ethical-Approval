@@ -44,7 +44,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Administration routes — only accessible by Super Admin (administrator)
-  // and IREB roles. Supervisors and faculty-only users are redirected home.
+  // and IREB roles. Hods and faculty-only users are redirected home.
   const adminOnlyRoutes = [
     "/administrator",
     "/organizations",
@@ -69,8 +69,8 @@ export async function proxy(request: NextRequest) {
     }
 
     if (pathname === "/admin") {
-      if (adminRole === "supervisor") {
-        return NextResponse.redirect(new URL("/SupervisorPanel", request.url));
+      if (adminRole === "hod") {
+        return NextResponse.redirect(new URL("/HodPanel", request.url));
       }
       if (adminRole === "ireb") {
         return NextResponse.redirect(new URL("/EthicalCommiteePanel", request.url));
@@ -85,9 +85,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     if (
-      pathname.startsWith("/admin/supervisor") &&
+      pathname.startsWith("/admin/hod") &&
       adminRole !== "administrator" &&
-      adminRole !== "supervisor"
+      adminRole !== "hod"
     ) {
       return NextResponse.redirect(new URL("/", request.url));
     }

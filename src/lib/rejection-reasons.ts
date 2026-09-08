@@ -23,7 +23,7 @@ export const REJECTION_REASON_OPTIONS = [
   {
     id: "lack_of_permissions",
     label:
-      "Lack of permissions (required approvals from departments, organizations, hospitals, or supervisors are missing)",
+      "Lack of permissions (required approvals from departments, organizations, hospitals, or hods are missing)",
   },
 ] as const;
 

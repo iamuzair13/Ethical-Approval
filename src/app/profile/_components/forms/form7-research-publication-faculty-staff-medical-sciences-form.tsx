@@ -281,8 +281,6 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             </BaseSelect>
           </Required>
 
-          <InformedConsentDocumentSection />
-
           <Required
             label="2.4 Have any research data been collected prior to receiving ethical approval? *"
             className="mt-4"
@@ -298,9 +296,9 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             </BaseSelect>
           </Required>
 
-          {form.publicationPreApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection />
-          )}
+          <InformedConsentDocumentSection
+            answer={form.publicationPreApprovalDataCollected}
+          />
         </FormSection>
 
         <FormSection title="Withdrawal, Compensation & Anonymization">

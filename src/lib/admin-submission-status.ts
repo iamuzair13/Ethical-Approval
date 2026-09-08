@@ -2,9 +2,9 @@
 
 export type ReportSubmissionStatus =
   | "submitted"
-  | "under_supervisor_review"
-  | "supervisor_approved"
-  | "supervisor_rejected"
+  | "under_hod_review"
+  | "hod_approved"
+  | "hod_rejected"
   | "under_ireb_review"
   | "approved"
   | "rejected";
@@ -13,12 +13,12 @@ export function submissionStatusLabel(cs: ReportSubmissionStatus): string {
   switch (cs) {
     case "submitted":
       return "Submitted";
-    case "under_supervisor_review":
-      return "Pending at Supervisor";
-    case "supervisor_approved":
-      return "Approved by Supervisor";
-    case "supervisor_rejected":
-      return "Rejected by Supervisor";
+    case "under_hod_review":
+      return "Pending at HOD";
+    case "hod_approved":
+      return "Approved by HOD";
+    case "hod_rejected":
+      return "Rejected by HOD";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":

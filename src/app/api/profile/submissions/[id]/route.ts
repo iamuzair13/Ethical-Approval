@@ -12,9 +12,9 @@ type SubmissionDetailRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";

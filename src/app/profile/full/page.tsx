@@ -41,36 +41,36 @@ type ProfileSubmissionApiRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
   submitted_at: string;
   title: string | null;
   objectives: string | null;
-  supervisor_name?: string | null;
+  hod_name?: string | null;
 };
 
 /* ──────────────────────────── Utilities ──────────────────────────── */
 
 function mapStatusToStage(
   status: ProfileSubmissionApiRow["current_status"],
-  supervisorName?: string | null,
+  hodName?: string | null,
 ): string {
   switch (status) {
     case "draft":
       return "Draft";
     case "submitted":
-    case "under_supervisor_review":
-      return supervisorName
-        ? `Under Review by ${supervisorName}`
-        : "Supervisor not Assigned";
-    case "supervisor_approved":
-      return "Approved by Supervisor";
-    case "supervisor_rejected":
-      return "Rejected by Supervisor";
+    case "under_hod_review":
+      return hodName
+        ? `Under Review by ${hodName}`
+        : "HOD not Assigned";
+    case "hod_approved":
+      return "Approved by HOD";
+    case "hod_rejected":
+      return "Rejected by HOD";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -78,7 +78,7 @@ function mapStatusToStage(
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Supervisor not Assigned";
+      return "HOD not Assigned";
   }
 }
 
@@ -472,7 +472,7 @@ export default function FullProfilePage() {
         email?: string;
         sapId?: string;
         applicantRole?: "student" | "faculty";
-        adminRole?: "administrator" | "supervisor" | "ireb";
+        adminRole?: "administrator" | "hod" | "ireb";
         facultyDepartment?: string;
         facultyDesignation?: string | null;
         studentRecord?: {
@@ -601,7 +601,7 @@ export default function FullProfilePage() {
           title: row.title?.trim() || "Untitled submission",
           description: row.objectives?.trim() || "No objectives provided.",
           submittedOn: new Date(row.submitted_at).toLocaleDateString(),
-          currentStage: mapStatusToStage(row.current_status, row.supervisor_name),
+          currentStage: mapStatusToStage(row.current_status, row.hod_name),
           isDraft: row.current_status === "draft",
         }));
 
@@ -630,13 +630,13 @@ export default function FullProfilePage() {
       requests.reduce(
         (acc, request) => {
           const stage = request.currentStage;
-          if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inSupervisor += 1;
+          if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inHod += 1;
           else if (stage === "Under Review by IREB") acc.inEthical += 1;
           else if (stage.includes("Approved") || stage.includes("Rejected"))
             acc.completed += 1;
           return acc;
         },
-        { inSupervisor: 0, inEthical: 0, completed: 0 }
+        { inHod: 0, inEthical: 0, completed: 0 }
       ),
     [requests]
   );
@@ -857,10 +857,10 @@ export default function FullProfilePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="mb-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                        Under Review by Supervisor
+                        Under Review by HOD
                       </p>
                       <p className="text-4xl font-bold tabular-nums tracking-tighter text-slate-900 dark:text-white">
-                        <AnimatedCounter value={requestStats.inSupervisor} />
+                        <AnimatedCounter value={requestStats.inHod} />
                       </p>
                     </div>
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-500 dark:text-amber-400">

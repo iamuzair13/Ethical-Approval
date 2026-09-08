@@ -3,21 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
-  listSupervisorsForDepartment,
-  getSupervisorForSelection,
-} from "@/lib/supervisor-selection";
+  listHodsForDepartment,
+  getHodForSelection,
+} from "@/lib/hod-selection";
 
 /**
- * GET /api/profile/supervisors?departmentId=<id>
- * GET /api/profile/supervisors?supervisorUserId=<uuid>
+ * GET /api/profile/hods?departmentId=<id>
+ * GET /api/profile/hods?hodUserId=<uuid>
  *
  * Two modes:
- *   1. `departmentId` query param — returns the list of active supervisors in
- *      that department (used to populate the Supervisor dropdown after the
+ *   1. `departmentId` query param — returns the list of active HODs in
+ *      that department (used to populate the HOD dropdown after the
  *      student selects a Department).
- *   2. `supervisorUserId` query param — returns a single supervisor's full
- *      details (used to auto-fill the read-only supervisor fields after the
- *      student selects a Supervisor, and to rehydrate a saved draft).
+ *   2. `hodUserId` query param — returns a single HOD's full
+ *      details (used to auto-fill the read-only HOD fields after the
+ *      student selects a HOD, and to rehydrate a saved draft).
  *
  * Available to authenticated students and administrators.
  */
@@ -33,17 +33,17 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const departmentIdRaw = searchParams.get("departmentId")?.trim() ?? "";
-  const supervisorUserId = searchParams.get("supervisorUserId")?.trim() ?? "";
+  const hodUserId = searchParams.get("hodUserId")?.trim() ?? "";
 
-  if (supervisorUserId) {
-    const supervisor = await getSupervisorForSelection(supervisorUserId);
-    if (!supervisor) {
+  if (hodUserId) {
+    const hod = await getHodForSelection(hodUserId);
+    if (!hod) {
       return NextResponse.json(
-        { ok: false, error: "Supervisor not found or not eligible." },
+        { ok: false, error: "HOD not found or not eligible." },
         { status: 404 },
       );
     }
-    return NextResponse.json({ ok: true, supervisor });
+    return NextResponse.json({ ok: true, hod });
   }
 
   const departmentId = Number(departmentIdRaw);
@@ -54,6 +54,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supervisors = await listSupervisorsForDepartment(departmentId);
-  return NextResponse.json({ ok: true, supervisors });
+  const hods = await listHodsForDepartment(departmentId);
+  return NextResponse.json({ ok: true, hods });
 }

@@ -1,7 +1,7 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_role') THEN
-    CREATE TYPE admin_role AS ENUM ('administrator', 'supervisor', 'ireb');
+    CREATE TYPE admin_role AS ENUM ('administrator', 'hod', 'ireb');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_status') THEN
@@ -9,7 +9,7 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_assignment_type') THEN
-    CREATE TYPE admin_assignment_type AS ENUM ('supervisor_primary', 'ireb_scope');
+    CREATE TYPE admin_assignment_type AS ENUM ('hod_primary', 'ireb_scope');
   END IF;
 END
 $$;
@@ -138,9 +138,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_admin_assignment_single_active
 ON admin_faculty_assignments(admin_user_id, faculty_id, assignment_type)
 WHERE deleted_at IS NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_supervisor_faculty_single_active
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hod_faculty_single_active
 ON admin_faculty_assignments(faculty_id)
-WHERE assignment_type = 'supervisor_primary' AND deleted_at IS NULL;
+WHERE assignment_type = 'hod_primary' AND deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_admin_users_role_status
 ON admin_users(role, status)

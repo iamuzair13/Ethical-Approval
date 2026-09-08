@@ -12,9 +12,9 @@ export type OverviewData = {
   products: { value: number; growthRate: number };
   users: { value: number; growthRate: number };
   customers: { value: number; growthRate: number };
-  supervisorPending: { value: number; growthRate: number };
-  supervisorApproved: { value: number; growthRate: number };
-  supervisorRejected: { value: number; growthRate: number };
+  hodPending: { value: number; growthRate: number };
+  hodApproved: { value: number; growthRate: number };
+  hodRejected: { value: number; growthRate: number };
   irebRejected: { value: number; growthRate: number };
 };
 
@@ -25,19 +25,19 @@ export type OverviewTimelinePoint = {
 };
 
 export type OverviewTimelineBreakdownPoint = OverviewTimelinePoint & {
-  pendingSupervisor: number;
+  pendingHod: number;
   pendingIreb: number;
-  approvedSupervisor: number;
+  approvedHod: number;
   approvedIreb: number;
-  rejectedSupervisor: number;
+  rejectedHod: number;
   rejectedIreb: number;
 };
 
 type LeadStatus =
   | "Submitted"
-  | "Under Review by Supervisor"
-  | "Approved by Supervisor"
-  | "Rejected by Supervisor"
+  | "Under Review by HOD"
+  | "Approved by HOD"
+  | "Rejected by HOD"
   | "Under Review by IREB"
   | "Approved by IREB"
   | "Rejected by IREB";
@@ -59,10 +59,10 @@ export type DashboardLead = {
   project: string;
   duration: string;
   currentStatus: LeadStatus;
-  supervisorName: string | null;
-  stage: "supervisor" | "ireb" | "completed";
+  hodName: string | null;
+  stage: "hod" | "ireb" | "completed";
   submittedAt: string;
-  supervisorDecisionAt: string | null;
+  hodDecisionAt: string | null;
   /** Applicant profile image URL when set; otherwise use name initials in the UI. */
   avatar: string | null;
   latestFeedbackComment: string | null;
@@ -74,7 +74,7 @@ type SubmissionScopeRow = {
   id: number;
   application_id: string;
   submitted_at: Date;
-  supervisor_decision_at: Date | null;
+  hod_decision_at: Date | null;
   applicant_name: string;
   applicant_email: string;
   faculty: string;
@@ -82,9 +82,9 @@ type SubmissionScopeRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -92,13 +92,13 @@ type SubmissionScopeRow = {
   latest_audit_note: string | null;
   latest_actor_name: string | null;
   latest_decision: "approved" | "rejected" | null;
-  latest_decision_stage: "supervisor" | "ireb" | null;
+  latest_decision_stage: "hod" | "ireb" | null;
   latest_decided_by_name: string | null;
   applicant_avatar_url: string | null;
   submission_type: "thesis" | "publication";
   research_title: string | null;
-  supervisor_name: string | null;
-  supervisor_name_snapshot: string | null;
+  hod_name: string | null;
+  hod_name_snapshot: string | null;
 };
 
 /** Same rules as profile API: strip `?...` from local avatar paths for next/image. */
@@ -144,13 +144,13 @@ function splitFeedbackAndAudit(
 
 function buildActionTrace(input: {
   latestDecision: "approved" | "rejected" | null;
-  latestDecisionStage: "supervisor" | "ireb" | null;
+  latestDecisionStage: "hod" | "ireb" | null;
   latestDecidedByName: string | null;
   latestAuditNote: string | null;
 }): string | null {
   if (input.latestAuditNote) return input.latestAuditNote;
   if (!input.latestDecision || !input.latestDecisionStage || !input.latestDecidedByName) return null;
-  const stageLabel = input.latestDecisionStage === "supervisor" ? "Supervisor" : "IREB";
+  const stageLabel = input.latestDecisionStage === "hod" ? "HOD" : "IREB";
   const decisionLabel = input.latestDecision === "approved" ? "approved" : "rejected";
   return `${stageLabel} ${decisionLabel} by ${input.latestDecidedByName}.`;
 }
@@ -206,7 +206,7 @@ async function getLatestDecisionBySubmissionIds(
     number,
     {
       latestDecision: "approved" | "rejected" | null;
-      latestDecisionStage: "supervisor" | "ireb" | null;
+      latestDecisionStage: "hod" | "ireb" | null;
       latestDecidedByName: string | null;
     }
   >
@@ -215,7 +215,7 @@ async function getLatestDecisionBySubmissionIds(
   const decisionResult = await db.query<{
     submission_id: number;
     latest_decision: "approved" | "rejected";
-    latest_decision_stage: "supervisor" | "ireb";
+    latest_decision_stage: "hod" | "ireb";
     latest_decided_by_name: string | null;
   }>(
     `
@@ -243,7 +243,7 @@ async function getLatestDecisionBySubmissionIds(
     number,
     {
       latestDecision: "approved" | "rejected" | null;
-      latestDecisionStage: "supervisor" | "ireb" | null;
+      latestDecisionStage: "hod" | "ireb" | null;
       latestDecidedByName: string | null;
     }
   >();
@@ -257,22 +257,22 @@ async function getLatestDecisionBySubmissionIds(
   return decisionMap;
 }
 
-async function getSupervisorDecisionAtBySubmissionIds(
+async function getHodDecisionAtBySubmissionIds(
   submissionIds: number[],
 ): Promise<Map<number, Date>> {
   if (submissionIds.length === 0) return new Map();
 
   const result = await db.query<{
     submission_id: number;
-    supervisor_decision_at: Date;
+    hod_decision_at: Date;
   }>(
     `
       SELECT
         ad.submission_id,
-        MAX(ad.decided_at) AS supervisor_decision_at
+        MAX(ad.decided_at) AS hod_decision_at
       FROM approval_decisions ad
       WHERE ad.submission_id = ANY($1::bigint[])
-        AND ad.stage = 'supervisor'
+        AND ad.stage = 'hod'
       GROUP BY ad.submission_id
     `,
     [submissionIds],
@@ -280,13 +280,13 @@ async function getSupervisorDecisionAtBySubmissionIds(
 
   const map = new Map<number, Date>();
   for (const row of result.rows) {
-    map.set(row.submission_id, row.supervisor_decision_at);
+    map.set(row.submission_id, row.hod_decision_at);
   }
   return map;
 }
 
 type DecisionAggregateRow = {
-  stage: "supervisor" | "ireb";
+  stage: "hod" | "ireb";
   decision: "approved" | "rejected";
   count: string;
 };
@@ -311,13 +311,13 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
-          s.supervisor_name_snapshot,
+          s.hod_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
             WHERE ad.submission_id = s.id
-              AND ad.stage = 'supervisor'
-          ) AS supervisor_decision_at,
+              AND ad.stage = 'hod'
+          ) AS hod_decision_at,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
           afd.latest_actor_name,
@@ -364,7 +364,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
     );
     return result.rows.map((row) => ({
       ...row,
-      supervisor_name: row.supervisor_name_snapshot ?? null,
+      hod_name: row.hod_name_snapshot ?? null,
     }));
   }
 
@@ -373,7 +373,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
     let rows = await getScopedSubmissions(admin);
 
     // Apply department-level scoping for the charts/overview.
-    // - Supervisor: only their assigned department(s)
+    // - HOD: only their assigned department(s)
     // - IREB (restricted): only departments under their faculty scope
     // - Administrator / IREB (all): no department filter
     const allowedDeptIds = await resolveDepartmentIdsForAdmin(admin);
@@ -401,12 +401,12 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
 
     const feedbackMap = await getLatestFeedbackBySubmissionIds(rows.map((row) => row.id));
     const decisionMap = await getLatestDecisionBySubmissionIds(rows.map((row) => row.id));
-    const supervisorDecisionMap = await getSupervisorDecisionAtBySubmissionIds(rows.map((row) => row.id));
+    const hodDecisionMap = await getHodDecisionAtBySubmissionIds(rows.map((row) => row.id));
     return rows.map((row) => ({
       id: row.id,
       application_id: row.application_id,
       submitted_at: row.submitted_at,
-      supervisor_decision_at: supervisorDecisionMap.get(row.id) ?? null,
+      hod_decision_at: hodDecisionMap.get(row.id) ?? null,
       applicant_name: row.applicant_name,
       applicant_email: row.applicant_email,
       faculty: row.faculty,
@@ -421,8 +421,8 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       latest_decision_stage: decisionMap.get(row.id)?.latestDecisionStage ?? null,
       latest_decided_by_name: decisionMap.get(row.id)?.latestDecidedByName ?? null,
       applicant_avatar_url: row.applicant_avatar_url ?? null,
-      supervisor_name: row.supervisor_name_snapshot ?? null,
-      supervisor_name_snapshot: row.supervisor_name_snapshot ?? null,
+      hod_name: row.hod_name_snapshot ?? null,
+      hod_name_snapshot: row.hod_name_snapshot ?? null,
     }));
   }
 
@@ -441,13 +441,13 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
-          s.supervisor_name_snapshot,
+          s.hod_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
             WHERE ad.submission_id = s.id
-              AND ad.stage = 'supervisor'
-          ) AS supervisor_decision_at,
+              AND ad.stage = 'hod'
+          ) AS hod_decision_at,
           afd.latest_feedback_comment,
           afd.latest_audit_note,
           afd.latest_actor_name,
@@ -495,7 +495,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
     );
     return ownRows.rows.map((row) => ({
       ...row,
-      supervisor_name: row.supervisor_name_snapshot ?? null,
+      hod_name: row.hod_name_snapshot ?? null,
     }));
   }
 
@@ -534,9 +534,9 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
       products: { value: 0, growthRate: 0 },
       users: { value: 0, growthRate: 0 },
       customers: { value: 0, growthRate: 0 },
-      supervisorPending: { value: 0, growthRate: 0 },
-      supervisorApproved: { value: 0, growthRate: 0 },
-      supervisorRejected: { value: 0, growthRate: 0 },
+      hodPending: { value: 0, growthRate: 0 },
+      hodApproved: { value: 0, growthRate: 0 },
+      hodRejected: { value: 0, growthRate: 0 },
       irebRejected: { value: 0, growthRate: 0 },
     };
   }
@@ -555,18 +555,18 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
   const total = submissionIds.length;
   const toRate = (value: number) => (total > 0 ? Math.round((value / total) * 100) : 0);
 
-  const pendingSupervisor =
-    (statusMap.get("submitted") ?? 0) + (statusMap.get("under_supervisor_review") ?? 0);
+  const pendingHod =
+    (statusMap.get("submitted") ?? 0) + (statusMap.get("under_hod_review") ?? 0);
   const pendingIreb = statusMap.get("under_ireb_review") ?? 0;
-  const supervisorApproved = scopedRows.filter(
+  const hodApproved = scopedRows.filter(
     (row) =>
       isStudentApplicantEmail(row.applicant_email) &&
-      (row.current_status === "supervisor_approved" ||
+      (row.current_status === "hod_approved" ||
         row.current_status === "under_ireb_review" ||
         row.current_status === "approved" ||
         row.current_status === "rejected"),
   ).length;
-  const supervisorRejected = statusMap.get("supervisor_rejected") ?? 0;
+  const hodRejected = statusMap.get("hod_rejected") ?? 0;
   const irebApproved = statusMap.get("approved") ?? 0;
   const irebRejected = statusMap.get("rejected") ?? 0;
 
@@ -581,36 +581,36 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
       users: { value: irebApproved, growthRate: toRate(irebApproved) },
       // keep explicit IREB approved metric for other shared consumers.
       customers: { value: irebApproved, growthRate: toRate(irebApproved) },
-      supervisorPending: { value: pendingSupervisor, growthRate: toRate(pendingSupervisor) },
-      supervisorApproved: { value: supervisorApproved, growthRate: toRate(supervisorApproved) },
-      supervisorRejected: { value: supervisorRejected, growthRate: toRate(supervisorRejected) },
+      hodPending: { value: pendingHod, growthRate: toRate(pendingHod) },
+      hodApproved: { value: hodApproved, growthRate: toRate(hodApproved) },
+      hodRejected: { value: hodRejected, growthRate: toRate(hodRejected) },
       irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
     };
   }
 
-  if (role === "supervisor") {
+  if (role === "hod") {
     return {
       views: { value: total, growthRate: 100 },
-      profit: { value: pendingSupervisor, growthRate: toRate(pendingSupervisor) },
+      profit: { value: pendingHod, growthRate: toRate(pendingHod) },
       products: { value: pendingIreb, growthRate: toRate(pendingIreb) },
-      users: { value: supervisorApproved, growthRate: toRate(supervisorApproved) },
-      customers: { value: supervisorRejected, growthRate: toRate(supervisorRejected) },
-      supervisorPending: { value: pendingSupervisor, growthRate: toRate(pendingSupervisor) },
-      supervisorApproved: { value: supervisorApproved, growthRate: toRate(supervisorApproved) },
-      supervisorRejected: { value: supervisorRejected, growthRate: toRate(supervisorRejected) },
+      users: { value: hodApproved, growthRate: toRate(hodApproved) },
+      customers: { value: hodRejected, growthRate: toRate(hodRejected) },
+      hodPending: { value: pendingHod, growthRate: toRate(pendingHod) },
+      hodApproved: { value: hodApproved, growthRate: toRate(hodApproved) },
+      hodRejected: { value: hodRejected, growthRate: toRate(hodRejected) },
       irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
     };
   }
 
   return {
     views: { value: total, growthRate: 100 },
-    profit: { value: pendingSupervisor, growthRate: toRate(pendingSupervisor) },
+    profit: { value: pendingHod, growthRate: toRate(pendingHod) },
     products: { value: pendingIreb, growthRate: toRate(pendingIreb) },
-    users: { value: supervisorApproved, growthRate: toRate(supervisorApproved) },
+    users: { value: hodApproved, growthRate: toRate(hodApproved) },
     customers: { value: irebApproved, growthRate: toRate(irebApproved) },
-    supervisorPending: { value: pendingSupervisor, growthRate: toRate(pendingSupervisor) },
-    supervisorApproved: { value: supervisorApproved, growthRate: toRate(supervisorApproved) },
-    supervisorRejected: { value: supervisorRejected, growthRate: toRate(supervisorRejected) },
+    hodPending: { value: pendingHod, growthRate: toRate(pendingHod) },
+    hodApproved: { value: hodApproved, growthRate: toRate(hodApproved) },
+    hodRejected: { value: hodRejected, growthRate: toRate(hodRejected) },
     irebRejected: { value: irebRejected, growthRate: toRate(irebRejected) },
   };
 }
@@ -636,25 +636,25 @@ export async function getOverviewTimelineBreakdown(
 
   const mkEmpty = (label: string | number): Omit<OverviewTimelineBreakdownPoint, "label"> => ({
     total: 0,
-    pendingSupervisor: 0,
+    pendingHod: 0,
     pendingIreb: 0,
-    approvedSupervisor: 0,
+    approvedHod: 0,
     approvedIreb: 0,
-    rejectedSupervisor: 0,
+    rejectedHod: 0,
     rejectedIreb: 0,
   });
 
-  const isPendingSupervisor = (s: SubmissionScopeRow["current_status"]) =>
-    s === "submitted" || s === "under_supervisor_review";
+  const isPendingHod = (s: SubmissionScopeRow["current_status"]) =>
+    s === "submitted" || s === "under_hod_review";
   const isPendingIreb = (s: SubmissionScopeRow["current_status"]) => s === "under_ireb_review";
-  const isApprovedSupervisor = (row: SubmissionScopeRow) =>
+  const isApprovedHod = (row: SubmissionScopeRow) =>
     isStudentApplicantEmail(row.applicant_email) &&
-    (row.current_status === "supervisor_approved" ||
+    (row.current_status === "hod_approved" ||
       row.current_status === "under_ireb_review" ||
       row.current_status === "approved" ||
       row.current_status === "rejected");
   const isApprovedIreb = (s: SubmissionScopeRow["current_status"]) => s === "approved";
-  const isRejectedSupervisor = (s: SubmissionScopeRow["current_status"]) => s === "supervisor_rejected";
+  const isRejectedHod = (s: SubmissionScopeRow["current_status"]) => s === "hod_rejected";
   const isRejectedIreb = (s: SubmissionScopeRow["current_status"]) => s === "rejected";
 
   if (mode === "monthly") {
@@ -681,11 +681,11 @@ export async function getOverviewTimelineBreakdown(
 
       const s = row.current_status;
       bucket.total += 1;
-      if (isPendingSupervisor(s)) bucket.pendingSupervisor += 1;
+      if (isPendingHod(s)) bucket.pendingHod += 1;
       if (isPendingIreb(s)) bucket.pendingIreb += 1;
-      if (isApprovedSupervisor(row)) bucket.approvedSupervisor += 1;
+      if (isApprovedHod(row)) bucket.approvedHod += 1;
       if (isApprovedIreb(s)) bucket.approvedIreb += 1;
-      if (isRejectedSupervisor(s)) bucket.rejectedSupervisor += 1;
+      if (isRejectedHod(s)) bucket.rejectedHod += 1;
       if (isRejectedIreb(s)) bucket.rejectedIreb += 1;
     }
 
@@ -713,11 +713,11 @@ export async function getOverviewTimelineBreakdown(
 
     const s = row.current_status;
     bucket.total += 1;
-    if (isPendingSupervisor(s)) bucket.pendingSupervisor += 1;
+    if (isPendingHod(s)) bucket.pendingHod += 1;
     if (isPendingIreb(s)) bucket.pendingIreb += 1;
-    if (isApprovedSupervisor(row)) bucket.approvedSupervisor += 1;
+    if (isApprovedHod(row)) bucket.approvedHod += 1;
     if (isApprovedIreb(s)) bucket.approvedIreb += 1;
-    if (isRejectedSupervisor(s)) bucket.rejectedSupervisor += 1;
+    if (isRejectedHod(s)) bucket.rejectedHod += 1;
     if (isRejectedIreb(s)) bucket.rejectedIreb += 1;
   }
 
@@ -732,29 +732,29 @@ export async function getUsedDevicesData(session: Session) {
   }
 
   const role = session.user.adminRole;
-  const supervisorApprovedCount = scopedRows.filter(
+  const hodApprovedCount = scopedRows.filter(
     (row) =>
       isStudentApplicantEmail(row.applicant_email) &&
-      (row.current_status === "supervisor_approved" ||
+      (row.current_status === "hod_approved" ||
         row.current_status === "under_ireb_review" ||
         row.current_status === "approved" ||
         row.current_status === "rejected"),
   ).length;
   const data =
-    role === "supervisor"
+    role === "hod"
       ? [
           {
-            name: "Pending Supervisor Review",
+            name: "Pending HOD Review",
             amount:
-              (statusMap.get("submitted") ?? 0) + (statusMap.get("under_supervisor_review") ?? 0),
+              (statusMap.get("submitted") ?? 0) + (statusMap.get("under_hod_review") ?? 0),
           },
           {
-            name: "Approved by Supervisor",
-            amount: supervisorApprovedCount,
+            name: "Approved by HOD",
+            amount: hodApprovedCount,
           },
           {
-            name: "Rejected by Supervisor",
-            amount: statusMap.get("supervisor_rejected") ?? 0,
+            name: "Rejected by HOD",
+            amount: statusMap.get("hod_rejected") ?? 0,
           },
         ]
       : role === "ireb"
@@ -774,9 +774,9 @@ export async function getUsedDevicesData(session: Session) {
           ]
         : [
             {
-              name: "Pending Supervisor Review",
+              name: "Pending HOD Review",
               amount:
-                (statusMap.get("submitted") ?? 0) + (statusMap.get("under_supervisor_review") ?? 0),
+                (statusMap.get("submitted") ?? 0) + (statusMap.get("under_hod_review") ?? 0),
             },
             {
               name: "Pending IREB Review",
@@ -787,8 +787,8 @@ export async function getUsedDevicesData(session: Session) {
               amount: statusMap.get("approved") ?? 0,
             },
             {
-              name: "Rejected by Supervisor",
-              amount: statusMap.get("supervisor_rejected") ?? 0,
+              name: "Rejected by HOD",
+              amount: statusMap.get("hod_rejected") ?? 0,
             },
             {
               name: "Rejected by IREB",
@@ -812,22 +812,22 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
   const now = Date.now();
   const nowDate = new Date(now);
   return scopedRows.map((row) => {
-    let currentStatus: LeadStatus = "Under Review by Supervisor";
-    let stage: DashboardLead["stage"] = "supervisor";
+    let currentStatus: LeadStatus = "Under Review by HOD";
+    let stage: DashboardLead["stage"] = "hod";
 
     switch (row.current_status) {
       case "submitted":
-      case "under_supervisor_review":
-        currentStatus = "Under Review by Supervisor";
-        stage = "supervisor";
+      case "under_hod_review":
+        currentStatus = "Under Review by HOD";
+        stage = "hod";
         break;
-      case "supervisor_approved":
+      case "hod_approved":
       case "under_ireb_review":
         currentStatus = "Under Review by IREB";
         stage = "ireb";
         break;
-      case "supervisor_rejected":
-        currentStatus = "Rejected by Supervisor";
+      case "hod_rejected":
+        currentStatus = "Rejected by HOD";
         stage = "completed";
         break;
       case "approved":
@@ -841,20 +841,20 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
     }
 
     const submittedAt = new Date(row.submitted_at).toISOString();
-    const supervisorDecisionAt = row.supervisor_decision_at
-      ? new Date(row.supervisor_decision_at).toISOString()
+    const hodDecisionAt = row.hod_decision_at
+      ? new Date(row.hod_decision_at).toISOString()
       : null;
     const submittedMs = new Date(row.submitted_at).getTime();
     const stagePendingDays = getStagePendingDays(
-      { currentStatus, stage, submittedAt, supervisorDecisionAt },
+      { currentStatus, stage, submittedAt, hodDecisionAt },
       nowDate,
     );
     const totalDays = Math.max(1, Math.ceil((now - submittedMs) / (1000 * 60 * 60 * 24)));
     const days = stagePendingDays ?? totalDays;
 
     const stageStart =
-      stage === "ireb" && row.supervisor_decision_at
-        ? new Date(row.supervisor_decision_at)
+      stage === "ireb" && row.hod_decision_at
+        ? new Date(row.hod_decision_at)
         : new Date(row.submitted_at);
     const projectEnd = new Date(stageStart.getTime() + 2 * 24 * 60 * 60 * 1000);
     const project = `${stageStart.toLocaleDateString()} - ${projectEnd.toLocaleDateString()}`;
@@ -873,10 +873,10 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       project,
       duration: `${days} days`,
       currentStatus,
-      supervisorName: row.supervisor_name,
+      hodName: row.hod_name,
       stage,
       submittedAt,
-      supervisorDecisionAt,
+      hodDecisionAt,
       avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),
       latestActionTrace: buildActionTrace({
         latestDecision: row.latest_decision,

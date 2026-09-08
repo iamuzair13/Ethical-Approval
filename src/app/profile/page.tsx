@@ -52,7 +52,7 @@ interface RequestItem {
 }
 
 interface RequestStats {
-  inSupervisor: number;
+  inHod: number;
   inEthical: number;
   completed: number;
 }
@@ -64,9 +64,9 @@ type ProfileSubmissionApiRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -74,22 +74,22 @@ type ProfileSubmissionApiRow = {
   title: string | null;
   objectives: string | null;
   latest_feedback_comment?: string | null;
-  supervisor_name?: string | null;
+  hod_name?: string | null;
 };
 
-function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"], supervisorName?: string | null): string {
+function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"], hodName?: string | null): string {
   switch (status) {
     case "draft":
       return "Draft";
     case "submitted":
-    case "under_supervisor_review":
-      return supervisorName
-        ? `Under Review by ${supervisorName}`
-        : "Supervisor not Assigned";
-    case "supervisor_approved":
-      return "Approved by Supervisor";
-    case "supervisor_rejected":
-      return "Rejected by Supervisor";
+    case "under_hod_review":
+      return hodName
+        ? `Under Review by ${hodName}`
+        : "HOD not Assigned";
+    case "hod_approved":
+      return "Approved by HOD";
+    case "hod_rejected":
+      return "Rejected by HOD";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -97,7 +97,7 @@ function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"], sup
     case "rejected":
       return "Rejected by IREB";
     default:
-      return "Supervisor not Assigned";
+      return "HOD not Assigned";
   }
 }
 
@@ -109,7 +109,7 @@ function mapSubmissionsToRequests(rows: ProfileSubmissionApiRow[]): RequestItem[
     title: row.title?.trim() || "Untitled submission",
     description: row.objectives?.trim() || "No objectives provided.",
     submittedOn: new Date(row.submitted_at).toLocaleDateString(),
-    currentStage: mapStatusToStage(row.current_status, row.supervisor_name),
+    currentStage: mapStatusToStage(row.current_status, row.hod_name),
     isDraft: row.current_status === "draft",
     submissionType: (row.type === "publication" ? "publication" : "thesis") as "thesis" | "publication",
     latestFeedbackComment: row.latest_feedback_comment ?? null,
@@ -504,9 +504,9 @@ export default function ProfileDashboard() {
     STAGES.length > 0
       ? STAGES
       : [
-          "Under Review by Supervisor",
-          "Approved by Supervisor",
-          "Rejected by Supervisor",
+          "Under Review by HOD",
+          "Approved by HOD",
+          "Rejected by HOD",
           "Under Review by IREB",
           "Rejected by IREB",
           "Approved by IREB",
@@ -519,12 +519,12 @@ export default function ProfileDashboard() {
     if (fromProps !== "pending") {
       return fromProps;
     }
-    // Map dynamic supervisor review status to the static stage label for comparison
+    // Map dynamic hod review status to the static stage label for comparison
     const normalizedCurrent =
       current.startsWith("Under Review by") && !current.includes("IREB")
-        ? "Under Review by Supervisor"
-        : current === "Supervisor not Assigned"
-          ? "Under Review by Supervisor"
+        ? "Under Review by HOD"
+        : current === "HOD not Assigned"
+          ? "Under Review by HOD"
           : current;
     const currentIndex = effectiveStages.indexOf(normalizedCurrent);
     const stageIndex = effectiveStages.indexOf(stage);
@@ -538,12 +538,12 @@ export default function ProfileDashboard() {
   const computedRequestStats = localRequests.reduce(
     (acc, request) => {
       const stage = request.currentStage;
-      if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inSupervisor += 1;
+      if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inHod += 1;
       else if (stage === "Under Review by IREB") acc.inEthical += 1;
       else if (stage.includes("Approved") || stage.includes("Rejected")) acc.completed += 1;
       return acc;
     },
-    { inSupervisor: 0, inEthical: 0, completed: 0 } as RequestStats,
+    { inHod: 0, inEthical: 0, completed: 0 } as RequestStats,
   );
   const effectiveRequestStats = computedRequestStats;
   const facultyPublicationForm: RequiredForm = isMedicalPublicationFaculty(
@@ -1064,16 +1064,16 @@ export default function ProfileDashboard() {
             variants={itemVariants}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            {/* Card 1: Supervisor Review - Large Span */}
+            {/* Card 1: HOD Review - Large Span */}
             <SpotlightCard 
               className="lg:col-span-2 p-6 group" 
               glowColor="rgba(245,158,11,0.08)"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by Supervisor</p>
+                  <p className="mb-1 text-sm font-medium text-dark-6 dark:text-slate-400">Under Review by HOD</p>
                   <p className="text-4xl font-bold tracking-tighter tabular-nums text-dark dark:text-white">
-                    <AnimatedCounter value={effectiveRequestStats.inSupervisor} />
+                    <AnimatedCounter value={effectiveRequestStats.inHod} />
                   </p>
                 </div>
                 <motion.div
@@ -1090,7 +1090,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.inSupervisor / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.inHod / Math.max(effectiveRequestStats.inHod + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
@@ -1099,7 +1099,7 @@ export default function ProfileDashboard() {
                 </motion.div>
               </div>
               <p className="mt-3 text-xs text-dark-6 dark:text-slate-500">
-                {Math.round((effectiveRequestStats.inSupervisor / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100)}% of total workflow
+                {Math.round((effectiveRequestStats.inHod / Math.max(effectiveRequestStats.inHod + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100)}% of total workflow
               </p>
             </SpotlightCard>
 
@@ -1129,7 +1129,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.inEthical / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.inEthical / Math.max(effectiveRequestStats.inHod + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full"
@@ -1180,7 +1180,7 @@ export default function ProfileDashboard() {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ 
-                    width: `${Math.min((effectiveRequestStats.completed / Math.max(effectiveRequestStats.inSupervisor + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
+                    width: `${Math.min((effectiveRequestStats.completed / Math.max(effectiveRequestStats.inHod + effectiveRequestStats.inEthical + effectiveRequestStats.completed, 1)) * 100, 100)}%` 
                   }}
                   transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }}
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"

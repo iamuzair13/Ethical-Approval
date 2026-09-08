@@ -8,14 +8,14 @@ import type { AdminOption, DecisionAction, Lead } from "../types";
 type DecisionModalProps = {
   lead: Lead;
   action: DecisionAction;
-  currentRole: "administrator" | "supervisor" | "ireb" | null;
+  currentRole: "administrator" | "hod" | "ireb" | null;
   comment: string;
   onCommentChange: (value: string) => void;
   selectedRejectionReasons: string[];
   onToggleRejectionReason: (id: string) => void;
   selectedOnBehalfOf: string;
   onOnBehalfOfChange: (value: string) => void;
-  adminOptions: { supervisorOption: AdminOption | null; irebOptions: AdminOption[] };
+  adminOptions: { hodOption: AdminOption | null; irebOptions: AdminOption[] };
   busy: boolean;
   onClose: () => void;
   onSubmit: () => void;
@@ -66,11 +66,11 @@ export function DecisionModal({
     >
       {currentRole === "administrator" && (
         <div className="mb-5 grid gap-4">
-          {lead.stage === "supervisor" && (
+          {lead.stage === "hod" && (
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">On behalf of supervisor</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">On behalf of hod</p>
               <div className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                {adminOptions.supervisorOption?.name ?? "Loading…"}
+                {adminOptions.hodOption?.name ?? "Loading…"}
               </div>
             </div>
           )}
@@ -99,7 +99,7 @@ export function DecisionModal({
       {action === "rejected" && (
         <div className="mb-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            Supervisor / IREB reasons for rejection (select all that apply)
+            HOD / IREB reasons for rejection (select all that apply)
             <span className="text-red-600"> *</span>
           </p>
           <ul className="mt-3 space-y-3">

@@ -6,7 +6,7 @@ import {
   buildTotalEfficiencyReportHtml,
   type AggregateReportContext,
 } from "@/lib/admin-aggregate-reports-html";
-import { buildSupervisorReportHtml } from "@/lib/admin-supervisor-report-html";
+import { buildHodReportHtml } from "@/lib/admin-hod-report-html";
 import {
   buildDepartmentWiseResearchReportHtml,
   buildFacultyWiseResearchReportHtml,
@@ -20,16 +20,16 @@ import {
 } from "@/lib/admin-report-faculty-dept-filters";
 import { buildOverallStudentReportHtml, isStudentCohortRow } from "@/lib/admin-student-overall-report-html";
 import {
-  classifySupervisorRejectionReasonStated,
+  classifyHodRejectionReasonStated,
   fetchFacultyNamesForIds,
   fetchInstitutionNonDraftSubmissionCount,
-} from "@/lib/admin-supervisor-report-queries";
+} from "@/lib/admin-hod-report-queries";
 import { getAdminUserById, getAdminScope, listFaculties } from "@/lib/admin-repository";
 import { fetchReportSubmissionRows, filterReportRowsByScope } from "@/lib/admin-report-queries";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
 const REPORT_TYPES = new Set([
-  "supervisors-report",
+  "hods-report",
   "total-efficiency",
   "overall-research-specific",
   "overall-student",
@@ -39,11 +39,11 @@ const REPORT_TYPES = new Set([
 ]);
 
 type Body = {
-  supervisorId?: string | null;
+  hodId?: string | null;
   /** ISO calendar date `YYYY-MM-DD` (local interpretation on server). */
-  supervisorReportDateFrom?: string | null;
-  supervisorReportDateTo?: string | null;
-  /** Date window for non-supervisor reports. */
+  hodReportDateFrom?: string | null;
+  hodReportDateTo?: string | null;
+  /** Date window for non-hod reports. */
   reportDateFrom?: string | null;
   reportDateTo?: string | null;
   facultyId?: number | null;
@@ -98,7 +98,7 @@ function ymdToLocalEndOfDay(ymd: string): Date {
 function scopeCheckAdmin(scope: { scopeMode: "all" | "restricted"; facultyIds: number[] }): AuthenticatedAdmin {
   return {
     adminId: "00000000-0000-0000-0000-000000000001",
-    role: "supervisor",
+    role: "hod",
     status: "active",
     scopeMode: scope.scopeMode,
     facultyIds: scope.facultyIds,
@@ -109,16 +109,16 @@ function scopeCheckAdmin(scope: { scopeMode: "all" | "restricted"; facultyIds: n
 function scopeDescriptionForCatalog(
   actor: AuthenticatedAdmin,
   institutionWide: boolean,
-  supervisorReport: boolean,
+  hodReport: boolean,
 ): string {
   if (institutionWide) {
     return "All faculties — institution-wide";
   }
-  if (supervisorReport) {
+  if (hodReport) {
     if (actor.scopeMode === "all" || actor.facultyIds.length === 0) {
-      return "Supervisor primary assignment (no faculty id resolved — verify assignments)";
+      return "HOD primary assignment (no faculty id resolved — verify assignments)";
     }
-    return `Supervisor primary faculty scope (${actor.facultyIds.length} id(s))`;
+    return `HOD primary faculty scope (${actor.facultyIds.length} id(s))`;
   }
   if (actor.scopeMode === "all") {
     return "All assigned faculties (broad scope)";
@@ -151,42 +151,42 @@ export async function POST(
     body = {};
   }
 
-  if (reportType === "supervisors-report" && actor.role === "ireb") {
+  if (reportType === "hods-report" && actor.role === "ireb") {
     return NextResponse.json(
       { ok: false, error: "This report is not available for IREB accounts." },
       { status: 403 },
     );
   }
 
-  const supervisorIdRaw = typeof body.supervisorId === "string" ? body.supervisorId.trim() : "";
-  if (supervisorIdRaw && reportType !== "supervisors-report") {
+  const hodIdRaw = typeof body.hodId === "string" ? body.hodId.trim() : "";
+  if (hodIdRaw && reportType !== "hods-report") {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
-  if (reportType === "supervisors-report" && isAdministrator(actor) && !supervisorIdRaw) {
+  if (reportType === "hods-report" && isAdministrator(actor) && !hodIdRaw) {
     return NextResponse.json(
-      { ok: false, error: "Select a supervisor to generate this report." },
+      { ok: false, error: "Select a hod to generate this report." },
       { status: 400 },
     );
   }
 
-  if (!isAdministrator(actor) && supervisorIdRaw && supervisorIdRaw !== actor.adminId) {
+  if (!isAdministrator(actor) && hodIdRaw && hodIdRaw !== actor.adminId) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  if (reportType !== "supervisors-report") {
-    const hasSupervisorFrom =
-      body.supervisorReportDateFrom != null && String(body.supervisorReportDateFrom).trim() !== "";
-    const hasSupervisorTo =
-      body.supervisorReportDateTo != null && String(body.supervisorReportDateTo).trim() !== "";
-    if (hasSupervisorFrom || hasSupervisorTo) {
+  if (reportType !== "hods-report") {
+    const hasHodFrom =
+      body.hodReportDateFrom != null && String(body.hodReportDateFrom).trim() !== "";
+    const hasHodTo =
+      body.hodReportDateTo != null && String(body.hodReportDateTo).trim() !== "";
+    if (hasHodFrom || hasHodTo) {
       return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
     }
   }
 
   let reportDateFromParsed: Date | null = null;
   let reportDateToParsed: Date | null = null;
-  if (reportType !== "supervisors-report") {
+  if (reportType !== "hods-report") {
     const hasReportFrom = body.reportDateFrom != null && String(body.reportDateFrom).trim() !== "";
     const hasReportTo = body.reportDateTo != null && String(body.reportDateTo).trim() !== "";
     if (!hasReportFrom || !hasReportTo) {
@@ -286,7 +286,7 @@ export async function POST(
   }
 
   const institutionWide =
-    !isAdministrator(actor) ? false : reportType !== "supervisors-report";
+    !isAdministrator(actor) ? false : reportType !== "hods-report";
 
   let scopeForFilter: AuthenticatedAdmin = actor;
   let skipFacultyFilter = institutionWide;
@@ -294,14 +294,14 @@ export async function POST(
   let periodLabelStr: string;
   let dateStart: Date | null;
   let dateEnd: Date | null;
-  let supervisorReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
+  let hodReportPack: { user: AdminUserRecord; scope: AdminScope } | null = null;
 
-  if (reportType === "supervisors-report") {
-    const fromStr = parseYmdString(body.supervisorReportDateFrom);
-    const toStr = parseYmdString(body.supervisorReportDateTo);
+  if (reportType === "hods-report") {
+    const fromStr = parseYmdString(body.hodReportDateFrom);
+    const toStr = parseYmdString(body.hodReportDateTo);
     if (!fromStr || !toStr) {
       return NextResponse.json(
-        { ok: false, error: "Select a start and end date for the Supervisor's Report." },
+        { ok: false, error: "Select a start and end date for the HOD's Report." },
         { status: 400 },
       );
     }
@@ -324,19 +324,19 @@ export async function POST(
       dateStyle: "medium",
     })} – ${dateEnd.toLocaleDateString(undefined, { dateStyle: "medium" })}`;
 
-    const targetSupervisorId = isAdministrator(actor) ? supervisorIdRaw : actor.adminId;
-    const supervisorUser = await getAdminUserById(targetSupervisorId);
-    // The supervisor_user_id assignment is authoritative — the admin may have
-    // been promoted from supervisor to administrator but is still the assigned
+    const targetHodId = isAdministrator(actor) ? hodIdRaw : actor.adminId;
+    const hodUser = await getAdminUserById(targetHodId);
+    // The hod_user_id assignment is authoritative — the admin may have
+    // been promoted from hod to administrator but is still the assigned
     // reviewer. Only require an active status, not a specific role.
-    if (!supervisorUser || supervisorUser.status !== "active") {
-      return NextResponse.json({ ok: false, error: "Supervisor not found." }, { status: 404 });
+    if (!hodUser || hodUser.status !== "active") {
+      return NextResponse.json({ ok: false, error: "HOD not found." }, { status: 404 });
     }
-    const supervisorScope = await getAdminScope(supervisorUser);
-    scopeForFilter = scopeCheckAdmin(supervisorScope);
+    const hodScope = await getAdminScope(hodUser);
+    scopeForFilter = scopeCheckAdmin(hodScope);
     skipFacultyFilter = false;
-    subjectLine = `${supervisorUser.name} (${supervisorUser.email})`;
-    supervisorReportPack = { user: supervisorUser, scope: supervisorScope };
+    subjectLine = `${hodUser.name} (${hodUser.email})`;
+    hodReportPack = { user: hodUser, scope: hodScope };
   } else {
     dateStart = reportDateFromParsed!;
     dateEnd = reportDateToParsed!;
@@ -360,7 +360,7 @@ export async function POST(
     scopeDescription: scopeDescriptionForCatalog(
       institutionWide ? actor : scopeForFilter,
       institutionWide,
-      reportType === "supervisors-report",
+      reportType === "hods-report",
     ),
     subjectLine,
   };
@@ -369,20 +369,20 @@ export async function POST(
   let title: string;
 
   switch (reportType) {
-    case "supervisors-report": {
-      if (!supervisorReportPack) {
-        return NextResponse.json({ ok: false, error: "Supervisor not found." }, { status: 404 });
+    case "hods-report": {
+      if (!hodReportPack) {
+        return NextResponse.json({ ok: false, error: "HOD not found." }, { status: 404 });
       }
-      const { user: supervisorUser, scope: supervisorScope } = supervisorReportPack;
+      const { user: hodUser, scope: hodScope } = hodReportPack;
       const institutionTotal = await fetchInstitutionNonDraftSubmissionCount(dateStart, dateEnd);
-      const facultyLabel = await fetchFacultyNamesForIds(supervisorScope.facultyIds);
+      const facultyLabel = await fetchFacultyNamesForIds(hodScope.facultyIds);
       const rejectedIds = [
-        ...new Set(rows.filter((r) => r.current_status === "supervisor_rejected").map((r) => r.application_id)),
+        ...new Set(rows.filter((r) => r.current_status === "hod_rejected").map((r) => r.application_id)),
       ];
-      const rejectionReasonStated = await classifySupervisorRejectionReasonStated(rejectedIds);
-      html = buildSupervisorReportHtml(
+      const rejectionReasonStated = await classifyHodRejectionReasonStated(rejectedIds);
+      html = buildHodReportHtml(
         {
-          supervisor: { name: supervisorUser.name, email: supervisorUser.email, sapId: supervisorUser.sapId },
+          hod: { name: hodUser.name, email: hodUser.email, sapId: hodUser.sapId },
           facultyLabel,
           rows,
           institutionTotalSubmissions: institutionTotal,
@@ -390,10 +390,10 @@ export async function POST(
         },
         {
           ...baseCtx,
-          reportTitle: "Supervisor's Report",
+          reportTitle: "HOD's Report",
         },
       );
-      title = `Supervisor's Report  ${subjectLine ?? "Supervisor"} — ${periodLabelStr}`;
+      title = `HOD's Report  ${subjectLine ?? "HOD"} — ${periodLabelStr}`;
       break;
     }
     case "total-efficiency":

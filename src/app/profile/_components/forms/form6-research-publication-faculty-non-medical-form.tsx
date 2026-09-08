@@ -298,11 +298,7 @@ export function Form6ResearchPublicationFacultyNonMedicalForm({
             </Required>
           </FieldRow>
 
-          <InformedConsentDocumentSection />
-
-          {form.preApprovalDataCollected === "Yes" && (
-            <InformedConsentDocumentSection />
-          )}
+          <InformedConsentDocumentSection answer={form.preApprovalDataCollected} />
 
           <FieldRow>
             <Required label="2.5 Can participants withdraw from the study at any time? *">

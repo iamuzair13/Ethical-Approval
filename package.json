@@ -19,6 +19,7 @@
     "db:migrate:023": "node scripts/run-sql-migration.mjs migrations/023_departments_independent.sql",
     "db:migrate:024": "node scripts/run-sql-migration.mjs migrations/024_canonical_departments_from_faculty_members.sql",
     "db:migrate:026": "node scripts/run-sql-migration.mjs migrations/026_deduplicate_faculty_members.sql",
+    "db:migrate:032": "node scripts/run-sql-migration.mjs migrations/032_rename_supervisor_role_to_hod.sql",
     "db:dup-emails": "node scripts/find-duplicate-faculty-emails.mjs"
   },
   "dependencies": {

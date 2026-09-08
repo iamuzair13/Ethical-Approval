@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
-import { assignSupervisorFaculty, createAdminUser, getAdminUserByEmail } from "@/lib/admin-repository";
+import { assignHodFaculty, createAdminUser, getAdminUserByEmail } from "@/lib/admin-repository";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 
-type SupervisorSeedInput = {
+type HodSeedInput = {
   name: string;
   email: string;
   password: string;
@@ -13,8 +13,8 @@ type SupervisorSeedInput = {
   sapId?: string | null;
 };
 
-type BootstrapSupervisorsBody = {
-  supervisors?: SupervisorSeedInput[];
+type BootstrapHodsBody = {
+  hods?: HodSeedInput[];
 };
 
 export async function POST(request: NextRequest) {
@@ -23,30 +23,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  let body: BootstrapSupervisorsBody;
+  let body: BootstrapHodsBody;
   try {
-    body = (await request.json()) as BootstrapSupervisorsBody;
+    body = (await request.json()) as BootstrapHodsBody;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
   }
 
-  const supervisors = Array.isArray(body.supervisors) ? body.supervisors : [];
-  if (supervisors.length === 0) {
-    return NextResponse.json({ ok: false, error: "supervisors list is required." }, { status: 400 });
+  const hods = Array.isArray(body.hods) ? body.hods : [];
+  if (hods.length === 0) {
+    return NextResponse.json({ ok: false, error: "hods list is required." }, { status: 400 });
   }
 
   const created: string[] = [];
   const skipped: string[] = [];
-  for (const supervisor of supervisors) {
-    const existing = await getAdminUserByEmail(supervisor.email);
+  for (const hod of hods) {
+    const existing = await getAdminUserByEmail(hod.email);
     if (existing) {
-      skipped.push(supervisor.email);
+      skipped.push(hod.email);
       continue;
     }
 
     const resolvedDepartmentId =
-      typeof supervisor.departmentId === "number" && Number.isInteger(supervisor.departmentId) && supervisor.departmentId > 0
-        ? supervisor.departmentId
+      typeof hod.departmentId === "number" && Number.isInteger(hod.departmentId) && hod.departmentId > 0
+        ? hod.departmentId
         : await (async () => {
             const deptResult = await db.query<{ id: number }>(
               `
@@ -57,33 +57,33 @@ export async function POST(request: NextRequest) {
                 ORDER BY id ASC
                 LIMIT 1
               `,
-              [supervisor.facultyId],
+              [hod.facultyId],
             );
             return deptResult.rows[0]?.id ?? null;
           })();
 
     if (resolvedDepartmentId == null) {
-      skipped.push(`${supervisor.email} (no department found for faculty ${supervisor.facultyId})`);
+      skipped.push(`${hod.email} (no department found for faculty ${hod.facultyId})`);
       continue;
     }
 
     const user = await createAdminUser({
-      name: supervisor.name,
-      email: supervisor.email,
-      passwordHash: supervisor.password ? await hashPassword(supervisor.password) : null,
-      role: "supervisor",
-      sapId: supervisor.sapId ?? null,
-      facultyId: supervisor.facultyId,
+      name: hod.name,
+      email: hod.email,
+      passwordHash: hod.password ? await hashPassword(hod.password) : null,
+      role: "hod",
+      sapId: hod.sapId ?? null,
+      facultyId: hod.facultyId,
       createdBy: admin.adminId,
     });
 
-    await assignSupervisorFaculty({
+    await assignHodFaculty({
       adminUserId: user.id,
-      facultyId: supervisor.facultyId,
+      facultyId: hod.facultyId,
       departmentId: resolvedDepartmentId,
       assignedBy: admin.adminId,
     });
-    created.push(supervisor.email);
+    created.push(hod.email);
   }
 
   return NextResponse.json({ ok: true, created, skipped });

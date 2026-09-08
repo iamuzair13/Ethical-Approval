@@ -3,7 +3,7 @@ import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { isAdminRole } from "@/lib/admin-rbac";
 import {
   applyIrebScope,
-  assignSupervisorFaculty,
+  assignHodFaculty,
   clearAdminScopeAssignments,
   deleteAdminUser,
   getAdminUserByEmailExcludingId,
@@ -58,10 +58,10 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Admin user not found." }, { status: 404 });
   }
 
-  if (body.role === "supervisor") {
+  if (body.role === "hod") {
     if (typeof body.facultyId !== "number" || typeof body.departmentId !== "number") {
       return NextResponse.json(
-        { ok: false, error: "Supervisor requires faculty and department selection." },
+        { ok: false, error: "HOD requires faculty and department selection." },
         { status: 400 },
       );
     }
@@ -102,8 +102,8 @@ export async function PATCH(
     await clearAdminScopeAssignments(id);
   }
 
-  if (updated.role === "supervisor") {
-    await assignSupervisorFaculty({
+  if (updated.role === "hod") {
+    await assignHodFaculty({
       adminUserId: id,
       facultyId: body.facultyId!,
       departmentId: body.departmentId!,
@@ -120,8 +120,8 @@ export async function PATCH(
   }
 
   const targetType =
-    updated.role === "supervisor"
-      ? "supervisor"
+    updated.role === "hod"
+      ? "hod"
       : updated.role === "ireb"
         ? "ireb_member"
         : "administrator";
@@ -180,8 +180,8 @@ export async function DELETE(
   }
 
   const targetType =
-    existing.role === "supervisor"
-      ? "supervisor"
+    existing.role === "hod"
+      ? "hod"
       : existing.role === "ireb"
         ? "ireb_member"
         : "administrator";

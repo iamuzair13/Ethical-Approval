@@ -11,10 +11,10 @@ export type SubmissionConfirmationInput = {
   publicAppUrl?: string;
 };
 
-export type SupervisorRejectionInput = {
+export type HodRejectionInput = {
   applicantName: string;
   facultyName: string;
-  supervisorName: string;
+  hodName: string;
   rejectionReason: string;
   publicAppUrl?: string;
 };
@@ -33,10 +33,10 @@ export type IrebApprovalInput = {
   publicAppUrl?: string;
 };
 
-export type SupervisorApprovalIrebInput = {
+export type HodApprovalIrebInput = {
   applicantName: string;
   title: string | null;
   applicationId: string;
-  supervisorName: string;
+  hodName: string;
   publicAppUrl?: string;
 };

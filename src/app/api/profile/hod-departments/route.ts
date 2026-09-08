@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
-import { listSupervisorDepartments } from "@/lib/supervisor-selection";
+import { listHodDepartments } from "@/lib/hod-selection";
 
 /**
- * GET /api/profile/supervisor-departments
+ * GET /api/profile/hod-departments
  *
  * Returns all active departments from the centralized `departments` table.
  * Used by the student thesis forms to populate the Department dropdown (the
- * first step of the Department -> Supervisor selection flow).
+ * first step of the Department -> HOD selection flow).
  *
  * Available to authenticated students and administrators.
  */
@@ -23,6 +23,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
-  const departments = await listSupervisorDepartments();
+  const departments = await listHodDepartments();
   return NextResponse.json({ ok: true, departments });
 }

@@ -177,7 +177,7 @@ function CoPersonEntry({
   useEffect(() => {
     let cancelled = false;
     setCentralizedDeptsLoading(true);
-    fetch("/api/profile/supervisor-departments")
+    fetch("/api/profile/hod-departments")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data?.ok) return;

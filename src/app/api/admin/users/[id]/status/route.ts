@@ -38,8 +38,8 @@ export async function PATCH(
   }
 
   const targetType =
-    updated.role === "supervisor"
-      ? "supervisor"
+    updated.role === "hod"
+      ? "hod"
       : updated.role === "ireb"
         ? "ireb_member"
         : "administrator";

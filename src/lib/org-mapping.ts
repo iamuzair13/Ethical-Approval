@@ -15,7 +15,7 @@
  * Designed for reuse by:
  *   - SAP faculty sync (faculty-filter.ts)
  *   - Submission imports
- *   - Supervisor assignment
+ *   - HOD assignment
  *   - Any module that needs to map free-text org data to DB IDs
  */
 

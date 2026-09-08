@@ -77,13 +77,13 @@ export async function PATCH(
     if (current.user_id) {
       void logActivityFromRequest(request, {
         actionCode: newStatus === "active" ? "admin.user.activate" : "admin.user.deactivate",
-        targetType: current.user_role === "supervisor" ? "supervisor" : current.user_role === "ireb" ? "ireb_member" : "administrator",
+        targetType: current.user_role === "hod" ? "hod" : current.user_role === "ireb" ? "ireb_member" : "administrator",
         targetId: current.user_id,
         targetLabel: current.name,
         effective: {
           adminId: current.user_id,
           name: current.name,
-          role: (current.user_role ?? "faculty") as "administrator" | "supervisor" | "ireb" | "faculty",
+          role: (current.user_role ?? "faculty") as "administrator" | "hod" | "ireb" | "faculty",
         },
       });
     }

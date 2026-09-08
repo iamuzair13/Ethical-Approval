@@ -7,9 +7,9 @@ export type SubmissionDetail = {
   domain: "medical" | "non_medical";
   current_status:
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -31,8 +31,8 @@ export type SubmissionDetail = {
   applicant_attempt_number: number;
   /** Total non-draft submissions made by this applicant (including this one). */
   applicant_total_submissions: number;
-  /** Most recent supervisor decision timestamp on this submission, if any. */
-  supervisor_decision_at: Date | null;
+  /** Most recent hod decision timestamp on this submission, if any. */
+  hod_decision_at: Date | null;
   /** Most recent IREB decision timestamp on this submission, if any. */
   ireb_decision_at: Date | null;
   /** Count of files uploaded by the applicant at submission stage. */
@@ -40,14 +40,14 @@ export type SubmissionDetail = {
   /** Thesis timeline (null for publications and for submissions without a stored timeline). */
   start_date: Date | null;
   end_date: Date | null;
-  /** Assigned supervisor (admin_users.id) — the only supervisor who can approve. */
-  supervisor_user_id: string | null;
-  /** Supervisor snapshot fields (historical record at submission time). */
-  supervisor_name_snapshot: string | null;
-  supervisor_sap_id_snapshot: string | null;
-  supervisor_email_snapshot: string | null;
-  supervisor_department_snapshot: string | null;
-  supervisor_faculty_snapshot: string | null;
+  /** Assigned hod (admin_users.id) — the only hod who can approve. */
+  hod_user_id: string | null;
+  /** HOD snapshot fields (historical record at submission time). */
+  hod_name_snapshot: string | null;
+  hod_sap_id_snapshot: string | null;
+  hod_email_snapshot: string | null;
+  hod_department_snapshot: string | null;
+  hod_faculty_snapshot: string | null;
 };
 
 export async function getSubmissionDetailById(submissionId: number) {
@@ -74,12 +74,12 @@ export async function getSubmissionDetailById(submissionId: number) {
         sep.ethics_json,
         st.start_date,
         st.end_date,
-        s.supervisor_user_id,
-        s.supervisor_name_snapshot,
-        s.supervisor_sap_id_snapshot,
-        s.supervisor_email_snapshot,
-        s.supervisor_department_snapshot,
-        s.supervisor_faculty_snapshot,
+        s.hod_user_id,
+        s.hod_name_snapshot,
+        s.hod_sap_id_snapshot,
+        s.hod_email_snapshot,
+        s.hod_department_snapshot,
+        s.hod_faculty_snapshot,
         (
           SELECT COUNT(*)::int
           FROM submissions s2
@@ -101,8 +101,8 @@ export async function getSubmissionDetailById(submissionId: number) {
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad
           WHERE ad.submission_id = s.id
-            AND ad.stage = 'supervisor'
-        ) AS supervisor_decision_at,
+            AND ad.stage = 'hod'
+        ) AS hod_decision_at,
         (
           SELECT MAX(ad.decided_at)
           FROM approval_decisions ad

@@ -24,9 +24,9 @@ export type SubmissionRow = {
   current_status:
     | "draft"
     | "submitted"
-    | "under_supervisor_review"
-    | "supervisor_approved"
-    | "supervisor_rejected"
+    | "under_hod_review"
+    | "hod_approved"
+    | "hod_rejected"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -37,15 +37,15 @@ export type SubmissionRow = {
   applicant_email: string;
   applicant_avatar_url: string | null;
   research_title: string | null;
-  supervisor_name_snapshot: string | null;
+  hod_name_snapshot: string | null;
 };
 
 export function canAccessSubmissionStage(
   admin: AuthenticatedAdmin,
-  expectedStage: "supervisor" | "ireb",
+  expectedStage: "hod" | "ireb",
 ): boolean {
   if (admin.role === "administrator") return true;
-  if (expectedStage === "supervisor") return admin.role === "supervisor";
+  if (expectedStage === "hod") return admin.role === "hod";
   return admin.role === "ireb";
 }
 
@@ -64,10 +64,10 @@ export async function canAccessFacultySnapshot(
   return snapshotFacultyIds.some((id) => adminFacultyIds.includes(id));
 }
 
-const SUPERVISOR_VISIBLE_STATUSES = [
+const HOD_VISIBLE_STATUSES = [
   "submitted",
-  "under_supervisor_review",
-  "supervisor_rejected",
+  "under_hod_review",
+  "hod_rejected",
   "under_ireb_review",
   "approved",
   "rejected",
@@ -81,8 +81,8 @@ const IREB_VISIBLE_STATUSES = [
 
 export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
   const roleStatuses =
-    admin.role === "supervisor"
-      ? SUPERVISOR_VISIBLE_STATUSES
+    admin.role === "hod"
+      ? HOD_VISIBLE_STATUSES
       : admin.role === "ireb"
         ? IREB_VISIBLE_STATUSES
         : null;
@@ -97,12 +97,12 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
     params.push(roleStatuses);
   }
 
-  // Per-application supervisor routing: a supervisor only sees submissions
-  // explicitly assigned to them via supervisor_user_id. Publications (which
-  // have no supervisor_user_id) and legacy thesis submissions are excluded.
-  const supervisorFilter =
-    admin.role === "supervisor" ? `AND s.supervisor_user_id = $${params.length + 1}` : "";
-  if (admin.role === "supervisor") {
+  // Per-application hod routing: a hod only sees submissions
+  // explicitly assigned to them via hod_user_id. Publications (which
+  // have no hod_user_id) and legacy thesis submissions are excluded.
+  const hodFilter =
+    admin.role === "hod" ? `AND s.hod_user_id = $${params.length + 1}` : "";
+  if (admin.role === "hod") {
     params.push(admin.adminId);
   }
 
@@ -122,14 +122,14 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
         sas.email AS applicant_email,
         up.avatar_url AS applicant_avatar_url,
         src.title AS research_title,
-        s.supervisor_name_snapshot
+        s.hod_name_snapshot
       FROM submissions s
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       LEFT JOIN submission_research_core src ON src.submission_id = s.id
       LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
       WHERE s.current_status::text <> 'draft'
       ${statusFilter}
-      ${supervisorFilter}
+      ${hodFilter}
       ORDER BY s.submitted_at DESC
     `,
     params,
@@ -139,9 +139,9 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
     return result.rows;
   }
 
-  // For supervisors, the SQL filter already restricted to assigned submissions.
+  // For hods, the SQL filter already restricted to assigned submissions.
   // For IREB and other restricted roles, apply the faculty-scope filter.
-  if (admin.role === "supervisor") {
+  if (admin.role === "hod") {
     return result.rows;
   }
 

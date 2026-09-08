@@ -12,7 +12,7 @@ import {
 } from "./form3-thesis-medical-form";
 import { InformedConsentDocumentSection } from "./informed-consent-document-section";
 import { Required } from "./required";
-import { SupervisorPicker } from "./supervisor-picker";
+import { HodPicker } from "./hod-picker";
 import {
   AttachmentCard,
   BaseInput,
@@ -125,7 +125,7 @@ const INFORMED_CONSENT_OPTIONS = [
 ] as const;
 
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
-  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my supervisor and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
+  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my hod and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
 
 export type Form1ThesisFormProps = CommonFormProps & {
@@ -173,28 +173,28 @@ export function Form1ThesisForm({
             </FieldRow>
           </FormSection>
 
-          {/* 1.2 Supervisor's Information — Department -> Supervisor -> auto-fill */}
-          <SupervisorPicker form={form} setForm={setForm} />
+          {/* 1.2 HOD's Information — Department -> HOD -> auto-fill */}
+          <HodPicker form={form} setForm={setForm} />
 
           <CoPersonSection
-            title="1.3 Co-supervisor"
-            entityLabel="Co-Supervisor"
+            title="1.3 Co-hod"
+            entityLabel="Co-HOD"
             form={form}
             setForm={setForm}
             onFieldChange={onFieldChange}
             defaultKeys={{
-              type: "coSupervisorType",
+              type: "coHodType",
               uol: {
-                sapId: "uolCoSupervisorSapId",
-                name: "uolCoSupervisorName",
-                email: "uolCoSupervisorEmail",
-                faculty: "uolCoSupervisorFaculty",
-                department: "uolCoSupervisorDepartment",
+                sapId: "uolCoHodSapId",
+                name: "uolCoHodName",
+                email: "uolCoHodEmail",
+                faculty: "uolCoHodFaculty",
+                department: "uolCoHodDepartment",
               },
               external: {
-                name: "externalCoSupervisorName",
-                regNo: "externalCoSupervisorRegNo",
-                email: "externalCoSupervisorEmail",
+                name: "externalCoHodName",
+                regNo: "externalCoHodRegNo",
+                email: "externalCoHodEmail",
                 university: "externalUniversity",
                 faculty: "externalFaculty",
                 department: "externalDepartment",
@@ -202,39 +202,39 @@ export function Form1ThesisForm({
             }}
             extraKeysList={[
               {
-                type: "coSupervisor2Type",
+                type: "coHod2Type",
                 uol: {
-                  sapId: "uolCoSupervisor2SapId",
-                  name: "uolCoSupervisor2Name",
-                  email: "uolCoSupervisor2Email",
-                  faculty: "uolCoSupervisor2Faculty",
-                  department: "uolCoSupervisor2Department",
+                  sapId: "uolCoHod2SapId",
+                  name: "uolCoHod2Name",
+                  email: "uolCoHod2Email",
+                  faculty: "uolCoHod2Faculty",
+                  department: "uolCoHod2Department",
                 },
                 external: {
-                  name: "externalCoSupervisor2Name",
-                  regNo: "externalCoSupervisor2RegNo",
-                  email: "externalCoSupervisor2Email",
-                  university: "externalCoSupervisor2University",
-                  faculty: "externalCoSupervisor2Faculty",
-                  department: "externalCoSupervisor2Department",
+                  name: "externalCoHod2Name",
+                  regNo: "externalCoHod2RegNo",
+                  email: "externalCoHod2Email",
+                  university: "externalCoHod2University",
+                  faculty: "externalCoHod2Faculty",
+                  department: "externalCoHod2Department",
                 },
               },
               {
-                type: "coSupervisor3Type",
+                type: "coHod3Type",
                 uol: {
-                  sapId: "uolCoSupervisor3SapId",
-                  name: "uolCoSupervisor3Name",
-                  email: "uolCoSupervisor3Email",
-                  faculty: "uolCoSupervisor3Faculty",
-                  department: "uolCoSupervisor3Department",
+                  sapId: "uolCoHod3SapId",
+                  name: "uolCoHod3Name",
+                  email: "uolCoHod3Email",
+                  faculty: "uolCoHod3Faculty",
+                  department: "uolCoHod3Department",
                 },
                 external: {
-                  name: "externalCoSupervisor3Name",
-                  regNo: "externalCoSupervisor3RegNo",
-                  email: "externalCoSupervisor3Email",
-                  university: "externalCoSupervisor3University",
-                  faculty: "externalCoSupervisor3Faculty",
-                  department: "externalCoSupervisor3Department",
+                  name: "externalCoHod3Name",
+                  regNo: "externalCoHod3RegNo",
+                  email: "externalCoHod3Email",
+                  university: "externalCoHod3University",
+                  faculty: "externalCoHod3Faculty",
+                  department: "externalCoHod3Department",
                 },
               },
             ]}
@@ -454,11 +454,7 @@ export function Form1ThesisForm({
               </Required>
             </FieldRow>
 
-            <InformedConsentDocumentSection />
-
-            {form.preApprovalDataCollected === "Yes" && (
-              <InformedConsentDocumentSection />
-            )}
+            <InformedConsentDocumentSection answer={form.preApprovalDataCollected} />
           </FormSection>
 
           <FormSection title="Participation Conditions">
@@ -805,7 +801,7 @@ export function Form1ThesisForm({
             sciences research. The information provided in this application is accurate
             and complete to the best of my knowledge. I will conduct this research
             strictly according to the approved protocol. I will report all adverse events
-            and protocol deviations to my supervisor and the IREB immediately. I will
+            and protocol deviations to my hod and the IREB immediately. I will
             obtain updated approvals if any significant changes to the protocol are
             necessary. I will not proceed with data collection without formal ethical
             approval.
