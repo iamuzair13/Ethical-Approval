@@ -333,6 +333,7 @@ type CreateFacultyBody = {
   department?: string;
   facultyId?: number | null;
   departmentId?: number | null;
+  departmentIds?: number[];
   programId?: number | null;
   role?: string;
   password?: string;
@@ -379,6 +380,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Resolve department IDs — accept either departmentIds (array) or
+  // departmentId (single, legacy). At least one department is required.
+  const departmentIds: number[] = Array.isArray(body.departmentIds) && body.departmentIds.length > 0
+    ? body.departmentIds.filter((id) => Number.isInteger(id) && id > 0)
+    : typeof body.departmentId === "number" && body.departmentId > 0
+      ? [body.departmentId]
+      : [];
+
+  if (departmentIds.length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "At least one department is required." },
+      { status: 400 },
+    );
+  }
+
   const email = body.email.trim().toLowerCase();
   const sapId = body.sapId.trim();
 
@@ -396,6 +412,20 @@ export async function POST(request: NextRequest) {
 
   // Check if admin_users already exists by email
   const existingUser = await getAdminUserByEmail(email);
+
+  // Check if admin_users already exists by SAP ID (different email, same SAP ID)
+  if (!existingUser) {
+    const existingBySapId = await db.query<{ id: string }>(
+      `SELECT id FROM admin_users WHERE sap_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [sapId],
+    );
+    if (existingBySapId.rows[0]) {
+      return NextResponse.json(
+        { ok: false, error: "An admin user with this SAP ID already exists. Use the same email or a different SAP ID." },
+        { status: 409 },
+      );
+    }
+  }
 
   try {
     // 1. Create or find the admin_users record
@@ -423,23 +453,24 @@ export async function POST(request: NextRequest) {
       userId = created.id;
     }
 
-    // 2. Create the faculty_members record
-    const department = body.department?.trim() || "Unknown Department";
-    const facultyResult = body.facultyId
-      ? await db.query<{ name: string }>(
-          `SELECT name FROM faculties WHERE id = $1`,
-          [body.facultyId],
-        )
-      : { rows: [] as { name: string }[] };
-    const facultyName = facultyResult.rows[0]?.name ?? null;
+    // 2. Create a single faculty_members record.
+    //    The first selected department is used as the "primary" department_id
+    //    (for backward compatibility with existing queries). All selected
+    //    departments are stored in the faculty_member_departments join table.
+    const deptRows = await db.query<{ id: number; name: string; faculty_id: number | null }>(
+      `SELECT id, name, faculty_id FROM departments WHERE id = ANY($1::bigint[])`,
+      [departmentIds],
+    );
+    const deptMap = new Map(deptRows.rows.map((d) => [String(d.id), d]));
 
-    const deptResult = body.departmentId
-      ? await db.query<{ name: string }>(
-          `SELECT name FROM departments WHERE id = $1`,
-          [body.departmentId],
-        )
-      : { rows: [] as { name: string }[] };
-    const deptName = deptResult.rows[0]?.name ?? department;
+    const primaryDeptId = departmentIds[0];
+    const primaryDept = deptMap.get(String(primaryDeptId));
+    if (!primaryDept) {
+      return NextResponse.json(
+        { ok: false, error: "Selected department not found." },
+        { status: 400 },
+      );
+    }
 
     const progResult = body.programId
       ? await db.query<{ name: string }>(
@@ -448,6 +479,16 @@ export async function POST(request: NextRequest) {
         )
       : { rows: [] as { name: string }[] };
     const progName = progResult.rows[0]?.name ?? null;
+
+    const deptFacultyId = primaryDept.faculty_id ?? body.facultyId ?? null;
+    const facultyName = deptFacultyId
+      ? (
+          await db.query<{ name: string }>(
+            `SELECT name FROM faculties WHERE id = $1`,
+            [deptFacultyId],
+          )
+        ).rows[0]?.name ?? null
+      : null;
 
     const fmResult = await db.query<{ id: string }>(
       `
@@ -468,18 +509,28 @@ export async function POST(request: NextRequest) {
         body.name.trim(),
         email,
         facultyName,
-        deptName,
+        primaryDept.name,
         progName,
         body.designation?.trim() ?? null,
-        body.facultyId ?? null,
-        body.departmentId ?? null,
+        deptFacultyId,
+        primaryDeptId,
         body.programId ?? null,
       ],
     );
     const facultyMemberId = fmResult.rows[0].id;
 
-    // 3. Link faculty_members.user_id (already set in INSERT, but ensure)
+    // Link the faculty_members record to the user
     await linkFacultyMemberToUser(facultyMemberId, userId);
+
+    // 3. Insert all selected departments into the join table
+    for (const deptId of departmentIds) {
+      await db.query(
+        `INSERT INTO faculty_member_departments (faculty_member_id, department_id)
+         VALUES ($1, $2)
+         ON CONFLICT (faculty_member_id, department_id) DO NOTHING`,
+        [facultyMemberId, deptId],
+      );
+    }
 
     // 4. Assign role scope
     if (role === "hod" && body.hodFacultyId && body.hodDepartmentId) {
@@ -527,8 +578,23 @@ export async function POST(request: NextRequest) {
       facultyMemberId,
       userId,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[faculty-members] create failed:", error);
+
+    // Handle unique constraint violations with a clean 409 response
+    if (error?.code === "23505") {
+      const constraint = error?.constraint ?? "";
+      let msg = "A record with this value already exists.";
+      if (constraint.includes("email")) {
+        msg = "A faculty member or user with this email already exists.";
+      } else if (constraint.includes("sap_id")) {
+        msg = "A user with this SAP ID already exists.";
+      } else if (constraint.includes("user_id")) {
+        msg = "This user is already linked to a faculty member.";
+      }
+      return NextResponse.json({ ok: false, error: msg }, { status: 409 });
+    }
+
     return NextResponse.json(
       { ok: false, error: "Unable to create faculty member." },
       { status: 500 },

@@ -15,6 +15,7 @@ type SubmissionDetailRow = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";

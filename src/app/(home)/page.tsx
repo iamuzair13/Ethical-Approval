@@ -1,11 +1,11 @@
 import { PaymentsOverview } from "@/components/Charts/payments-overview";
 import { UsedDevices } from "@/components/Charts/used-devices";
-import { LeadsReport } from "@/components/Tables/leads-report";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { createTimeFrameExtractor } from "@/utils/timeframe-extractor";
 import { authOptions } from "@/lib/auth-options";
 import { OverviewCardsGroup } from "./_components/overview-cards";
+import { LeadsReportTabs } from "./_components/leads-report-tabs";
 import { getDashboardLeads, getOverviewData, getUsedDevicesData } from "./fetch";
 import DashboardApiProbe from "@/components/debug/dashboard-api-probe";
 
@@ -35,6 +35,14 @@ export default async function Home({ searchParams }: PropsType) {
         ? "IREB Request Breakdown"
         : "Request Status Breakdown";
 
+  // Sensitive cases are visible only to Administrators and IREB members.
+  // They remain faculty-scoped via the existing RBAC in getDashboardLeads.
+  const role = session.user.adminRole;
+  const canViewSensitive = role === "administrator" || role === "ireb";
+  const sensitiveLeads = canViewSensitive
+    ? leadsData.filter((lead) => lead.isSensitive)
+    : [];
+
   return (
     <>
       <DashboardApiProbe tag="home" />
@@ -57,7 +65,12 @@ export default async function Home({ searchParams }: PropsType) {
           data={usedDevicesData}
         />
 
-        <LeadsReport leads={leadsData} currentRole={session.user.adminRole ?? null} />
+        <LeadsReportTabs
+          leads={leadsData}
+          sensitiveLeads={sensitiveLeads}
+          currentRole={role ?? null}
+          canViewSensitive={canViewSensitive}
+        />
       </div>
     </>
   );

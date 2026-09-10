@@ -115,7 +115,7 @@ export function FilterMultiSelect({
       top = Math.max(8, rect.top - menuHeight - 4);
     }
 
-    setMenuStyle({ position: "fixed", top, left, width, zIndex: 9999 });
+    setMenuStyle({ position: "fixed", top, left, width, zIndex: 100001 });
   }, [portalled, dropdownWidth, align, maxOptionsHeight]);
 
   useLayoutEffect(() => {

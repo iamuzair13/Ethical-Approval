@@ -47,7 +47,7 @@ function computeHodSummary(m: HodReportMetricsInput): [string, string][] {
 
   const totalApprovedForms = rows.filter((r) =>
     isStudentApplicantEmail(r.applicant_email) &&
-    ["hod_approved", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
+    ["hod_approved", "under_admin_review", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
   ).length;
 
   const totalRejectedForms = rows.filter((r) => r.current_status === "hod_rejected").length;

@@ -1,4 +1,14 @@
 import { db } from "@/lib/db";
+import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
+
+export type ApprovalDecisionRow = {
+  id: number;
+  stage: "hod" | "ireb";
+  decision: "approved" | "rejected";
+  comment: string | null;
+  decided_by_name: string | null;
+  decided_at: Date;
+};
 
 export type SubmissionDetail = {
   id: number;
@@ -10,9 +20,11 @@ export type SubmissionDetail = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";
+  is_sensitive: boolean;
   submitted_at: Date;
   title: string | null;
   objectives: string | null;
@@ -48,6 +60,8 @@ export type SubmissionDetail = {
   hod_email_snapshot: string | null;
   hod_department_snapshot: string | null;
   hod_faculty_snapshot: string | null;
+  /** Full approval decision history (newest first). */
+  approval_decisions: ApprovalDecisionRow[];
 };
 
 export async function getSubmissionDetailById(submissionId: number) {
@@ -59,6 +73,7 @@ export async function getSubmissionDetailById(submissionId: number) {
         s.type,
         s.domain,
         s.current_status,
+        s.is_sensitive,
         s.submitted_at,
         src.title,
         src.objectives,
@@ -127,4 +142,28 @@ export async function getSubmissionDetailById(submissionId: number) {
   );
 
   return result.rows[0] ?? null;
+}
+
+export async function getApprovalDecisionsBySubmissionId(
+  submissionId: number,
+): Promise<ApprovalDecisionRow[]> {
+  const result = await db.query<ApprovalDecisionRow>(
+    `
+      SELECT
+        ad.id,
+        ad.stage,
+        ad.decision,
+        ad.comment,
+        ad.decided_by_name,
+        ad.decided_at
+      FROM approval_decisions ad
+      WHERE ad.submission_id = $1
+      ORDER BY ad.decided_at DESC
+    `,
+    [submissionId],
+  );
+  return result.rows.map((row) => ({
+    ...row,
+    comment: stripAdminAuditNote(row.comment),
+  }));
 }

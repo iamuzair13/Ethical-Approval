@@ -38,6 +38,7 @@ type LeadStatus =
   | "Under Review by HOD"
   | "Approved by HOD"
   | "Rejected by HOD"
+  | "Under Review by Administrator"
   | "Under Review by IREB"
   | "Approved by IREB"
   | "Rejected by IREB";
@@ -60,7 +61,8 @@ export type DashboardLead = {
   duration: string;
   currentStatus: LeadStatus;
   hodName: string | null;
-  stage: "hod" | "ireb" | "completed";
+  stage: "hod" | "admin" | "ireb" | "completed";
+  isSensitive: boolean;
   submittedAt: string;
   hodDecisionAt: string | null;
   /** Applicant profile image URL when set; otherwise use name initials in the UI. */
@@ -85,9 +87,11 @@ type SubmissionScopeRow = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";
+  is_sensitive: boolean;
   latest_feedback_comment: string | null;
   latest_audit_note: string | null;
   latest_actor_name: string | null;
@@ -311,6 +315,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          s.is_sensitive,
           s.hod_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
@@ -414,6 +419,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       submission_type: row.type,
       research_title: row.research_title,
       current_status: row.current_status,
+      is_sensitive: row.is_sensitive,
       latest_feedback_comment: feedbackMap.get(row.id)?.comment ?? null,
       latest_audit_note: null,
       latest_actor_name: feedbackMap.get(row.id)?.actorName ?? null,
@@ -441,6 +447,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.type AS submission_type,
           src.title AS research_title,
           s.current_status,
+          s.is_sensitive,
           s.hod_name_snapshot,
           (
             SELECT MAX(ad.decided_at)
@@ -557,11 +564,13 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
 
   const pendingHod =
     (statusMap.get("submitted") ?? 0) + (statusMap.get("under_hod_review") ?? 0);
+  const pendingAdmin = statusMap.get("under_admin_review") ?? 0;
   const pendingIreb = statusMap.get("under_ireb_review") ?? 0;
   const hodApproved = scopedRows.filter(
     (row) =>
       isStudentApplicantEmail(row.applicant_email) &&
       (row.current_status === "hod_approved" ||
+        row.current_status === "under_admin_review" ||
         row.current_status === "under_ireb_review" ||
         row.current_status === "approved" ||
         row.current_status === "rejected"),
@@ -605,7 +614,8 @@ export async function getOverviewData(session?: Session): Promise<OverviewData> 
   return {
     views: { value: total, growthRate: 100 },
     profit: { value: pendingHod, growthRate: toRate(pendingHod) },
-    products: { value: pendingIreb, growthRate: toRate(pendingIreb) },
+    // Administrator (default): pending approvals include admin + IREB stages.
+    products: { value: pendingAdmin + pendingIreb, growthRate: toRate(pendingAdmin + pendingIreb) },
     users: { value: hodApproved, growthRate: toRate(hodApproved) },
     customers: { value: irebApproved, growthRate: toRate(irebApproved) },
     hodPending: { value: pendingHod, growthRate: toRate(pendingHod) },
@@ -650,6 +660,7 @@ export async function getOverviewTimelineBreakdown(
   const isApprovedHod = (row: SubmissionScopeRow) =>
     isStudentApplicantEmail(row.applicant_email) &&
     (row.current_status === "hod_approved" ||
+      row.current_status === "under_admin_review" ||
       row.current_status === "under_ireb_review" ||
       row.current_status === "approved" ||
       row.current_status === "rejected");
@@ -736,6 +747,7 @@ export async function getUsedDevicesData(session: Session) {
     (row) =>
       isStudentApplicantEmail(row.applicant_email) &&
       (row.current_status === "hod_approved" ||
+        row.current_status === "under_admin_review" ||
         row.current_status === "under_ireb_review" ||
         row.current_status === "approved" ||
         row.current_status === "rejected"),
@@ -777,6 +789,10 @@ export async function getUsedDevicesData(session: Session) {
               name: "Pending HOD Review",
               amount:
                 (statusMap.get("submitted") ?? 0) + (statusMap.get("under_hod_review") ?? 0),
+            },
+            {
+              name: "Pending Administrator Review",
+              amount: statusMap.get("under_admin_review") ?? 0,
             },
             {
               name: "Pending IREB Review",
@@ -822,6 +838,10 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
         stage = "hod";
         break;
       case "hod_approved":
+      case "under_admin_review":
+        currentStatus = "Under Review by Administrator";
+        stage = "admin";
+        break;
       case "under_ireb_review":
         currentStatus = "Under Review by IREB";
         stage = "ireb";
@@ -853,7 +873,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
     const days = stagePendingDays ?? totalDays;
 
     const stageStart =
-      stage === "ireb" && row.hod_decision_at
+      (stage === "ireb" || stage === "admin") && row.hod_decision_at
         ? new Date(row.hod_decision_at)
         : new Date(row.submitted_at);
     const projectEnd = new Date(stageStart.getTime() + 2 * 24 * 60 * 60 * 1000);
@@ -875,6 +895,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       currentStatus,
       hodName: row.hod_name,
       stage,
+      isSensitive: Boolean(row.is_sensitive),
       submittedAt,
       hodDecisionAt,
       avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),

@@ -44,6 +44,7 @@ type ProfileSubmissionApiRow = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -71,6 +72,8 @@ function mapStatusToStage(
       return "Approved by HOD";
     case "hod_rejected":
       return "Rejected by HOD";
+    case "under_admin_review":
+      return "Under Review by Administrator";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -630,10 +633,20 @@ export default function FullProfilePage() {
       requests.reduce(
         (acc, request) => {
           const stage = request.currentStage;
-          if (stage.startsWith("Under Review by") && !stage.includes("IREB")) acc.inHod += 1;
-          else if (stage === "Under Review by IREB") acc.inEthical += 1;
-          else if (stage.includes("Approved") || stage.includes("Rejected"))
+          if (
+            stage.startsWith("Under Review by") &&
+            !stage.includes("IREB") &&
+            !stage.includes("Administrator")
+          ) {
+            acc.inHod += 1;
+          } else if (
+            stage === "Under Review by IREB" ||
+            stage === "Under Review by Administrator"
+          ) {
+            acc.inEthical += 1;
+          } else if (stage.includes("Approved") || stage.includes("Rejected")) {
             acc.completed += 1;
+          }
           return acc;
         },
         { inHod: 0, inEthical: 0, completed: 0 }

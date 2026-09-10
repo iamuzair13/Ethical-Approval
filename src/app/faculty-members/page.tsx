@@ -117,6 +117,7 @@ type FacultyDetail = {
   program: string | null;
   facultyId: number | null;
   departmentId: number | null;
+  departmentIds?: number[];
   programId: number | null;
   employeeType: string | null;
   employeeStatus: string | null;
@@ -147,9 +148,8 @@ type FacultyForm = {
   name: string;
   email: string;
   sapId: string;
-  employeeCode: string;
   designation: string;
-  departmentId: number | "";
+  departmentIds: number[];
   role: AdminRole | "";
   password: string;
   status: "active" | "inactive";
@@ -386,15 +386,6 @@ function FacultyFormDialog({
                 required
               />
             </label>
-            <label className="block">
-              <span className={labelClass}>Employee Code</span>
-              <input
-                value={form.employeeCode}
-                onChange={(e) => onFormChange({ employeeCode: e.target.value })}
-                className={inputClass}
-                placeholder="Employee code"
-              />
-            </label>
             <label className="block sm:col-span-2">
               <span className={labelClass}>Designation</span>
               <input
@@ -415,24 +406,25 @@ function FacultyFormDialog({
               <span className={labelClass}>
                 Department <span className="text-red">*</span>
               </span>
-              <SearchableSelect
+              <FilterMultiSelect
                 options={(orgData?.departments ?? []).map((d) => ({
                   value: String(d.id),
                   label: d.name,
                 }))}
-                value={form.departmentId ? String(form.departmentId) : ""}
-                onChange={(val) => {
+                selected={form.departmentIds.map(String)}
+                onChange={(vals) => {
                   onFormChange({
-                    departmentId: val ? Number(val) : "",
+                    departmentIds: vals.map((v) => Number(v)).filter((n) => Number.isInteger(n)),
                   });
                 }}
-                placeholder="Select department"
+                placeholder="Select departments"
                 searchPlaceholder="Search departments…"
+                showSelectAll={true}
                 triggerClassName={selectClass}
               />
-              {!form.departmentId && (
+              {form.departmentIds.length === 0 && (
                 <p className="mt-1 text-xs text-dark-5 dark:text-dark-6">
-                  Department is required. It determines the hod's scope
+                  At least one department is required. It determines the hod's scope
                   for student application selection.
                 </p>
               )}
@@ -681,9 +673,8 @@ const emptyForm: FacultyForm = {
   name: "",
   email: "",
   sapId: "",
-  employeeCode: "",
   designation: "",
-  departmentId: "",
+  departmentIds: [],
   role: "",
   password: "",
   status: "active",
@@ -976,9 +967,10 @@ export default function FacultyMembersPage() {
         name: m.name,
         email: m.email,
         sapId: m.sapId,
-        employeeCode: m.employeeCode ?? "",
         designation: m.designation ?? "",
-        departmentId: m.departmentId ?? "",
+        departmentIds: Array.isArray(m.departmentIds) && m.departmentIds.length > 0
+          ? m.departmentIds
+          : m.departmentId ? [m.departmentId] : [],
         role: (u?.role as AdminRole) ?? "",
         password: "",
         status: (u?.status as "active" | "inactive") ?? "active",
@@ -996,18 +988,21 @@ export default function FacultyMembersPage() {
     setSubmittingForm(true);
     setError(null);
 
-    // Derive hod faculty/department from the selected department.
+    // Derive hod faculty/department from the first selected department.
     // The department's faculty_id is used as the hod's faculty scope.
+    // HOD scope currently supports a single department; the first
+    // selected department is used for that purpose.
+    const firstDeptId = formData.departmentIds[0] ?? null;
     const selectedDept = orgData?.departments.find(
-      (d) => d.id === formData.departmentId,
+      (d) => d.id === firstDeptId,
     );
     const hodFacultyId =
       formData.role === "hod" && selectedDept?.faculty_id
         ? Number(selectedDept.faculty_id)
         : null;
     const hodDepartmentId =
-      formData.role === "hod" && formData.departmentId
-        ? Number(formData.departmentId)
+      formData.role === "hod" && firstDeptId
+        ? Number(firstDeptId)
         : null;
 
     try {
@@ -1016,9 +1011,8 @@ export default function FacultyMembersPage() {
           name: formData.name,
           email: formData.email,
           sapId: formData.sapId,
-          employeeCode: formData.employeeCode || null,
           designation: formData.designation || null,
-          departmentId: formData.departmentId || null,
+          departmentIds: formData.departmentIds,
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,
@@ -1044,7 +1038,8 @@ export default function FacultyMembersPage() {
           name: formData.name,
           email: formData.email,
           designation: formData.designation || null,
-          departmentId: formData.departmentId || null,
+          departmentId: firstDeptId,
+          departmentIds: formData.departmentIds,
           role: formData.role || null,
           password: formData.password || undefined,
           status: formData.status,

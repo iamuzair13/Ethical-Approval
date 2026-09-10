@@ -64,7 +64,7 @@ export function DecisionModal({
         </>
       }
     >
-      {currentRole === "administrator" && (
+      {currentRole === "administrator" && (lead.stage === "hod" || lead.stage === "ireb") && (
         <div className="mb-5 grid gap-4">
           {lead.stage === "hod" && (
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
@@ -99,7 +99,9 @@ export function DecisionModal({
       {action === "rejected" && (
         <div className="mb-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            HOD / IREB reasons for rejection (select all that apply)
+            {lead.stage === "admin"
+              ? "Administrator reasons for rejection (select all that apply)"
+              : "HOD / IREB reasons for rejection (select all that apply)"}
             <span className="text-red-600"> *</span>
           </p>
           <ul className="mt-3 space-y-3">
@@ -123,10 +125,7 @@ export function DecisionModal({
       <div>
         <label className="mb-2 block text-sm font-semibold text-gray-900 dark:text-white">
           {action === "rejected" ? (
-            <>
-              Please elaborate
-              <span className="text-red-600"> *</span>
-            </>
+            "Please elaborate (optional)"
           ) : (
             "Comment (optional)"
           )}

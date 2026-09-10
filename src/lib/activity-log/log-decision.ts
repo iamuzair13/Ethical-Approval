@@ -15,7 +15,7 @@ export async function logApplicationDecisionActivity(input: {
   applicationId: string;
   applicantFaculty: string | null;
   decision: "approved" | "rejected";
-  stage: "hod" | "ireb";
+  stage: "hod" | "admin" | "ireb";
   onBehalfOfAdminId?: string;
 }): Promise<void> {
   const token = await getToken({
@@ -73,6 +73,61 @@ export async function logApplicationDecisionActivity(input: {
         facultyId,
         facultyName,
         metadata: { stage: input.stage, decision: input.decision },
+      },
+    ),
+    effective,
+  });
+}
+
+/**
+ * Logs an Administrator review-stage action (recommend or mark_sensitive) that
+ * releases an application to IREB review. The administrator acts as themselves
+ * (IREB chairman), so there is no "on behalf of" context.
+ */
+export async function logAdminReviewActivity(input: {
+  request: NextRequest;
+  actor: AuthenticatedAdmin;
+  submissionId: number;
+  applicationId: string;
+  applicantFaculty: string | null;
+  action: "recommend" | "mark_sensitive";
+}): Promise<void> {
+  const ctx = await resolveActivityContext({
+    request: input.request,
+    onBehalfOfAdminId: undefined,
+  });
+  if (!ctx) return;
+
+  let facultyId: number | null = null;
+  let facultyName: string | null = null;
+  if (input.applicantFaculty) {
+    const ids = await resolveFacultyIdsFromSnapshotValue(input.applicantFaculty);
+    if (ids.length > 0) facultyId = ids[0];
+  }
+
+  const actionCode =
+    input.action === "recommend"
+      ? "application.review.recommend"
+      : "application.review.mark_sensitive";
+
+  const effective = ctx.effective;
+
+  recordActivityEventFireAndForget({
+    ...buildContextInput(
+      {
+        ...ctx,
+        impersonationMode: ctx.impersonationMode,
+        effective,
+      },
+      {
+        actionCode,
+        targetType: "application",
+        targetId: input.applicationId,
+        targetLabel: input.applicationId,
+        submissionId: input.submissionId,
+        facultyId,
+        facultyName,
+        metadata: { stage: "admin", action: input.action },
       },
     ),
     effective,

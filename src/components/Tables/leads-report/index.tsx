@@ -46,6 +46,7 @@ import {
 import { ApplicantProfileModal } from "./modals/applicant-profile-modal";
 import { AttachmentModal } from "./modals/attachment-modal";
 import { AttachmentViewModal } from "./modals/attachment-view-modal";
+import { AdminReleaseModal, type AdminReleaseAction } from "./modals/admin-release-modal";
 import { DecisionModal } from "./modals/decision-modal";
 import { ExportModal } from "./modals/export-modal";
 import { FeedbackModal } from "./modals/feedback-modal";
@@ -54,6 +55,7 @@ import {
   ApplicationIdBadge,
   ApplicationTypeBadge,
   StatusBadge,
+  SensitiveBadge,
 } from "./status-badges";
 import { TablePagination } from "./table-pagination";
 import { TableToolbar } from "./table-toolbar";
@@ -73,6 +75,7 @@ const STATUS_ORDER: LeadStatus[] = [
   "Under Review by HOD",
   "Approved by HOD",
   "Rejected by HOD",
+  "Under Review by Administrator",
   "Under Review by IREB",
   "Approved by IREB",
   "Rejected by IREB",
@@ -291,6 +294,10 @@ export function LeadsReport({
   const [decisionAction, setDecisionAction] = useState<DecisionAction>("approved");
   const [decisionComment, setDecisionComment] = useState("");
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
+  const [adminReleaseLead, setAdminReleaseLead] = useState<Lead | null>(null);
+  const [adminReleaseAction, setAdminReleaseAction] = useState<AdminReleaseAction | null>(null);
+  const [adminReleaseComment, setAdminReleaseComment] = useState("");
+  const [adminReleaseIrebUserId, setAdminReleaseIrebUserId] = useState("");
   const [adminOptions, setAdminOptions] = useState<{
     hodOption: AdminOption | null;
     irebOptions: AdminOption[];
@@ -487,7 +494,12 @@ export function LeadsReport({
         ? leads.filter((lead) => lead.stage === "hod")
         : currentRole === "ireb"
           ? leads.filter((lead) => lead.stage === "ireb")
-          : leads.filter((lead) => lead.stage === "hod" || lead.stage === "ireb"),
+          : leads.filter(
+              (lead) =>
+                lead.stage === "hod" ||
+                lead.stage === "admin" ||
+                lead.stage === "ireb",
+            ),
     [leads, currentRole],
   );
 
@@ -591,6 +603,9 @@ export function LeadsReport({
 
   useEffect(() => {
     if (!decisionLead || currentRole !== "administrator") return;
+    // The admin review stage is handled by the administrator directly — no
+    // "on behalf of" options are needed.
+    if (decisionLead.stage === "admin") return;
     let cancelled = false;
 
     void (async () => {
@@ -640,6 +655,65 @@ export function LeadsReport({
     setSelectedOnBehalfOf("");
     setAdminOptions({ hodOption: null, irebOptions: [] });
     setDecisionLead(lead);
+  };
+
+  const resetAdminReleaseModal = () => {
+    setAdminReleaseLead(null);
+    setAdminReleaseAction(null);
+    setAdminReleaseComment("");
+    setAdminReleaseIrebUserId("");
+  };
+
+  const openAdminReleaseModal = (lead: Lead, action: AdminReleaseAction) => {
+    setActionError(null);
+    setAdminReleaseAction(action);
+    setAdminReleaseComment("");
+    setAdminReleaseIrebUserId("");
+    setAdminReleaseLead(lead);
+  };
+
+  const handleAdminReleaseSubmit = async () => {
+    if (!adminReleaseLead || !adminReleaseAction) return;
+    if (adminReleaseAction === "recommend" && !adminReleaseIrebUserId) {
+      setActionError("Please select an IREB member to recommend to.");
+      return;
+    }
+    setBusyLeadId(adminReleaseLead.id);
+    setActionError(null);
+    try {
+      const response = await fetch(
+        `/api/submissions/${adminReleaseLead.id}/admin-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: adminReleaseAction,
+            comment: adminReleaseComment,
+            irebUserId: adminReleaseAction === "recommend" ? adminReleaseIrebUserId : undefined,
+          }),
+        },
+      );
+      const payload = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !payload.ok) {
+        const message = payload.error ?? "Unable to save action.";
+        setActionError(message);
+        toast.error(message);
+        return;
+      }
+      toast.success(
+        adminReleaseAction === "mark_sensitive"
+          ? `Application ${adminReleaseLead.applicationId} marked as sensitive.`
+          : `Application ${adminReleaseLead.applicationId} recommended for IREB review.`,
+      );
+      resetAdminReleaseModal();
+      router.refresh();
+    } catch {
+      const message = "Network error while saving action.";
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setBusyLeadId(null);
+    }
   };
 
   const toggleRejectionReason = (reasonId: string) => {
@@ -892,7 +966,10 @@ export function LeadsReport({
 
   const handleDecisionSubmit = async () => {
     if (!decisionLead) return;
-    if (currentRole === "administrator" && !selectedOnBehalfOf) {
+    // At the admin review stage the administrator (IREB chairman) acts as
+    // themselves — no "on behalf of" selection is required.
+    const isAdminStage = decisionLead.stage === "admin";
+    if (currentRole === "administrator" && !isAdminStage && !selectedOnBehalfOf) {
       const message = "Please select who this action is on behalf of.";
       setActionError(message);
       toast.error(message);
@@ -901,12 +978,6 @@ export function LeadsReport({
     if (decisionAction === "rejected") {
       if (selectedRejectionReasons.length === 0) {
         const message = "Select at least one rejection reason.";
-        setActionError(message);
-        toast.error(message);
-        return;
-      }
-      if (!decisionComment.trim()) {
-        const message = "Please elaborate is required when rejecting.";
         setActionError(message);
         toast.error(message);
         return;
@@ -925,7 +996,8 @@ export function LeadsReport({
           ...(decisionAction === "rejected"
             ? { rejectionReasonCodes: selectedRejectionReasons }
             : {}),
-          onBehalfOfAdminId: currentRole === "administrator" ? selectedOnBehalfOf : undefined,
+          onBehalfOfAdminId:
+            currentRole === "administrator" && !isAdminStage ? selectedOnBehalfOf : undefined,
         }),
       });
       const payload = (await response.json()) as { ok: boolean; error?: string };
@@ -1103,7 +1175,10 @@ export function LeadsReport({
                       </a>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={lead.currentStatus} hodName={lead.hodName} />
+                      <div className="flex flex-col gap-1">
+                        <StatusBadge status={lead.currentStatus} hodName={lead.hodName} />
+                        {lead.isSensitive && <SensitiveBadge />}
+                      </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <ApplicationTypeBadge type={lead.applicationType} />
@@ -1161,6 +1236,16 @@ export function LeadsReport({
                         }
                         onReject={
                           canDecide ? () => openDecisionModal(lead, "rejected") : undefined
+                        }
+                        onRecommend={
+                          lead.stage === "admin" && currentRole === "administrator"
+                            ? () => openAdminReleaseModal(lead, "recommend")
+                            : undefined
+                        }
+                        onMarkSensitive={
+                          lead.stage === "admin" && currentRole === "administrator"
+                            ? () => openAdminReleaseModal(lead, "mark_sensitive")
+                            : undefined
                         }
                       />
                     </TableCell>
@@ -1279,6 +1364,21 @@ export function LeadsReport({
           busy={busyLeadId === decisionLead.id}
           onClose={resetDecisionModal}
           onSubmit={() => void handleDecisionSubmit()}
+        />
+      )}
+
+      {adminReleaseLead && (
+        <AdminReleaseModal
+          lead={adminReleaseLead}
+          action={adminReleaseAction}
+          comment={adminReleaseComment}
+          onCommentChange={setAdminReleaseComment}
+          busy={busyLeadId === adminReleaseLead.id}
+          error={actionError}
+          onClose={resetAdminReleaseModal}
+          onSubmit={() => void handleAdminReleaseSubmit()}
+          irebUserId={adminReleaseIrebUserId}
+          onIrebUserIdChange={setAdminReleaseIrebUserId}
         />
       )}
 

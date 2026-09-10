@@ -192,7 +192,7 @@ export function buildHodReportChartsHtml(metrics: {
 
   const passedHod = rows.filter((r) =>
     isStudentApplicantEmail(r.applicant_email) &&
-    ["hod_approved", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
+    ["hod_approved", "under_admin_review", "under_ireb_review", "approved", "rejected"].includes(r.current_status),
   ).length;
   const hodRejected = rows.filter((r) => r.current_status === "hod_rejected").length;
 

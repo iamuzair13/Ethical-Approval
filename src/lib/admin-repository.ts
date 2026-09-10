@@ -225,6 +225,25 @@ export async function getIrebEmailsForFacultyIds(
   return result.rows.map((row: { email: string }) => row.email.trim()).filter(Boolean);
 }
 
+/**
+ * Returns the emails of all active administrators (the IREB chairman and any
+ * other administrator accounts). Used to notify the administrator that an
+ * application is ready for the admin review stage (e.g. after HOD approval).
+ */
+export async function getAdministratorEmails(): Promise<string[]> {
+  const result = await db.query<{ email: string }>(
+    `
+      SELECT DISTINCT email
+      FROM admin_users
+      WHERE role = 'administrator'
+        AND status = 'active'
+        AND deleted_at IS NULL
+        AND email IS NOT NULL
+    `,
+  );
+  return result.rows.map((row: { email: string }) => row.email.trim()).filter(Boolean);
+}
+
 export async function createAdminUser(input: {
   name: string;
   email: string;
@@ -1092,6 +1111,29 @@ export async function listActiveIrebForViewAs(): Promise<HodPickerRow[]> {
     `,
   );
   return result.rows;
+}
+
+/**
+ * Returns the email of a single active IREB member by admin user id.
+ * Used to notify the specific IREB member chosen by the administrator
+ * when recommending an application.
+ */
+export async function getIrebUserEmailById(
+  adminUserId: string,
+): Promise<string | null> {
+  const result = await db.query<{ email: string }>(
+    `
+      SELECT email
+      FROM admin_users
+      WHERE id = $1
+        AND deleted_at IS NULL
+        AND status = 'active'
+        AND role = 'ireb'
+    `,
+    [adminUserId],
+  );
+  const row = result.rows[0];
+  return row ? row.email.trim() || null : null;
 }
 
 /**

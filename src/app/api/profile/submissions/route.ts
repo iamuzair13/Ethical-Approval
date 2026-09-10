@@ -20,6 +20,7 @@ type ProfileSubmissionRow = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";
@@ -168,19 +169,15 @@ function resolveResubmissionStatus(
   isStudent: boolean,
   type: "thesis" | "publication" | undefined,
 ): ProfileSubmissionRow["current_status"] {
-  // If IREB rejected a student submission, hod approval remains valid.
-  if (previousStatus === "rejected" && isStudent) {
-    return "under_ireb_review";
-  }
-
-  // If IREB rejected a non-student submission, return to applicant for resubmission.
-  // The applicant edits and resubmits; on resubmission it goes directly to IREB again.
-  if (previousStatus === "rejected" && !isStudent) {
-    return "under_ireb_review";
+  // After any rejection (HOD, Administrator, or IREB), resubmission returns
+  // to the Administrator review stage. The Administrator (IREB chairman)
+  // re-checks the application before it is released back to IREB members.
+  if (previousStatus === "rejected") {
+    return "under_admin_review";
   }
 
   // If hod rejected (or anything else), restart from the beginning.
-  // Student thesis → hod stage; everything else → IREB directly.
+  // Student thesis → hod stage; everything else → Administrator directly.
   return resolveInitialStatus(isStudent, type);
 }
 
@@ -188,8 +185,8 @@ function resolveResubmissionStatus(
  * Determines whether a submission requires a hod selection.
  *
  * Only student thesis applications (Form 1 and Form 3) go through the
- * hod approval stage. Student publications and all faculty
- * submissions go directly to IREB.
+ * hod approval stage. Student publications and all faculty submissions go
+ * directly to the Administrator review stage.
  */
 function requiresHod(
   isStudent: boolean,
@@ -204,8 +201,11 @@ function requiresHod(
  *
  * Routing rules (the single centralized point that determines the workflow):
  *   - Student THESIS       → 'submitted'              (hod stage first)
- *   - Student PUBLICATION  → 'under_ireb_review'      (IREB directly, no hod)
- *   - Faculty (any type)   → 'under_ireb_review'      (IREB directly, no hod)
+ *   - Student PUBLICATION  → 'under_admin_review'     (Administrator directly, no hod)
+ *   - Faculty (any type)   → 'under_admin_review'     (Administrator directly, no hod)
+ *
+ * After the Administrator reviews the application it is released to IREB
+ * ('under_ireb_review'), optionally flagged as a sensitive case.
  */
 function resolveInitialStatus(
   isStudent: boolean,
@@ -214,7 +214,7 @@ function resolveInitialStatus(
   if (requiresHod(isStudent, type)) {
     return "submitted";
   }
-  return "under_ireb_review";
+  return "under_admin_review";
 }
 
 /**
@@ -477,6 +477,7 @@ export async function POST(request: NextRequest) {
             type = $1::submission_type,
             domain = $2::submission_domain,
             current_status = $4,
+            is_sensitive = FALSE,
             updated_at = NOW()
           WHERE id = $3
         `,

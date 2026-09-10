@@ -3,6 +3,7 @@ export type LeadStatus =
   | "Under Review by HOD"
   | "Approved by HOD"
   | "Rejected by HOD"
+  | "Under Review by Administrator"
   | "Under Review by IREB"
   | "Approved by IREB"
   | "Rejected by IREB";
@@ -20,7 +21,8 @@ export type Lead = {
   duration: string;
   currentStatus: LeadStatus;
   hodName?: string | null;
-  stage: "hod" | "ireb" | "completed";
+  stage: "hod" | "admin" | "ireb" | "completed";
+  isSensitive?: boolean;
   submittedAt: string;
   hodDecisionAt: string | null;
   avatar: string | null;

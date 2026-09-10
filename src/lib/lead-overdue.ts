@@ -66,6 +66,12 @@ export function isLeadOverdueForRole(
     submittedAt: lead.submittedAt,
     now,
   });
+  const adminOverdue = isAdminReviewOverdue({
+    currentStatus: lead.currentStatus,
+    submittedAt: lead.submittedAt,
+    hodDecisionAt: lead.hodDecisionAt,
+    now,
+  });
   const irebOverdue = isIrebReviewOverdue({
     currentStatus: lead.currentStatus,
     submittedAt: lead.submittedAt,
@@ -75,21 +81,45 @@ export function isLeadOverdueForRole(
 
   if (role === "hod") return hodOverdue;
   if (role === "ireb") return irebOverdue;
-  if (role === "administrator") return hodOverdue || irebOverdue;
+  if (role === "administrator") return hodOverdue || adminOverdue || irebOverdue;
 
   if (scope.hodOnly) return hodOverdue;
   if (scope.ethicalOnly) return irebOverdue;
-  return hodOverdue || irebOverdue;
+  return hodOverdue || adminOverdue || irebOverdue;
+}
+
+export function isAdminReviewOverdue({
+  currentStatus,
+  submittedAt,
+  hodDecisionAt,
+  now = new Date(),
+}: {
+  currentStatus: string;
+  submittedAt: string | Date;
+  hodDecisionAt: string | Date | null;
+  now?: Date;
+}): boolean {
+  if (currentStatus !== "Under Review by Administrator") return false;
+  const stageStart = parseLeadDate(hodDecisionAt) ?? parseLeadDate(submittedAt);
+  if (!stageStart) return false;
+  return daysBetween(stageStart, now) > OVERDUE_THRESHOLD_DAYS;
 }
 
 export function getStagePendingDays(
-  lead: OverdueLeadInput & { stage: "hod" | "ireb" | "completed" },
+  lead: OverdueLeadInput & { stage: "hod" | "admin" | "ireb" | "completed" },
   now: Date = new Date(),
 ): number | null {
   if (lead.stage === "hod" && lead.currentStatus === "Under Review by HOD") {
     const submitted = parseLeadDate(lead.submittedAt);
     if (!submitted) return null;
     return Math.max(1, daysBetween(submitted, now) || 1);
+  }
+
+  if (lead.stage === "admin" && lead.currentStatus === "Under Review by Administrator") {
+    const stageStart =
+      parseLeadDate(lead.hodDecisionAt) ?? parseLeadDate(lead.submittedAt);
+    if (!stageStart) return null;
+    return Math.max(1, daysBetween(stageStart, now) || 1);
   }
 
   if (lead.stage === "ireb" && lead.currentStatus === "Under Review by IREB") {

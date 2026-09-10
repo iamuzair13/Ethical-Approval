@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
 import {
   getAdminUserById,
+  getAdministratorEmails,
   getIrebEmailsForFacultyIds,
   resolveFacultyIdsFromSnapshotValue,
 } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import {
   scheduleHodRejectionEmail,
-  scheduleHodApprovalToIrebEmail,
+  scheduleHodApprovalToAdminEmail,
   scheduleIrebApprovalEmail,
   scheduleIrebRejectionEmail,
+  scheduleAdminApprovalEmail,
+  scheduleAdminRejectionEmail,
 } from "@/lib/email";
 import { db } from "@/lib/db";
 import { getSubmissionDetailById } from "@/lib/submission-details";
@@ -29,9 +32,13 @@ type DecisionBody = {
   onBehalfOfAdminId?: string;
 };
 
-function getStageFromStatus(status: string): "hod" | "ireb" | "completed" {
+function getStageFromStatus(status: string): "hod" | "admin" | "ireb" | "completed" {
   if (status === "submitted" || status === "under_hod_review") return "hod";
-  if (status === "hod_approved" || status === "under_ireb_review") return "ireb";
+  // After HOD approval the application waits at the Administrator (IREB
+  // chairman) review stage. `hod_approved` is a legacy transient status that
+  // also maps to the admin stage.
+  if (status === "hod_approved" || status === "under_admin_review") return "admin";
+  if (status === "under_ireb_review") return "ireb";
   return "completed";
 }
 
@@ -61,16 +68,9 @@ export async function POST(
   }
   if (body.decision === "rejected") {
     const codes = normalizeRejectionReasonIds(body.rejectionReasonCodes);
-    const elaborate = body.comment?.trim() ?? "";
     if (codes.length === 0) {
       return NextResponse.json(
         { ok: false, error: "Select at least one rejection reason." },
-        { status: 400 },
-      );
-    }
-    if (!elaborate) {
-      return NextResponse.json(
-        { ok: false, error: "Please elaborate is required when rejecting." },
         { status: 400 },
       );
     }
@@ -123,7 +123,17 @@ export async function POST(
   // behalf of that specific hod, not just any hod.
   const assignedHodId = submission.hod_user_id;
 
-  if (recorderContext.isViewAs) {
+  // The admin review stage is handled by the administrator (IREB chairman)
+  // acting as themselves — no "on behalf of" selection is required.
+  if (stage === "admin") {
+    if (actor.role !== "administrator") {
+      return NextResponse.json(
+        { ok: false, error: "Only the Administrator can review applications at this stage." },
+        { status: 403 },
+      );
+    }
+    // Administrator acts as themselves; effectiveAdmin stays as the actor.
+  } else if (recorderContext.isViewAs) {
     if (actor.role !== stage) {
       return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
     }
@@ -192,11 +202,15 @@ export async function POST(
   const nextStatus =
     stage === "hod"
       ? body.decision === "approved"
-        ? "under_ireb_review"
+        ? "under_admin_review"
         : "hod_rejected"
-      : body.decision === "approved"
-        ? "approved"
-        : "rejected";
+      : stage === "admin"
+        ? body.decision === "approved"
+          ? "approved"
+          : "rejected"
+        : body.decision === "approved"
+          ? "approved"
+          : "rejected";
 
   let decisionCommentForDb: string | null;
   if (body.decision === "rejected") {
@@ -257,21 +271,32 @@ export async function POST(
         comment: finalComment,
       });
     } else if (body.decision === "approved" && stage === "hod") {
-      // Notify IREB members that the hod has approved and the
-      // application is now ready for IREB review.
-      const facultyIds = await resolveFacultyIdsFromSnapshotValue(
-        submission.applicant_faculty,
-      );
-      const irebEmails = await getIrebEmailsForFacultyIds(facultyIds);
-      if (irebEmails.length > 0) {
-        scheduleHodApprovalToIrebEmail({
-          irebEmails,
+      // Notify the Administrator (IREB chairman) that the hod has approved
+      // and the application is now ready for the admin review stage.
+      const adminEmails = await getAdministratorEmails();
+      if (adminEmails.length > 0) {
+        scheduleHodApprovalToAdminEmail({
+          adminEmails,
           applicantName: submission.applicant_name,
           title: submission.title,
           applicationId: submission.application_id,
           hodName: effectiveAdmin.name,
         });
       }
+    } else if (body.decision === "rejected" && stage === "admin") {
+      scheduleAdminRejectionEmail({
+        to: submission.applicant_email,
+        applicantName: submission.applicant_name,
+        comment: finalComment,
+      });
+    } else if (body.decision === "approved" && stage === "admin") {
+      scheduleAdminApprovalEmail({
+        to: submission.applicant_email,
+        applicantName: submission.applicant_name,
+        title: submission.title,
+        applicationId: submission.application_id,
+        approvedAt: new Date(),
+      });
     } else if (body.decision === "rejected" && stage === "ireb") {
       scheduleIrebRejectionEmail({
         to: submission.applicant_email,
@@ -289,7 +314,7 @@ export async function POST(
     }
 
     const onBehalfId =
-      actor.role === "administrator" && !recorderContext.isViewAs
+      actor.role === "administrator" && !recorderContext.isViewAs && stage !== "admin"
         ? effectiveAdmin.id
         : undefined;
 

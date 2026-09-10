@@ -27,9 +27,12 @@ export type SubmissionRow = {
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected";
+  is_sensitive: boolean;
+  assigned_ireb_user_id: string | null;
   submitted_at: Date;
   faculty: string;
   department: string;
@@ -42,10 +45,11 @@ export type SubmissionRow = {
 
 export function canAccessSubmissionStage(
   admin: AuthenticatedAdmin,
-  expectedStage: "hod" | "ireb",
+  expectedStage: "hod" | "admin" | "ireb",
 ): boolean {
   if (admin.role === "administrator") return true;
   if (expectedStage === "hod") return admin.role === "hod";
+  if (expectedStage === "admin") return false; // only the administrator (IREB chairman) handles the admin stage
   return admin.role === "ireb";
 }
 
@@ -68,6 +72,7 @@ const HOD_VISIBLE_STATUSES = [
   "submitted",
   "under_hod_review",
   "hod_rejected",
+  "under_admin_review",
   "under_ireb_review",
   "approved",
   "rejected",
@@ -79,13 +84,28 @@ const IREB_VISIBLE_STATUSES = [
   "rejected",
 ];
 
+// The administrator (IREB chairman) sees every non-draft submission across
+// all stages, including the admin review stage and sensitive cases.
+const ADMIN_VISIBLE_STATUSES = [
+  "submitted",
+  "under_hod_review",
+  "hod_approved",
+  "hod_rejected",
+  "under_admin_review",
+  "under_ireb_review",
+  "approved",
+  "rejected",
+];
+
 export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
   const roleStatuses =
-    admin.role === "hod"
-      ? HOD_VISIBLE_STATUSES
-      : admin.role === "ireb"
-        ? IREB_VISIBLE_STATUSES
-        : null;
+    admin.role === "administrator"
+      ? ADMIN_VISIBLE_STATUSES
+      : admin.role === "hod"
+        ? HOD_VISIBLE_STATUSES
+        : admin.role === "ireb"
+          ? IREB_VISIBLE_STATUSES
+          : null;
 
   const statusFilter =
     roleStatuses && roleStatuses.length > 0
@@ -106,6 +126,19 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
     params.push(admin.adminId);
   }
 
+  // Per-application IREB routing: when an application has been recommended
+  // to a specific IREB member (assigned_ireb_user_id), only that IREB
+  // member (and administrators) can see it. Other IREB members are
+  // excluded. Applications without an assignment remain visible to all
+  // faculty-scoped IREB members (legacy behaviour).
+  const irebAssignmentFilter =
+    admin.role === "ireb"
+      ? `AND (s.assigned_ireb_user_id IS NULL OR s.assigned_ireb_user_id = $${params.length + 1})`
+      : "";
+  if (admin.role === "ireb") {
+    params.push(admin.adminId);
+  }
+
   const result = await db.query<SubmissionRow>(
     `
       SELECT
@@ -115,6 +148,8 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
         s.domain,
         s.applicant_role,
         s.current_status,
+        s.is_sensitive,
+        s.assigned_ireb_user_id,
         s.submitted_at,
         sas.faculty,
         sas.department,
@@ -130,6 +165,7 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
       WHERE s.current_status::text <> 'draft'
       ${statusFilter}
       ${hodFilter}
+      ${irebAssignmentFilter}
       ORDER BY s.submitted_at DESC
     `,
     params,

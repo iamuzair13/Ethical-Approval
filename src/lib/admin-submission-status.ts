@@ -5,6 +5,7 @@ export type ReportSubmissionStatus =
   | "under_hod_review"
   | "hod_approved"
   | "hod_rejected"
+  | "under_admin_review"
   | "under_ireb_review"
   | "approved"
   | "rejected";
@@ -19,6 +20,8 @@ export function submissionStatusLabel(cs: ReportSubmissionStatus): string {
       return "Approved by HOD";
     case "hod_rejected":
       return "Rejected by HOD";
+    case "under_admin_review":
+      return "Pending at Administrator";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":

@@ -124,7 +124,7 @@ function isPhdProgram(program: string | null): boolean {
 }
 
 function passedHodStage(cs: AggregateSubmissionInput["current_status"]): boolean {
-  return ["hod_approved", "under_ireb_review", "approved", "rejected"].includes(cs);
+  return ["hod_approved", "under_admin_review", "under_ireb_review", "approved", "rejected"].includes(cs);
 }
 
 function countByKey(rows: AggregateSubmissionInput[], keyFn: (r: AggregateSubmissionInput) => string): Map<string, number> {

@@ -26,6 +26,8 @@ function actionLabel(actionCode: string): string {
     "admin.department.delete": "Delete Department",
     "application.review.approve": "Approve Application",
     "application.review.reject": "Reject Application",
+    "application.review.recommend": "Recommend Application",
+    "application.review.mark_sensitive": "Mark Application Sensitive",
     "profile.update": "Update Profile",
     "profile.avatar.update": "Update Profile Photo",
     "profile.avatar.remove": "Remove Profile Photo",
@@ -136,6 +138,20 @@ export function buildActivityDescription(input: {
       input.effective,
       input.actionCode,
       `rejected application ${input.targetLabel}`,
+    );
+  }
+  if (input.actionCode === "application.review.recommend" && input.targetLabel) {
+    return buildSelfActionDescription(
+      input.effective,
+      input.actionCode,
+      `recommended application ${input.targetLabel} for IREB review`,
+    );
+  }
+  if (input.actionCode === "application.review.mark_sensitive" && input.targetLabel) {
+    return buildSelfActionDescription(
+      input.effective,
+      input.actionCode,
+      `marked application ${input.targetLabel} as a sensitive case`,
     );
   }
 

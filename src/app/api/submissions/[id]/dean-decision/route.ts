@@ -47,16 +47,9 @@ export async function POST(
   }
   if (body.decision === "rejected") {
     const codes = normalizeRejectionReasonIds(body.rejectionReasonCodes);
-    const elaborate = body.comment?.trim() ?? "";
     if (codes.length === 0) {
       return NextResponse.json(
         { ok: false, error: "Select at least one rejection reason." },
-        { status: 400 },
-      );
-    }
-    if (!elaborate) {
-      return NextResponse.json(
-        { ok: false, error: "Please elaborate is required when rejecting." },
         { status: 400 },
       );
     }
@@ -100,7 +93,7 @@ export async function POST(
     );
   }
 
-  const nextStatus = body.decision === "approved" ? "hod_approved" : "hod_rejected";
+  const nextStatus = body.decision === "approved" ? "under_admin_review" : "hod_rejected";
   const commentForDb =
     body.decision === "rejected"
       ? formatRejectionDecisionComment(
@@ -159,7 +152,7 @@ export async function POST(
       `,
       [
         submissionId,
-        nextStatus === "hod_approved" ? "under_ireb_review" : "hod_rejected",
+        nextStatus === "under_admin_review" ? "under_admin_review" : "hod_rejected",
         decidedBySapId,
       ],
     );

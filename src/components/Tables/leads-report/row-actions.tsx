@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import {
+  AlertTriangle,
   CheckCircle,
   ChevronDown,
   Download,
@@ -15,6 +16,7 @@ import {
   FileBarChart,
   History,
   MessageSquare,
+  Send,
   XCircle,
 } from "lucide-react";
 import type { SetStateActionType } from "@/types/set-state-action-type";
@@ -34,6 +36,8 @@ type RowActionsProps = {
   onViewActionTrace?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onRecommend?: () => void;
+  onMarkSensitive?: () => void;
 };
 
 export function RowActions({
@@ -50,9 +54,15 @@ export function RowActions({
   onViewActionTrace,
   onApprove,
   onReject,
+  onRecommend,
+  onMarkSensitive,
 }: RowActionsProps) {
   const canDecide = lead.stage !== "completed" && Boolean(currentRole);
   const isBusy = busyLeadId === lead.id;
+  // The admin review stage is handled by the administrator (IREB chairman).
+  const isAdminStage = lead.stage === "admin";
+  const canAdminRelease =
+    isAdminStage && currentRole === "administrator" && Boolean(onRecommend || onMarkSensitive);
 
   const menuItemClass =
     "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition hover:bg-gray-50 dark:hover:bg-gray-700";
@@ -144,6 +154,35 @@ export function RowActions({
             >
               <XCircle className="size-3.5" aria-hidden />
               Reject
+            </button>
+          </DropdownClose>
+        )}
+        {canAdminRelease && (onRecommend || onMarkSensitive) && (
+          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+        )}
+        {canAdminRelease && onRecommend && (
+          <DropdownClose>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={onRecommend}
+              className={cn(menuItemClass, "text-blue-600 dark:text-blue-400")}
+            >
+              <Send className="size-3.5" aria-hidden />
+              Recommend
+            </button>
+          </DropdownClose>
+        )}
+        {canAdminRelease && onMarkSensitive && (
+          <DropdownClose>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={onMarkSensitive}
+              className={cn(menuItemClass, "text-amber-600 dark:text-amber-400")}
+            >
+              <AlertTriangle className="size-3.5" aria-hidden />
+              Mark as Sensitive
             </button>
           </DropdownClose>
         )}

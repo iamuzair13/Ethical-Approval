@@ -3,4 +3,8 @@ export { scheduleHodRejectionEmail } from "./send-hod-rejection";
 export { scheduleIrebRejectionEmail } from "./send-ireb-rejection";
 export { scheduleIrebApprovalEmail } from "./send-ireb-approval";
 export { scheduleHodApprovalToIrebEmail } from "./send-hod-approval-ireb";
+export { scheduleHodApprovalToAdminEmail } from "./send-hod-approval-admin";
+export { scheduleAdminApprovalEmail } from "./send-admin-approval";
+export { scheduleAdminRejectionEmail } from "./send-admin-rejection";
+export { scheduleAdminReleaseToIrebEmail } from "./send-admin-release-ireb";
 export { getPublicAppUrl, isSmtpEnabled } from "./smtp-config";

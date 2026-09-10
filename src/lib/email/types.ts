@@ -40,3 +40,33 @@ export type HodApprovalIrebInput = {
   hodName: string;
   publicAppUrl?: string;
 };
+
+export type HodApprovalAdminInput = {
+  applicantName: string;
+  title: string | null;
+  applicationId: string;
+  hodName: string;
+  publicAppUrl?: string;
+};
+
+export type AdminApprovalInput = {
+  applicantName: string;
+  title: string | null;
+  applicationId: string;
+  publicAppUrl?: string;
+};
+
+export type AdminRejectionInput = {
+  applicantName: string;
+  rejectionReason: string;
+  publicAppUrl?: string;
+};
+
+export type AdminReleaseIrebInput = {
+  applicantName: string;
+  title: string | null;
+  applicationId: string;
+  adminName: string;
+  isSensitive: boolean;
+  publicAppUrl?: string;
+};

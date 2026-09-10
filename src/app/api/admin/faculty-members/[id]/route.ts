@@ -91,7 +91,7 @@ export async function GET(
 
     const row = memberResult.rows[0];
 
-    const [facultyResult, departmentResult, programResult, scopeResult] = await Promise.all([
+    const [facultyResult, departmentResult, programResult, scopeResult, deptIdsResult] = await Promise.all([
       row.faculty_id
         ? db.query<FacultyNameRow>(`SELECT name FROM faculties WHERE id = $1`, [row.faculty_id])
         : Promise.resolve({ rows: [] as FacultyNameRow[] }),
@@ -116,6 +116,10 @@ export async function GET(
             [row.user_id],
           )
         : Promise.resolve({ rows: [] as ScopeRow[] }),
+      db.query<{ department_id: string }>(
+        `SELECT department_id FROM faculty_member_departments WHERE faculty_member_id = $1 ORDER BY department_id`,
+        [id],
+      ),
     ]);
 
     const scope = scopeResult.rows[0];
@@ -135,6 +139,7 @@ export async function GET(
         program: programResult.rows[0]?.name ?? row.program,
         facultyId: row.faculty_id,
         departmentId: row.department_id,
+        departmentIds: deptIdsResult.rows.map((r) => Number(r.department_id)),
         programId: row.program_id,
         employeeType: row.employee_type,
         employeeStatus: row.employee_status,
@@ -181,6 +186,7 @@ type UpdateFacultyBody = {
   designation?: string | null;
   facultyId?: number | null;
   departmentId?: number | null;
+  departmentIds?: number[];
   programId?: number | null;
   role?: string | null;
   password?: string;
@@ -309,6 +315,28 @@ export async function PATCH(
         body.programId !== undefined ? body.programId : current.program_id,
       ],
     );
+
+    // 1b. Update the faculty_member_departments join table if departmentIds
+    //     was provided. The first department is also used as the primary
+    //     department_id on faculty_members (set above).
+    if (Array.isArray(body.departmentIds)) {
+      const validDeptIds = body.departmentIds.filter(
+        (d) => Number.isInteger(d) && d > 0,
+      );
+      // Replace all join table entries
+      await db.query(
+        `DELETE FROM faculty_member_departments WHERE faculty_member_id = $1`,
+        [id],
+      );
+      for (const deptId of validDeptIds) {
+        await db.query(
+          `INSERT INTO faculty_member_departments (faculty_member_id, department_id)
+           VALUES ($1, $2)
+           ON CONFLICT (faculty_member_id, department_id) DO NOTHING`,
+          [id, deptId],
+        );
+      }
+    }
 
     // 2. Update admin_users record (if linked)
     // If a role is being assigned but no admin_users record exists yet,

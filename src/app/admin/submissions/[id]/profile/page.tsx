@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth-options";
 import { normalizeFacultyIds, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import { listSubmissionDocuments } from "@/lib/list-submission-documents";
-import { getSubmissionDetailById } from "@/lib/submission-details";
+import { getSubmissionDetailById, getApprovalDecisionsBySubmissionId, type ApprovalDecisionRow } from "@/lib/submission-details";
 import { cn } from "@/lib/utils";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
@@ -33,6 +33,7 @@ function formatSubmissionStatus(
     | "under_hod_review"
     | "hod_approved"
     | "hod_rejected"
+    | "under_admin_review"
     | "under_ireb_review"
     | "approved"
     | "rejected",
@@ -45,6 +46,8 @@ function formatSubmissionStatus(
         ? `Under Review by ${hodName}`
         : "HOD not Assigned";
     case "hod_approved":
+    case "under_admin_review":
+      return "Under Review by Administrator";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "hod_rejected":
@@ -169,6 +172,8 @@ export default async function AdminSubmissionProfilePage({
 
   const statusLabel = formatSubmissionStatus(submission.current_status, hodName);
   const documents = listSubmissionDocuments(submissionId, ethics);
+
+  const decisions = await getApprovalDecisionsBySubmissionId(submissionId);
 
   return (
     <div className="mx-auto w-full max-w-[1100px]">
@@ -309,7 +314,51 @@ export default async function AdminSubmissionProfilePage({
           </section>
         )}
 
-        
+        {decisions.length > 0 && (
+          <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
+            <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
+              Review decisions & feedback
+            </h2>
+            <div className="space-y-4">
+              {decisions.map((d: ApprovalDecisionRow) => {
+                const stageLabel = d.stage === "hod" ? "HOD" : "IREB";
+                const isApproved = d.decision === "approved";
+                return (
+                  <div
+                    key={d.id}
+                    className="rounded-lg border border-stroke p-4 dark:border-dark-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-block rounded px-2.5 py-1 text-xs font-semibold capitalize",
+                          isApproved
+                            ? "bg-[#10B981]/[0.08] text-green"
+                            : "bg-[#FB5454]/[0.08] text-red",
+                        )}
+                      >
+                        {stageLabel} {d.decision}
+                      </span>
+                      {d.decided_by_name && (
+                        <span className="text-xs text-body">
+                          by {d.decided_by_name}
+                        </span>
+                      )}
+                      <span className="text-xs text-body">
+                        {new Date(d.decided_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {d.comment && (
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-dark dark:text-white">
+                        {d.comment}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {extraUploads.length > 0 && (
           <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">

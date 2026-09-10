@@ -129,6 +129,8 @@ function mapSubmissionStatus(cs: string | undefined): string {
       return "Approved by HOD";
     case "hod_rejected":
       return "Rejected by HOD";
+    case "under_admin_review":
+      return "Pending at Administrator";
     case "under_ireb_review":
       return "Pending at IREB";
     case "approved":
@@ -161,6 +163,8 @@ function toOverdueStatusLabel(cs: string | undefined, leadStatus: string): strin
     case "under_hod_review":
       return "Under Review by HOD";
     case "hod_approved":
+    case "under_admin_review":
+      return "Under Review by Administrator";
     case "under_ireb_review":
       return "Under Review by IREB";
     default:
@@ -218,6 +222,9 @@ function statusPieSvg(lead: LeadReportRow, submissionStatus?: string): string {
   if (cs === "under_hod_review" || cs === "submitted") {
     fill = "#f59e0b";
     label = "Pending at HOD";
+  } else if (cs === "under_admin_review" || cs === "hod_approved") {
+    fill = "#8b5cf6";
+    label = "Pending at Administrator";
   } else if (cs === "under_ireb_review") {
     fill = "#0ea5e9";
     label = "Pending at IREB";
@@ -651,10 +658,12 @@ export function buildApplicationStatusReportHtml(
   const isStudent = isStudentApplicantEmail(lead.email);
   const reachedIrebOnHod = isStudent
     ? cs === "hod_approved" ||
+      cs === "under_admin_review" ||
       cs === "under_ireb_review" ||
       cs === "approved" ||
       cs === "rejected"
-    : cs === "under_ireb_review" ||
+    : cs === "under_admin_review" ||
+      cs === "under_ireb_review" ||
       cs === "approved" ||
       cs === "rejected";
   const formReachedIrebDate =

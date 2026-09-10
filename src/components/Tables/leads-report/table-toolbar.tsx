@@ -7,7 +7,6 @@ import {
   Download,
   RefreshCw,
   Search,
-  Settings,
   X,
 } from "lucide-react";
 import { ActiveFiltersBar, FilterMenu } from "./filter-controls";
@@ -82,16 +81,26 @@ export function TableToolbar({
   onClearAllFilters,
   actionError,
 }: TableToolbarProps) {
+  const tabClassName = (tab: TableToolbarProps["activeTab"]) =>
+    cn(
+      "inline-flex max-w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30",
+      activeTab === tab
+        ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200",
+    );
+  const countClassName =
+    "rounded-md bg-gray-900/5 px-1.5 py-0.5 text-xs font-medium leading-none tabular-nums dark:bg-white/10";
+
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
+    <div className="flex min-w-0 flex-col gap-5 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/30">
-            <ClipboardList className="size-5 text-blue-600 dark:text-blue-400" aria-hidden />
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+            <ClipboardList className="size-5 text-gray-500 dark:text-gray-400" aria-hidden />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+          <div className="min-w-0">
+            <h2 className="break-words text-lg font-semibold leading-snug tracking-tight text-gray-900 dark:text-white sm:text-xl">
               {title}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -99,12 +108,12 @@ export function TableToolbar({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onRefresh}
             aria-label="Refresh data"
-            className="rounded-lg p-2 text-gray-500 transition-all duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            className="rounded-lg p-2 text-gray-500 transition-all duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.98] dark:hover:bg-gray-700 dark:hover:text-gray-300"
           >
             <RefreshCw className="size-5" aria-hidden />
           </button>
@@ -113,8 +122,8 @@ export function TableToolbar({
       </div>
 
       {/* Search row */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative w-full max-w-md">
+      <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="relative w-full min-w-0 xl:max-w-md xl:flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
             aria-hidden
@@ -125,13 +134,13 @@ export function TableToolbar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Application ID, name, email, type, title, faculty, department…"
             aria-label="Search approval requests"
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 transition-all duration-150 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500"
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 transition-all duration-150 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500"
           />
         </div>
 
         {/* Filters + Export row */}
-        <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:overflow-visible">
-          <div className="flex flex-nowrap items-center gap-2 sm:flex-wrap">
+        <div className="min-w-0 max-w-full">
+          <div className="flex flex-wrap items-center gap-2">
             <FilterMenu
               multiple
               label="Faculty"
@@ -159,7 +168,7 @@ export function TableToolbar({
             <button
               type="button"
               onClick={onExport}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.98] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               <Download className="size-4 shrink-0" aria-hidden />
               Export Excel
@@ -179,80 +188,60 @@ export function TableToolbar({
       />
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-gray-200 p-1 dark:border-gray-700">
         <button
           type="button"
-          className={cn(
-            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98]",
-            activeTab === "all"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white",
-          )}
+          className={tabClassName("all")}
+          aria-pressed={activeTab === "all"}
           onClick={() => onTabChange("all")}
         >
-          All Requests ({allRequestsCount})
+          All Requests <span className={countClassName}>{allRequestsCount}</span>
         </button>
         <button
           type="button"
-          className={cn(
-            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500/30 active:scale-[0.98]",
-            activeTab === "pending"
-              ? "bg-amber-500 text-white shadow-sm"
-              : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50",
-          )}
+          className={tabClassName("pending")}
+          aria-pressed={activeTab === "pending"}
           onClick={() => onTabChange("pending")}
         >
-          Pending Requests ({pendingCount ?? 0})
+          Pending Requests <span className={countClassName}>{pendingCount ?? 0}</span>
         </button>
         {showApprovedTab && (
           <button
             type="button"
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500/30 active:scale-[0.98]",
-              activeTab === "approved"
-                ? "bg-green-600 text-white shadow-sm"
-                : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-400 dark:hover:bg-green-950/50",
-            )}
+            className={tabClassName("approved")}
+            aria-pressed={activeTab === "approved"}
             onClick={() => onTabChange("approved")}
           >
-            Approved Requests ({approvedCount ?? 0})
+            Approved Requests <span className={countClassName}>{approvedCount ?? 0}</span>
           </button>
         )}
         
         <button
           type="button"
-          className={cn(
-            "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]",
-            activeTab === "overdue"
-              ? "bg-red-600 text-white shadow-sm"
-              : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50",
-          )}
+          className={tabClassName("overdue")}
+          aria-pressed={activeTab === "overdue"}
           onClick={() => onTabChange("overdue")}
         >
-          Over Due Approval ({overdueCount})
+          Over Due Approval <span className={countClassName}>{overdueCount}</span>
         </button>
         
         {showApprovedTab && (
           <button
             type="button"
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]",
-              activeTab === "rejected"
-                ? "bg-red-600 text-white shadow-sm"
-                : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50",
-            )}
+            className={tabClassName("rejected")}
+            aria-pressed={activeTab === "rejected"}
             onClick={() => onTabChange("rejected")}
           >
-            Rejected Requests ({rejectedCount ?? 0})
+            Rejected Requests <span className={countClassName}>{rejectedCount ?? 0}</span>
           </button>
         )}
       </div>
 
       {/* Overdue banner */}
       {overdueCount > 0 && !overdueBannerDismissed && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" aria-hidden />
-          <p className="flex-1 text-sm font-medium text-red-800 dark:text-red-300">
+        <div className="flex min-w-0 items-start gap-2.5 rounded-lg border border-amber-200/70 bg-amber-50/60 px-3 py-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
             Attention required: {overdueCount} approval request
             {overdueCount > 1 ? "s have" : " has"} not been responded to within 2 days.
           </p>
@@ -260,7 +249,7 @@ export function TableToolbar({
             type="button"
             onClick={onDismissOverdueBanner}
             aria-label="Dismiss overdue warning"
-            className="shrink-0 rounded-lg p-1 text-red-600 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:text-red-400 dark:hover:bg-red-900/50"
+            className="shrink-0 rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-900/30"
           >
             <X className="size-4" aria-hidden />
           </button>

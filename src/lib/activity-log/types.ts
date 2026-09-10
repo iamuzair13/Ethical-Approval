@@ -32,6 +32,8 @@ export type ActivityActionCode =
   | "admin.department.delete"
   | "application.review.approve"
   | "application.review.reject"
+  | "application.review.recommend"
+  | "application.review.mark_sensitive"
   | "profile.update"
   | "profile.avatar.update"
   | "profile.avatar.remove"
