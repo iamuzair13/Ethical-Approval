@@ -364,13 +364,17 @@ export default function MyApplicationsPage() {
   const [localSubmissionError, setLocalSubmissionError] = useState<string | null>(null);
 
   const [localIsStepperOpen, setLocalIsStepperOpen] = useState(false);
-  const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "resume">("create");
+  const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
   const [localStepperViewData, setLocalStepperViewData] = useState<Record<string, unknown> | null>(null);
   const [localRequiredForm, setLocalRequiredForm] = useState<RequiredForm | null>(null);
   const [localIsFormPickerOpen, setLocalIsFormPickerOpen] = useState(false);
 
   const [approvalDraftSessionId, setApprovalDraftSessionId] = useState("");
   const [serverDraftSubmissionId, setServerDraftSubmissionId] = useState<number | null>(null);
+  const [stepperSubmissionMeta, setStepperSubmissionMeta] = useState<{
+    revisionOfSubmissionId?: number;
+    revisionNumber?: number;
+  } | null>(null);
   const [discardConfirmRequest, setDiscardConfirmRequest] = useState<RequestItem | null>(null);
   const [discardingDraftId, setDiscardingDraftId] = useState<number | null>(null);
   const [feedbackModalRequest, setFeedbackModalRequest] = useState<RequestItem | null>(null);
@@ -786,13 +790,17 @@ export default function MyApplicationsPage() {
           const fallback = getFacultyFormById(FACULTY_FORM_CATALOG[0].id);
           if (fallback) setLocalRequiredForm(fallback);
         }
-        const sid = parsePositiveSubmissionId(sub.id);
-        if (sid != null) {
-          setServerDraftSubmissionId(sid);
-        }
+        // Increment revision number if this submission was already revised before.
+        const prevRevisionNumber =
+          typeof ethics.revisionNumber === "number" ? ethics.revisionNumber : 0;
+        setStepperSubmissionMeta({
+          revisionOfSubmissionId: request.numericId,
+          revisionNumber: prevRevisionNumber + 1,
+        });
+        setServerDraftSubmissionId(null);
         setApprovalDraftSessionId(newDraftSessionId());
         setLocalStepperViewData(buildStepperViewDataFromSubmission(sub));
-        setLocalStepperMode("create");
+        setLocalStepperMode("edit");
         setLocalIsStepperOpen(true);
       } catch (error) {
         setLocalSubmissionError(
@@ -1160,14 +1168,29 @@ export default function MyApplicationsPage() {
 
         {/* Approval Request Stepper (reused) */}
         <ApprovalRequestStepper
+          key={
+            localStepperMode === "create"
+              ? `create-${approvalDraftSessionId}-${localRequiredForm?.id ?? "none"}`
+              : localStepperMode === "resume"
+                ? `resume-${serverDraftSubmissionId ?? 0}-${localRequiredForm?.id ?? "none"}`
+                : localStepperMode === "edit"
+                  ? `edit-${stepperSubmissionMeta?.revisionOfSubmissionId ?? 0}-${stepperSubmissionMeta?.revisionNumber ?? 0}`
+                  : `view-${serverDraftSubmissionId ?? 0}`
+          }
           open={localIsStepperOpen}
           onClose={() => {
             setLocalIsStepperOpen(false);
             setLocalStepperViewData(null);
             setServerDraftSubmissionId(null);
+            if (localStepperMode === "view" || localStepperMode === "edit") {
+              setLocalStepperMode("create");
+              setLocalRequiredForm(null);
+              setStepperSubmissionMeta(null);
+            }
           }}
           onSubmit={handleCreateRequest}
           mode={localStepperMode}
+          submissionMeta={stepperSubmissionMeta}
           viewSubmissionData={localStepperViewData}
           requiredForm={localRequiredForm}
           userStorageId={userStorageId}

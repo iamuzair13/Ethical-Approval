@@ -872,6 +872,7 @@ export default function ProfileDashboard() {
           revisionOfSubmissionId: request.numericId,
           revisionNumber: prevRevisionNumber + 1,
         });
+        setServerDraftSubmissionId(null);
         setApprovalDraftSessionId(newDraftSessionId());
         setLocalStepperViewData(buildStepperViewDataFromSubmission(sub));
         setLocalStepperMode("edit");
