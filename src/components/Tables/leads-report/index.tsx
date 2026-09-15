@@ -75,7 +75,6 @@ const STATUS_ORDER: LeadStatus[] = [
   "Under Review by HOD",
   "Approved by HOD",
   "Rejected by HOD",
-  "Under Review by Administrator",
   "Under Review by IREB",
   "Approved by IREB",
   "Rejected by IREB",

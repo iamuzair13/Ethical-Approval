@@ -84,7 +84,7 @@ function mapStatusToStage(status: ProfileSubmissionApiRow["current_status"], hod
     case "hod_rejected":
       return "Rejected by HOD";
     case "under_admin_review":
-      return "Under Review by Administrator";
+      return "Under Review by IREB";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "approved":
@@ -454,10 +454,7 @@ export default function MyApplicationsPage() {
         !stage.includes("Administrator")
       ) {
         acc.inHod += 1;
-      } else if (
-        stage === "Under Review by IREB" ||
-        stage === "Under Review by Administrator"
-      ) {
+      } else if (stage === "Under Review by IREB") {
         acc.inEthical += 1;
       } else if (stage.includes("Approved") || stage.includes("Rejected")) {
         acc.completed += 1;

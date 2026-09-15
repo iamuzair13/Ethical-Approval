@@ -326,12 +326,22 @@ export function CoPersonSection({
   extraKeysList = [],
 }: CoPersonSectionProps) {
   /**
+   * Whether the default (first) entry is visible.
+   * Hidden by default — the user must click "Add {entityLabel}" to reveal it.
+   * If the form already has data (edit/resume), it auto-reveals.
+   */
+  const [defaultVisible, setDefaultVisible] = useState(false);
+
+  /**
    * Number of optional extras currently visible (0..extraKeysList.length).
-   * The default entry is always visible, independent of this count.
    */
   const [extraVisibleCount, setExtraVisibleCount] = useState(0);
 
   useEffect(() => {
+    // Auto-reveal the default entry if it already has data (edit/resume).
+    if (!defaultVisible && hasEntryValue(form, defaultKeys)) {
+      setDefaultVisible(true);
+    }
     let derived = 0;
     for (let i = 0; i < extraKeysList.length; i++) {
       if (hasEntryValue(form, extraKeysList[i]!)) {
@@ -341,7 +351,26 @@ export function CoPersonSection({
     if (derived > 0) {
       setExtraVisibleCount((prev) => Math.max(prev, derived));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extraKeysList, form]);
+
+  const addDefault = () => setDefaultVisible(true);
+
+  const removeDefault = () => {
+    setForm((prev) => clearEntry(prev, defaultKeys));
+    setDefaultVisible(false);
+    // Also clear all extras when the default is removed.
+    if (extraVisibleCount > 0) {
+      setForm((prev) => {
+        let next = prev;
+        for (let i = 0; i < extraVisibleCount; i++) {
+          next = clearEntry(next, extraKeysList[i]!);
+        }
+        return next;
+      });
+      setExtraVisibleCount(0);
+    }
+  };
 
   const addExtra = () =>
     setExtraVisibleCount((c) => Math.min(extraKeysList.length, c + 1));
@@ -365,13 +394,24 @@ export function CoPersonSection({
 
   return (
     <>
-      <FormSection title={title} subtitle={subtitle}>
-        <CoPersonEntry
-          keys={defaultKeys}
-          form={form}
-          onFieldChange={onFieldChange}
-        />
-      </FormSection>
+      {defaultVisible && (
+        <FormSection title={title} subtitle={subtitle}>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={removeDefault}
+              className="text-sm font-medium text-dark-5 underline decoration-dark-5/60 underline-offset-2 transition hover:text-dark dark:text-gray-400 dark:hover:text-white"
+            >
+              Remove
+            </button>
+          </div>
+          <CoPersonEntry
+            keys={defaultKeys}
+            form={form}
+            onFieldChange={onFieldChange}
+          />
+        </FormSection>
+      )}
 
       {extraKeysList.slice(0, extraVisibleCount).map((keys, i) => (
         <FormSection
@@ -396,7 +436,17 @@ export function CoPersonSection({
         </FormSection>
       ))}
 
-      {canAddMore && (
+      {!defaultVisible ? (
+        <div>
+          <button
+            type="button"
+            onClick={addDefault}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white dark:border-primary dark:text-primary"
+          >
+            + Add {entityLabel}
+          </button>
+        </div>
+      ) : canAddMore ? (
         <div>
           <button
             type="button"
@@ -406,7 +456,7 @@ export function CoPersonSection({
             + Add {entityLabel}
           </button>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

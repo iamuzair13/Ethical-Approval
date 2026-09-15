@@ -839,7 +839,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
         break;
       case "hod_approved":
       case "under_admin_review":
-        currentStatus = "Under Review by Administrator";
+        currentStatus = "Under Review by IREB";
         stage = "admin";
         break;
       case "under_ireb_review":

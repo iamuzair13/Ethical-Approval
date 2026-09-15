@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
 import {
   getAdminUserById,
-  getIrebEmailsForFacultyIds,
   getIrebUserEmailById,
-  resolveFacultyIdsFromSnapshotValue,
 } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import { scheduleAdminReleaseToIrebEmail } from "@/lib/email";
@@ -168,27 +166,21 @@ export async function POST(
     client.release();
   }
 
-  // Notify IREB members that the application has been released for review.
-  // For "recommend", only the specific IREB member selected by the
-  // administrator is notified (and can see the application).
-  // For "mark_sensitive", all IREB members scoped to the faculty are notified.
-  let irebEmails: string[] = [];
+  // Notify the selected IREB member that the application has been recommended
+  // for their review. Only the "recommend" action sends an email — the
+  // "mark_sensitive" action does not trigger an email notification.
   if (body.action === "recommend" && irebUserId) {
     const email = await getIrebUserEmailById(irebUserId);
-    if (email) irebEmails = [email];
-  } else {
-    const facultyIds = await resolveFacultyIdsFromSnapshotValue(submission.applicant_faculty);
-    irebEmails = await getIrebEmailsForFacultyIds(facultyIds);
-  }
-  if (irebEmails.length > 0) {
-    scheduleAdminReleaseToIrebEmail({
-      irebEmails,
-      applicantName: submission.applicant_name,
-      title: submission.title,
-      applicationId: submission.application_id,
-      adminName: effectiveAdminUser.name,
-      isSensitive,
-    });
+    if (email) {
+      scheduleAdminReleaseToIrebEmail({
+        irebEmails: [email],
+        applicantName: submission.applicant_name,
+        title: submission.title,
+        applicationId: submission.application_id,
+        adminName: effectiveAdminUser.name,
+        isSensitive,
+      });
+    }
   }
 
   void logAdminReviewActivity({

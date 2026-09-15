@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin } from "@/lib/admin-auth";
 import {
   getAdminUserById,
-  getAdministratorEmails,
-  getIrebEmailsForFacultyIds,
   resolveFacultyIdsFromSnapshotValue,
 } from "@/lib/admin-repository";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import {
   scheduleHodRejectionEmail,
-  scheduleHodApprovalToAdminEmail,
   scheduleIrebApprovalEmail,
   scheduleIrebRejectionEmail,
   scheduleAdminApprovalEmail,
@@ -270,19 +267,6 @@ export async function POST(
         hodName: effectiveAdmin.name,
         comment: finalComment,
       });
-    } else if (body.decision === "approved" && stage === "hod") {
-      // Notify the Administrator (IREB chairman) that the hod has approved
-      // and the application is now ready for the admin review stage.
-      const adminEmails = await getAdministratorEmails();
-      if (adminEmails.length > 0) {
-        scheduleHodApprovalToAdminEmail({
-          adminEmails,
-          applicantName: submission.applicant_name,
-          title: submission.title,
-          applicationId: submission.application_id,
-          hodName: effectiveAdmin.name,
-        });
-      }
     } else if (body.decision === "rejected" && stage === "admin") {
       scheduleAdminRejectionEmail({
         to: submission.applicant_email,

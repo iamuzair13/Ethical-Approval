@@ -99,7 +99,7 @@ export function isAdminReviewOverdue({
   hodDecisionAt: string | Date | null;
   now?: Date;
 }): boolean {
-  if (currentStatus !== "Under Review by Administrator") return false;
+  if (currentStatus !== "Under Review by IREB") return false;
   const stageStart = parseLeadDate(hodDecisionAt) ?? parseLeadDate(submittedAt);
   if (!stageStart) return false;
   return daysBetween(stageStart, now) > OVERDUE_THRESHOLD_DAYS;
@@ -115,7 +115,7 @@ export function getStagePendingDays(
     return Math.max(1, daysBetween(submitted, now) || 1);
   }
 
-  if (lead.stage === "admin" && lead.currentStatus === "Under Review by Administrator") {
+  if (lead.stage === "admin" && lead.currentStatus === "Under Review by IREB") {
     const stageStart =
       parseLeadDate(lead.hodDecisionAt) ?? parseLeadDate(lead.submittedAt);
     if (!stageStart) return null;

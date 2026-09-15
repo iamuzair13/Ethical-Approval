@@ -164,7 +164,7 @@ function toOverdueStatusLabel(cs: string | undefined, leadStatus: string): strin
       return "Under Review by HOD";
     case "hod_approved":
     case "under_admin_review":
-      return "Under Review by Administrator";
+      return "Under Review by IREB";
     case "under_ireb_review":
       return "Under Review by IREB";
     default:
