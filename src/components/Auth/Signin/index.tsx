@@ -1,6 +1,5 @@
 "use client";
 
-import { GoogleIcon } from "@/assets/icons";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -249,8 +248,16 @@ export default function Signin() {
         </div>
 
         <div className="w-full max-w-md justify-self-center lg:justify-self-end">
-          <div className="rounded-2xl bg-white px-5 py-8 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] sm:px-8 dark:bg-gray-dark">
-            <div className="mb-8">
+          <div className="relative overflow-hidden rounded-2xl bg-white px-5 py-10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] sm:px-8 dark:bg-gray-dark">
+            {/* Decorative top accent bar */}
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm dark:from-blue-950/30 dark:to-indigo-950/30">
+                <svg className="size-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
                 Sign in
               </h2>
@@ -282,12 +289,19 @@ export default function Signin() {
                 type="button"
                 onClick={handleGoogle}
                 disabled={loadingGoogle || loadingManual}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3"
+                className="group flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition-all hover:border-blue-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:hover:border-blue-700 dark:hover:bg-dark-3"
               >
                 {loadingGoogle ? (
-                  <span className="inline-block size-5 animate-spin rounded-full border-2 border-solid border-slate-400 border-t-transparent" />
+                  <span className="inline-block size-5 animate-spin rounded-full border-2 border-solid border-blue-500 border-t-transparent" />
                 ) : (
-                  <GoogleIcon className="shrink-0" />
+                  <span className="relative inline-flex size-5 items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="shrink-0 transition-transform duration-300 group-hover:scale-110">
+                      <path d="M19.999 10.2216C20.0111 9.53416 19.9387 8.84776 19.7834 8.17725H10.2031V11.8883H15.8266C15.7201 12.539 15.4804 13.1618 15.1219 13.7194C14.7634 14.2769 14.2935 14.7577 13.7405 15.1327L13.7209 15.257L16.7502 17.5567L16.96 17.5772C18.8873 15.8328 19.9986 13.266 19.9986 10.2216" fill="#4285F4" />
+                      <path d="M10.2016 19.9998C12.9566 19.9998 15.2695 19.1109 16.959 17.5775L13.739 15.133C12.8774 15.722 11.7209 16.1332 10.2016 16.1332C8.91122 16.1258 7.656 15.7203 6.61401 14.9744C5.57201 14.2285 4.79616 13.1799 4.39653 11.9775L4.27694 11.9875L1.12711 14.3764L1.08594 14.4886C1.93427 16.1455 3.23617 17.5384 4.84606 18.5117C6.45596 19.485 8.31039 20.0002 10.202 19.9998" fill="#34A853" />
+                      <path d="M4.39899 11.9777C4.1758 11.3411 4.06063 10.673 4.05807 9.99996C4.06218 9.32799 4.1731 8.66075 4.38684 8.02225L4.38115 7.88968L1.19269 5.4624L1.0884 5.51101C0.372763 6.90343 0 8.4408 0 9.99987C0 11.5589 0.372763 13.0963 1.0884 14.4887L4.39899 11.9777Z" fill="#FBBC05" />
+                      <path d="M10.202 3.86687C11.6641 3.84462 13.0783 4.37827 14.1476 5.35583L17.0274 2.60021C15.1804 0.902092 12.7344 -0.0296414 10.202 0.000207357C8.31041 -0.000233694 6.456 0.514977 4.8461 1.48823C3.23621 2.46148 1.93429 3.85441 1.08594 5.51125L4.38555 8.02249C4.78912 6.8203 5.56754 5.77255 6.61107 5.02699C7.6546 4.28143 8.9106 3.87565 10.202 3.86687Z" fill="#EB4335" />
+                    </svg>
+                  </span>
                 )}
                 {loadingGoogle ? "Connecting…" : "Sign in with Google"}
               </button>
@@ -296,14 +310,14 @@ export default function Signin() {
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-slate-200 dark:border-dark-3" />
                 </div>
-                <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                {/* <div className="relative flex justify-center text-xs uppercase tracking-wide">
                   <span className="bg-white px-3 text-slate-500 dark:bg-gray-dark dark:text-dark-6">
                     or continue with email
                   </span>
-                </div>
+                </div> */}
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
+              {/* <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
                 <p className="text-center text-xs font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-200">
                   Testing mode only
                 </p>
@@ -339,7 +353,7 @@ export default function Signin() {
                     {loadingManual ? "Verifying with SAP…" : "Sign in with email"}
                   </button>
                 </form>
-              </div>
+              </div> */}
             </div>
 
             <p className="mt-8 text-center text-xs text-slate-500 dark:text-dark-6">
@@ -347,14 +361,14 @@ export default function Signin() {
               for verification.
             </p>
 
-            <p className="mt-4 text-center text-sm text-slate-600 dark:text-dark-6">
+            {/* <p className="mt-4 text-center text-sm text-slate-600 dark:text-dark-6">
               <Link
                 href="/"
                 className="font-medium text-primary hover:underline"
               >
                 Back to dashboard
               </Link>
-            </p>
+            </p> */}
           </div>
         </div>
       </div>
