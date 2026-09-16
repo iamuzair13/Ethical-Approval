@@ -232,21 +232,107 @@ export default function Signin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#3b5bdb] via-[#4c6ef5] to-[#364fc7] flex sm:px-8">
-      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1fr_420px] lg:items-center lg:gap-12">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#3b5bdb] to-[#1e3a8a] sm:px-8 lg:flex lg:items-center lg:overflow-hidden">
+      {/* Decorative background grid */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
+      {/* Decorative glow orbs */}
+      <div className="pointer-events-none absolute -left-24 top-1/4 size-96 rounded-full bg-blue-400/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-1/4 size-96 rounded-full bg-indigo-400/20 blur-3xl" />
+
+      <div className="relative mx-auto grid w-full max-w-6xl gap-10 py-8 lg:grid-cols-[1fr_440px] lg:items-center lg:gap-16">
+        {/* Left content panel */}
         <div className="text-white max-lg:text-center">
           <Link href="/" className="inline-block">
             <Image src="/images/logo/logo-white.png" alt="Logo" width={200} height={100} />
           </Link>
-          <h1 className="mt-10 text-4xl font-semibold tracking-tight sm:text-5xl">
+
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-blue-50 backdrop-blur max-lg:mx-auto">
+            <span className="inline-block size-1.5 rounded-full bg-emerald-400" />
+            Institutional Review Ethics Board
+          </div>
+
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
             Ethical Approval Process
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-100 max-lg:mx-auto">
-            Sign in with your University Google account. Access is granted after
-            your record is verified against SAP.
+            Submit, track, and manage research ethics applications with the
+            University of Lahore IREB. Sign in with your university Google
+            account — access is granted after SAP verification.
           </p>
+
+          {/* Workflow steps */}
+          <div className="mt-10 max-w-xl max-lg:mx-auto">
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-200">
+              How it works
+            </p>
+            <ol className="mt-4 space-y-4">
+              <li className="flex items-start gap-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur">
+                  1
+                </span>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">Submit Application</p>
+                  <p className="mt-0.5 text-sm text-slate-200">
+                    Complete the ethics form with your research details and supporting documents.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur">
+                  2
+                </span>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">Department & IREB Review</p>
+                  <p className="mt-0.5 text-sm text-slate-200">
+                    Your HOD and the IREB Chairman review the application before IREB consideration.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur">
+                  3
+                </span>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">Receive Decision</p>
+                  <p className="mt-0.5 text-sm text-slate-200">
+                    Get notified on approval, rejection, or requests for revision — all tracked online.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 max-lg:justify-center">
+            <div className="flex items-center gap-2">
+              <svg className="size-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.275z" />
+              </svg>
+              <span className="text-sm text-slate-100">SAP-verified access</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg className="size-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              <span className="text-sm text-slate-100">Secure & confidential</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg className="size-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm text-slate-100">Real-time status tracking</span>
+            </div>
+          </div>
         </div>
 
+        {/* Right sign-in card */}
         <div className="w-full max-w-md justify-self-center lg:justify-self-end">
           <div className="relative overflow-hidden rounded-2xl bg-white px-5 py-10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] sm:px-8 dark:bg-gray-dark">
             {/* Decorative top accent bar */}
