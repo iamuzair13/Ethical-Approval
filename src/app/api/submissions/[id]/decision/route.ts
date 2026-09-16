@@ -142,43 +142,45 @@ export async function POST(
       );
     }
   } else if (actor.role === "administrator") {
-    if (!body.onBehalfOfAdminId) {
+    if (stage === "hod" && !body.onBehalfOfAdminId) {
       return NextResponse.json(
-        { ok: false, error: "Select the admin to act on behalf of." },
+        { ok: false, error: "Select the assigned HOD for this action." },
         { status: 400 },
       );
     }
 
-    const selectedAdmin = await getAdminUserById(body.onBehalfOfAdminId);
-    if (!selectedAdmin || selectedAdmin.status !== "active") {
-      return NextResponse.json(
-        { ok: false, error: "Selected admin is not available." },
-        { status: 404 },
-      );
-    }
-    // Role check: the selected admin must match the stage role, UNLESS they
-    // are the assigned hod (hod_user_id) — the assignment is
-    // authoritative even if the admin's role has since changed (e.g. promoted
-    // from hod to administrator).
-    const isAssignedHod =
-      stage === "hod" && assignedHodId && selectedAdmin.id === assignedHodId;
-    if (!isAssignedHod) {
-      if ((stage === "hod" && selectedAdmin.role !== "hod") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
+    if (body.onBehalfOfAdminId) {
+      const selectedAdmin = await getAdminUserById(body.onBehalfOfAdminId);
+      if (!selectedAdmin || selectedAdmin.status !== "active") {
         return NextResponse.json(
-          { ok: false, error: "Selected admin cannot act for this stage." },
-          { status: 400 },
+          { ok: false, error: "Selected admin is not available." },
+          { status: 404 },
         );
       }
-      // Admin must act on behalf of the assigned hod, not just any hod.
-      if (stage === "hod" && assignedHodId && selectedAdmin.id !== assignedHodId) {
-        return NextResponse.json(
-          { ok: false, error: "Only the assigned hod can review this application." },
-          { status: 403 },
-        );
+      // Role check: the selected admin must match the stage role, UNLESS they
+      // are the assigned hod (hod_user_id) — the assignment is
+      // authoritative even if the admin's role has since changed (e.g. promoted
+      // from hod to administrator).
+      const isAssignedHod =
+        stage === "hod" && assignedHodId && selectedAdmin.id === assignedHodId;
+      if (!isAssignedHod) {
+        if ((stage === "hod" && selectedAdmin.role !== "hod") || (stage === "ireb" && selectedAdmin.role !== "ireb")) {
+          return NextResponse.json(
+            { ok: false, error: "Selected admin cannot act for this stage." },
+            { status: 400 },
+          );
+        }
+        // Admin must act on behalf of the assigned hod, not just any hod.
+        if (stage === "hod" && assignedHodId && selectedAdmin.id !== assignedHodId) {
+          return NextResponse.json(
+            { ok: false, error: "Only the assigned hod can review this application." },
+            { status: 403 },
+          );
+        }
       }
+      effectiveAdmin = selectedAdmin;
+      auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;
     }
-    effectiveAdmin = selectedAdmin;
-    auditNote = `Action performed by administrator ${effectiveAdminUser.name} on behalf of ${effectiveAdmin.name}.`;
   } else if (actor.role !== stage) {
     return NextResponse.json({ ok: false, error: "Forbidden for this stage." }, { status: 403 });
   } else if (stage === "hod" && assignedHodId && actor.adminId !== assignedHodId) {

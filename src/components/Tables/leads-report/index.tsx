@@ -625,9 +625,6 @@ export function LeadsReport({
         if (decisionLead.stage === "hod" && payload.hodOption?.id) {
           setSelectedOnBehalfOf(payload.hodOption.id);
         }
-        if (decisionLead.stage === "ireb" && payload.irebOptions?.[0]?.id) {
-          setSelectedOnBehalfOf(payload.irebOptions[0].id);
-        }
       } catch {
         if (!cancelled) setActionError("Unable to load approval options.");
       }
@@ -968,8 +965,8 @@ export function LeadsReport({
     // At the admin review stage the administrator (IREB chairman) acts as
     // themselves — no "on behalf of" selection is required.
     const isAdminStage = decisionLead.stage === "admin";
-    if (currentRole === "administrator" && !isAdminStage && !selectedOnBehalfOf) {
-      const message = "Please select who this action is on behalf of.";
+    if (currentRole === "administrator" && decisionLead.stage === "hod" && !selectedOnBehalfOf) {
+      const message = "Please select the assigned HOD for this action.";
       setActionError(message);
       toast.error(message);
       return;

@@ -77,14 +77,14 @@ export function DecisionModal({
           {lead.stage === "ireb" && (
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                On behalf of IREB member
+                Decision made by
               </p>
               <select
                 value={selectedOnBehalfOf}
                 onChange={(e) => onOnBehalfOfChange(e.target.value)}
                 className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
               >
-                <option value="">Select IREB member</option>
+                <option value="">Myself (IREB Chairman)</option>
                 {adminOptions.irebOptions.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
