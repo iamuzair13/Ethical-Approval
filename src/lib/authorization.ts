@@ -33,6 +33,7 @@ export type SubmissionRow = {
     | "rejected";
   is_sensitive: boolean;
   assigned_ireb_user_id: string | null;
+  assigned_ireb_name: string | null;
   submitted_at: Date;
   faculty: string;
   department: string;
@@ -150,6 +151,7 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
         s.current_status,
         s.is_sensitive,
         s.assigned_ireb_user_id,
+        iau.name AS assigned_ireb_name,
         s.submitted_at,
         sas.faculty,
         sas.department,
@@ -162,6 +164,7 @@ export async function getScopedSubmissions(admin: AuthenticatedAdmin) {
       INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
       LEFT JOIN submission_research_core src ON src.submission_id = s.id
       LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
+      LEFT JOIN admin_users iau ON iau.id = s.assigned_ireb_user_id
       WHERE s.current_status::text <> 'draft'
       ${statusFilter}
       ${hodFilter}

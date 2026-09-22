@@ -15,7 +15,6 @@ export type FacultyMemberRecord = {
   id: string;
   userId: string | null;
   sapId: string;
-  employeeId: string | null;
   employeeCode: string | null;
   name: string;
   email: string;
@@ -42,7 +41,6 @@ type FacultyMemberRow = {
   id: string;
   user_id: string | null;
   sap_id: string;
-  employee_id: string | null;
   employee_code: string | null;
   name: string;
   email: string;
@@ -70,7 +68,6 @@ function mapFacultyMemberRow(row: FacultyMemberRow): FacultyMemberRecord {
     id: row.id,
     userId: row.user_id,
     sapId: row.sap_id,
-    employeeId: row.employee_id,
     employeeCode: row.employee_code,
     name: row.name,
     email: row.email,
@@ -141,6 +138,7 @@ export async function getFacultyMemberBySapId(
  */
 export async function getFacultyMemberByEmailPrefix(
   email: string,
+  opts?: { includeDeleted?: boolean },
 ): Promise<FacultyMemberRecord | null> {
   const normalized = email.trim().toLowerCase();
   const atIdx = normalized.indexOf("@");
@@ -152,8 +150,10 @@ export async function getFacultyMemberByEmailPrefix(
       SELECT *
       FROM faculty_members
       WHERE LOWER(SPLIT_PART(LOWER(TRIM(email)), '@', 1)) = $1
-        AND deleted_at IS NULL
-      ORDER BY last_synced_at DESC NULLS LAST, created_at ASC
+        ${opts?.includeDeleted ? "" : "AND deleted_at IS NULL"}
+      ORDER BY (deleted_at IS NULL) DESC,
+               last_synced_at DESC NULLS LAST,
+               created_at ASC
       LIMIT 1
     `,
     [prefix],
@@ -201,7 +201,7 @@ export async function getFacultyMemberByUserId(
 
 export type FacultyMemberSapInput = {
   sapId: string;
-  employeeId?: string | null;
+  employeeCode?: string | null;
   name: string;
   email: string;
   department: string;
@@ -241,13 +241,62 @@ export async function upsertFacultyMemberFromSap(
     ? await getFacultyMemberByEmailPrefix(email)
     : null;
 
+  // A soft-deleted record for the same person (same email prefix) is revived
+  // rather than duplicated. The row's original sap_id is intentionally kept:
+  // submissions key applicant ownership on sap_id, and the login-time
+  // empinfoSet service reports a different identifier scheme (e.g. padded
+  // "00001103") than the bulk EmployeeSet sync (e.g. "4472"), so overwriting
+  // sap_id here would silently orphan the member's existing applications.
+  const softDeletedByPrefix =
+    !existing && !existingByEmailPrefix
+      ? await getFacultyMemberByEmailPrefix(email, { includeDeleted: true })
+      : null;
+
+  if (softDeletedByPrefix?.deletedAt) {
+    const result = await db.query<FacultyMemberRow>(
+      `
+        UPDATE faculty_members
+        SET
+          employee_code = COALESCE($2, employee_code),
+          name = $3,
+          email = $4,
+          faculty = COALESCE(NULLIF($5, ''), faculty),
+          department = $6,
+          designation = COALESCE($7, designation),
+          employee_type = COALESCE($8, employee_type),
+          faculty_id = COALESCE($9, faculty_id),
+          department_id = COALESCE($10, department_id),
+          status = 'active',
+          is_active = TRUE,
+          deleted_at = NULL,
+          last_synced_at = NOW(),
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `,
+      [
+        softDeletedByPrefix.id,
+        input.employeeCode ?? null,
+        input.name.trim() || softDeletedByPrefix.name,
+        email,
+        faculty,
+        department,
+        input.designation?.trim() ?? null,
+        input.employeeType?.trim() ?? null,
+        facultyId,
+        departmentId,
+      ],
+    );
+    return mapFacultyMemberRow(result.rows[0]);
+  }
+
   if (existingByEmailPrefix && !existing) {
     const result = await db.query<FacultyMemberRow>(
       `
         UPDATE faculty_members
         SET
           sap_id = $2,
-          employee_id = COALESCE($3, employee_id),
+          employee_code = COALESCE($3, employee_code),
           name = $4,
           email = $5,
           faculty = COALESCE(NULLIF($6, ''), faculty),
@@ -267,7 +316,7 @@ export async function upsertFacultyMemberFromSap(
       [
         existingByEmailPrefix.id,
         sapId,
-        input.employeeId ?? null,
+        input.employeeCode ?? null,
         input.name.trim() || existingByEmailPrefix.name,
         email,
         faculty,
@@ -286,7 +335,7 @@ export async function upsertFacultyMemberFromSap(
       `
         UPDATE faculty_members
         SET
-          employee_id = COALESCE($2, employee_id),
+          employee_code = COALESCE($2, employee_code),
           name = $3,
           email = $4,
           faculty = COALESCE(NULLIF($5, ''), faculty),
@@ -305,7 +354,7 @@ export async function upsertFacultyMemberFromSap(
       `,
       [
         existing.id,
-        input.employeeId ?? null,
+        input.employeeCode ?? null,
         input.name.trim() || existing.name,
         email,
         faculty,
@@ -323,7 +372,7 @@ export async function upsertFacultyMemberFromSap(
     `
       INSERT INTO faculty_members (
         sap_id,
-        employee_id,
+        employee_code,
         name,
         email,
         faculty,
@@ -343,7 +392,7 @@ export async function upsertFacultyMemberFromSap(
     `,
     [
       sapId,
-      input.employeeId ?? null,
+      input.employeeCode ?? null,
       input.name.trim() || "Unknown Faculty Member",
       email,
       faculty,

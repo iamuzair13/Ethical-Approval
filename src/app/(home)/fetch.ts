@@ -63,6 +63,8 @@ export type DashboardLead = {
   hodName: string | null;
   stage: "hod" | "admin" | "ireb" | "completed";
   isSensitive: boolean;
+  /** Name of the IREB member the administrator recommended this to, if any. */
+  assignedIrebName: string | null;
   submittedAt: string;
   hodDecisionAt: string | null;
   /** Applicant profile image URL when set; otherwise use name initials in the UI. */
@@ -92,6 +94,7 @@ type SubmissionScopeRow = {
     | "approved"
     | "rejected";
   is_sensitive: boolean;
+  assigned_ireb_name: string | null;
   latest_feedback_comment: string | null;
   latest_audit_note: string | null;
   latest_actor_name: string | null;
@@ -317,6 +320,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.current_status,
           s.is_sensitive,
           s.hod_name_snapshot,
+          iau.name AS assigned_ireb_name,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
@@ -333,6 +337,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
         LEFT JOIN submission_research_core src ON src.submission_id = s.id
         LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
+        LEFT JOIN admin_users iau ON iau.id = s.assigned_ireb_user_id
         LEFT JOIN LATERAL (
           SELECT
             ad.comment AS latest_feedback_comment,
@@ -420,6 +425,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
       research_title: row.research_title,
       current_status: row.current_status,
       is_sensitive: row.is_sensitive,
+      assigned_ireb_name: row.assigned_ireb_name ?? null,
       latest_feedback_comment: feedbackMap.get(row.id)?.comment ?? null,
       latest_audit_note: null,
       latest_actor_name: feedbackMap.get(row.id)?.actorName ?? null,
@@ -449,6 +455,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
           s.current_status,
           s.is_sensitive,
           s.hod_name_snapshot,
+          iau.name AS assigned_ireb_name,
           (
             SELECT MAX(ad.decided_at)
             FROM approval_decisions ad
@@ -465,6 +472,7 @@ async function getScopedSubmissionRows(session?: Session): Promise<SubmissionSco
         INNER JOIN submission_applicant_snapshot sas ON sas.submission_id = s.id
         LEFT JOIN submission_research_core src ON src.submission_id = s.id
         LEFT JOIN user_profiles up ON up.sap_id = sas.sap_id
+        LEFT JOIN admin_users iau ON iau.id = s.assigned_ireb_user_id
         LEFT JOIN LATERAL (
           SELECT
             ad.comment AS latest_feedback_comment,
@@ -896,6 +904,7 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       hodName: row.hod_name,
       stage,
       isSensitive: Boolean(row.is_sensitive),
+      assignedIrebName: row.assigned_ireb_name ?? null,
       submittedAt,
       hodDecisionAt,
       avatar: normalizeDashboardAvatarUrl(row.applicant_avatar_url),

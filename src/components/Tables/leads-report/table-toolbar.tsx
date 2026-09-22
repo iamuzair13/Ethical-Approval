@@ -3,14 +3,63 @@
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
+  BellRing,
   ClipboardList,
   Download,
-  RefreshCw,
   Search,
   X,
 } from "lucide-react";
 import { ActiveFiltersBar, FilterMenu } from "./filter-controls";
-import type { CountEntry, LeadStatus } from "./types";
+import type { CountEntry, LeadsTab, LeadStatus } from "./types";
+
+/** Semantic color per tab — status meaning readable at a glance. */
+const TAB_TONES: Record<
+  LeadsTab,
+  { active: string; inactive: string; badgeActive: string; badgeInactive: string }
+> = {
+  all: {
+    active: "bg-indigo-600 text-white shadow-sm",
+    inactive:
+      "text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+  },
+  pending: {
+    active: "bg-amber-500 text-white shadow-sm",
+    inactive:
+      "text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  },
+  adminAction: {
+    active: "bg-violet-600 text-white shadow-sm",
+    inactive:
+      "text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300",
+  },
+  approved: {
+    active: "bg-emerald-600 text-white shadow-sm",
+    inactive:
+      "text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  },
+  overdue: {
+    active: "bg-orange-600 text-white shadow-sm",
+    inactive:
+      "text-orange-700 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+  },
+  rejected: {
+    active: "bg-rose-600 text-white shadow-sm",
+    inactive:
+      "text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10",
+    badgeActive: "bg-white/20 text-white",
+    badgeInactive: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+  },
+};
 
 type TableToolbarProps = {
   title: string;
@@ -25,26 +74,34 @@ type TableToolbarProps = {
   currentStatusCounts: CountEntry[];
   scopeFilteredCount: number;
   departmentScopeCount: number;
+  irebMemberFilter: string[];
+  irebMemberCounts: CountEntry[];
+  onIrebMemberChange: (values: string[]) => void;
+  showIrebMemberFilter?: boolean;
   onFacultyChange: (values: string[]) => void;
   onDepartmentChange: (values: string[]) => void;
   onStatusChange: (values: LeadStatus[]) => void;
   onExport: () => void;
-  activeTab: "all" | "overdue" | "approved" | "pending" | "rejected";
-  onTabChange: (tab: "all" | "overdue" | "approved" | "pending" | "rejected") => void;
+  activeTab: LeadsTab;
+  onTabChange: (tab: LeadsTab) => void;
   allRequestsCount: number;
   overdueCount: number;
   approvedCount?: number;
   pendingCount?: number;
   rejectedCount?: number;
   showApprovedTab?: boolean;
+  adminActionCount?: number;
+  showAdminActionTab?: boolean;
   overdueBannerDismissed: boolean;
   onDismissOverdueBanner: () => void;
-  onRefresh: () => void;
   onClearFaculty: (value: string) => void;
   onClearDepartment: (value: string) => void;
   onClearStatus: (value: string) => void;
+  onClearIrebMember: (value: string) => void;
   onClearAllFilters: () => void;
   actionError: string | null;
+  /** Column-management control rendered next to the filter buttons. */
+  columnManager?: React.ReactNode;
 };
 
 export function TableToolbar({
@@ -60,6 +117,10 @@ export function TableToolbar({
   currentStatusCounts,
   scopeFilteredCount,
   departmentScopeCount,
+  irebMemberFilter,
+  irebMemberCounts,
+  onIrebMemberChange,
+  showIrebMemberFilter = false,
   onFacultyChange,
   onDepartmentChange,
   onStatusChange,
@@ -72,32 +133,36 @@ export function TableToolbar({
   pendingCount,
   rejectedCount,
   showApprovedTab,
+  adminActionCount,
+  showAdminActionTab,
   overdueBannerDismissed,
   onDismissOverdueBanner,
-  onRefresh,
   onClearFaculty,
   onClearDepartment,
   onClearStatus,
+  onClearIrebMember,
   onClearAllFilters,
   actionError,
+  columnManager,
 }: TableToolbarProps) {
-  const tabClassName = (tab: TableToolbarProps["activeTab"]) =>
+  const tabClassName = (tab: LeadsTab) =>
     cn(
       "inline-flex max-w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30",
-      activeTab === tab
-        ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200",
+      activeTab === tab ? TAB_TONES[tab].active : TAB_TONES[tab].inactive,
     );
-  const countClassName =
-    "rounded-md bg-gray-900/5 px-1.5 py-0.5 text-xs font-medium leading-none tabular-nums dark:bg-white/10";
+  const countClassName = (tab: LeadsTab) =>
+    cn(
+      "rounded-md px-1.5 py-0.5 text-xs font-semibold leading-none tabular-nums",
+      activeTab === tab ? TAB_TONES[tab].badgeActive : TAB_TONES[tab].badgeInactive,
+    );
 
   return (
     <div className="flex min-w-0 flex-col gap-5 p-4 sm:p-6">
       {/* Header */}
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
-            <ClipboardList className="size-5 text-gray-500 dark:text-gray-400" aria-hidden />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/30">
+            <ClipboardList className="size-5 text-white" aria-hidden />
           </div>
           <div className="min-w-0">
             <h2 className="break-words text-lg font-semibold leading-snug tracking-tight text-gray-900 dark:text-white sm:text-xl">
@@ -108,17 +173,7 @@ export function TableToolbar({
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onRefresh}
-            aria-label="Refresh data"
-            className="rounded-lg p-2 text-gray-500 transition-all duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.98] dark:hover:bg-gray-700 dark:hover:text-gray-300"
-          >
-            <RefreshCw className="size-5" aria-hidden />
-          </button>
-          
-        </div>
+        <div className="flex shrink-0 items-center gap-2">{columnManager}</div>
       </div>
 
       {/* Search row */}
@@ -165,10 +220,20 @@ export function TableToolbar({
               totalCount={scopeFilteredCount}
               onChange={(values) => onStatusChange(values as LeadStatus[])}
             />
+            {showIrebMemberFilter && (
+              <FilterMenu
+                multiple
+                label="IREB Member"
+                value={irebMemberFilter}
+                options={irebMemberCounts}
+                totalCount={scopeFilteredCount}
+                onChange={onIrebMemberChange}
+              />
+            )}
             <button
               type="button"
               onClick={onExport}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.98] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition-all duration-150 ease-in-out hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 active:scale-[0.98] dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
             >
               <Download className="size-4 shrink-0" aria-hidden />
               Export Excel
@@ -181,21 +246,23 @@ export function TableToolbar({
         facultyFilter={facultyFilter}
         departmentFilter={departmentFilter}
         currentStatusFilter={currentStatusFilter}
+        irebMemberFilter={irebMemberFilter}
         onClearFaculty={onClearFaculty}
         onClearDepartment={onClearDepartment}
         onClearStatus={onClearStatus}
+        onClearIrebMember={onClearIrebMember}
         onClearAll={onClearAllFilters}
       />
 
       {/* Tabs */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-gray-200 p-1 dark:border-gray-700">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50/60 p-1.5 dark:border-gray-700 dark:bg-gray-800/40">
         <button
           type="button"
           className={tabClassName("all")}
           aria-pressed={activeTab === "all"}
           onClick={() => onTabChange("all")}
         >
-          All Requests <span className={countClassName}>{allRequestsCount}</span>
+          All Requests <span className={countClassName("all")}>{allRequestsCount}</span>
         </button>
         <button
           type="button"
@@ -203,8 +270,19 @@ export function TableToolbar({
           aria-pressed={activeTab === "pending"}
           onClick={() => onTabChange("pending")}
         >
-          Pending Requests <span className={countClassName}>{pendingCount ?? 0}</span>
+          Pending Requests <span className={countClassName("pending")}>{pendingCount ?? 0}</span>
         </button>
+        {showAdminActionTab && (
+          <button
+            type="button"
+            className={tabClassName("adminAction")}
+            aria-pressed={activeTab === "adminAction"}
+            onClick={() => onTabChange("adminAction")}
+          >
+            <BellRing className="size-3.5 shrink-0" aria-hidden />
+            Needs Admin Action <span className={countClassName("adminAction")}>{adminActionCount ?? 0}</span>
+          </button>
+        )}
         {showApprovedTab && (
           <button
             type="button"
@@ -212,7 +290,7 @@ export function TableToolbar({
             aria-pressed={activeTab === "approved"}
             onClick={() => onTabChange("approved")}
           >
-            Approved Requests <span className={countClassName}>{approvedCount ?? 0}</span>
+            Approved Requests <span className={countClassName("approved")}>{approvedCount ?? 0}</span>
           </button>
         )}
         
@@ -222,7 +300,7 @@ export function TableToolbar({
           aria-pressed={activeTab === "overdue"}
           onClick={() => onTabChange("overdue")}
         >
-          Over Due Approval <span className={countClassName}>{overdueCount}</span>
+          Over Due Approval <span className={countClassName("overdue")}>{overdueCount}</span>
         </button>
         
         {showApprovedTab && (
@@ -232,7 +310,7 @@ export function TableToolbar({
             aria-pressed={activeTab === "rejected"}
             onClick={() => onTabChange("rejected")}
           >
-            Rejected Requests <span className={countClassName}>{rejectedCount ?? 0}</span>
+            Rejected Requests <span className={countClassName("rejected")}>{rejectedCount ?? 0}</span>
           </button>
         )}
       </div>

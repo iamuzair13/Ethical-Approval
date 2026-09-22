@@ -20,11 +20,12 @@ export type HodOption = {
   designation: string | null;
   department: string;
   faculty: string | null;
+  /** faculty_members.department_id — the authoritative department FK. */
+  departmentId: number | null;
 };
 
 export type VerifiedHod = HodOption & {
   facultyId: number | null;
-  departmentId: number | null;
 };
 
 // ─── Queries ───
@@ -76,7 +77,21 @@ export async function listHodsForDepartment(
   departmentId: number,
 ): Promise<HodOption[]> {
   if (!Number.isInteger(departmentId) || departmentId <= 0) return [];
+  return queryHods(departmentId);
+}
 
+/**
+ * All eligible hods across every department.
+ *
+ * Same eligibility rules as listHodsForDepartment, without the department
+ * filter — used by the HOD-first picker where the student selects the HOD
+ * and the department is derived from the HOD's own record.
+ */
+export async function listAllHods(): Promise<HodOption[]> {
+  return queryHods(null);
+}
+
+async function queryHods(departmentId: number | null): Promise<HodOption[]> {
   const result = await db.query<{
     user_id: string;
     faculty_member_id: string;
@@ -86,6 +101,7 @@ export async function listHodsForDepartment(
     designation: string | null;
     department: string;
     faculty: string | null;
+    department_id: number | null;
   }>(
     `
       SELECT
@@ -96,7 +112,8 @@ export async function listHodsForDepartment(
         fm.email,
         fm.designation,
         fm.department,
-        fm.faculty
+        fm.faculty,
+        fm.department_id
       FROM faculty_members fm
       INNER JOIN admin_users au
         ON au.id = fm.user_id
@@ -105,7 +122,7 @@ export async function listHodsForDepartment(
         AND fm.status = 'active'
         AND fm.is_active = TRUE
         AND au.status = 'active'
-        AND fm.department_id = $1
+        AND ($1::int IS NULL OR fm.department_id = $1)
       ORDER BY fm.name ASC
     `,
     [departmentId],
@@ -120,6 +137,7 @@ export async function listHodsForDepartment(
     designation: row.designation,
     department: row.department,
     faculty: row.faculty,
+    departmentId: row.department_id,
   }));
 }
 
@@ -188,8 +206,8 @@ export async function getHodForSelection(
     designation: row.designation,
     department: row.department,
     faculty: row.faculty,
-    facultyId: row.faculty_id,
     departmentId: row.department_id,
+    facultyId: row.faculty_id,
   };
 }
 

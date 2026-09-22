@@ -396,14 +396,14 @@ export default function Signin() {
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-slate-200 dark:border-dark-3" />
                 </div>
-                {/* <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                <div className="relative flex justify-center text-xs uppercase tracking-wide">
                   <span className="bg-white px-3 text-slate-500 dark:bg-gray-dark dark:text-dark-6">
                     or continue with email
                   </span>
-                </div> */}
+                </div>
               </div>
 
-              {/* <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
                 <p className="text-center text-xs font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-200">
                   Testing mode only
                 </p>
@@ -439,7 +439,7 @@ export default function Signin() {
                     {loadingManual ? "Verifying with SAP…" : "Sign in with email"}
                   </button>
                 </form>
-              </div> */}
+              </div>
             </div>
 
             <p className="mt-8 text-center text-xs text-slate-500 dark:text-dark-6">

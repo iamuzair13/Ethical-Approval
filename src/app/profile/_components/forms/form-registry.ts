@@ -242,3 +242,33 @@ export function getFacultyFormById(formId: string): RequiredForm | null {
   };
 }
 
+// ─── Student form catalog ───
+// All four student forms (Forms 1-4). The applicant picks the form manually —
+// the medical/non-medical distinction is no longer inferred from the faculty
+// name at this step.
+
+const STUDENT_FORM_NAV_TITLES: Partial<Record<ApprovalFormId, string>> = {
+  "form1-thesis-non-medical": "Form 1 · Thesis (Non-Medical)",
+  "form2-publication-non-medical": "Form 2 · Publication (Non-Medical)",
+  "form3-thesis-medical": "Form 3 · Thesis (Medical)",
+  "form4-publication-medical": "Form 4 · Publication (Medical)",
+};
+
+export const STUDENT_FORM_CATALOG: FacultyFormCatalogEntry[] = FORM_REGISTRY.map(
+  (entry) => ({
+    ...entry,
+    navTitle: STUDENT_FORM_NAV_TITLES[entry.id] ?? entry.label,
+  }),
+);
+
+export function getStudentFormById(formId: string): RequiredForm | null {
+  const entry = STUDENT_FORM_CATALOG.find((item) => item.id === formId);
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    label: entry.label,
+    href: `/${encodeURI(`studentsfinalforms/${entry.label}`)}`,
+    applicationType: entry.applicationType,
+  };
+}
+

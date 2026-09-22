@@ -4,8 +4,6 @@ import {
   buildApplicationReportHtml,
   type SubmissionReportInput,
 } from "@/lib/application-report-html";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,97 +14,77 @@ type ApplicationReportPdfGeneratorProps = {
   className?: string;
 };
 
-async function generateApplicationReportPdf(
-  submission: SubmissionReportInput,
-  applicationId: string,
-  submissionId: number,
-) {
+/**
+ * Opens the report in a hidden iframe and triggers the browser's print
+ * engine. Print pagination respects `page-break-inside: avoid` on table
+ * rows, so content is never sliced mid-row the way the old
+ * html2canvas→jsPDF image-tiling approach cut pages at fixed pixel offsets.
+ * The user chooses "Save as PDF" in the dialog; browsers suggest the
+ * document <title> as the file name.
+ */
+function printApplicationReport(submission: SubmissionReportInput, applicationId: string) {
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "-10000px";
   iframe.style.bottom = "0";
-  iframe.style.width = "1024px";
-  iframe.style.height = "1200px";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
   iframe.style.opacity = "0";
   iframe.setAttribute("aria-hidden", "true");
   document.body.appendChild(iframe);
 
-  try {
-    const reportHtml = buildApplicationReportHtml(submission);
-    const frameDoc = iframe.contentDocument;
-    if (!frameDoc) {
-      throw new Error("Unable to create PDF document frame.");
-    }
-
-    frameDoc.open();
-    frameDoc.write(reportHtml);
-    frameDoc.close();
-
-    await new Promise<void>((resolve) => {
-      iframe.onload = () => resolve();
-      window.setTimeout(resolve, 240);
-    });
-
-    const target = frameDoc.documentElement;
-    const canvas = await html2canvas(target, {
-      scale: 1,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-      windowWidth: 1024,
-    });
-
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
-      compress: true,
-    });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 24;
-    const printableWidth = pageWidth - margin * 2;
-    const imageHeight = (canvas.height * printableWidth) / canvas.width;
-    const pageContentHeight = pageHeight - margin * 2;
-    const imageData = canvas.toDataURL("image/jpeg", 0.7);
-
-    let heightLeft = imageHeight;
-    let position = margin;
-
-    // Draw same image across pages with Y offset; avoids slice seam/break artifacts.
-    pdf.addImage(imageData, "JPEG", margin, position, printableWidth, imageHeight, undefined, "FAST");
-    heightLeft -= pageContentHeight;
-
-    while (heightLeft > 0) {
-      pdf.addPage();
-      position = margin - (imageHeight - heightLeft);
-      pdf.addImage(imageData, "JPEG", margin, position, printableWidth, imageHeight, undefined, "FAST");
-      heightLeft -= pageContentHeight;
-    }
-
-    pdf.save(`application-${applicationId}-${submissionId}.pdf`);
-  } finally {
+  const frameDoc = iframe.contentDocument;
+  if (!frameDoc) {
     iframe.remove();
+    throw new Error("Unable to create print frame.");
+  }
+
+  const html = buildApplicationReportHtml(submission).replace(
+    /<title>[\s\S]*?<\/title>/,
+    `<title>application-${applicationId}</title>`,
+  );
+
+  frameDoc.open();
+  frameDoc.write(html);
+  frameDoc.close();
+
+  const cleanup = () => iframe.remove();
+  const triggerPrint = () => {
+    const win = iframe.contentWindow;
+    if (!win) {
+      cleanup();
+      return;
+    }
+    win.addEventListener("afterprint", cleanup);
+    win.focus();
+    win.print();
+    // Fallback cleanup for browsers that don't fire afterprint on iframes.
+    window.setTimeout(cleanup, 120_000);
+  };
+
+  if (iframe.contentDocument?.readyState === "complete") {
+    triggerPrint();
+  } else {
+    iframe.onload = triggerPrint;
   }
 }
 
 export function ApplicationReportPdfGeneratorButton({
   submission,
   applicationId,
-  submissionId,
   className,
 }: ApplicationReportPdfGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!submission) {
       toast.error("Submission data is not available for PDF generation.");
       return;
     }
     setIsGenerating(true);
     try {
-      await generateApplicationReportPdf(submission, applicationId, submissionId);
-      toast.success("Professional PDF report downloaded.");
+      printApplicationReport(submission, applicationId);
+      toast.success("Print dialog opened — choose “Save as PDF” to download.");
     } catch (error) {
       console.error("PDF generation failed", error);
       toast.error("Unable to generate PDF report. Try again in a few seconds.");
@@ -122,7 +100,7 @@ export function ApplicationReportPdfGeneratorButton({
       disabled={isGenerating}
       className={className}
     >
-      {isGenerating ? "Generating PDF..." : "Download application report (PDF)"}
+      {isGenerating ? "Opening…" : "Download application report (PDF)"}
     </button>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, BellRing } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LeadStatus } from "./types";
 
@@ -86,9 +86,31 @@ export function ApplicationTypeBadge({ type }: { type: string }) {
 
 export function SensitiveBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+    <span
+      role="status"
+      aria-label="Sensitive case"
+      title="Sensitive case"
+      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+    >
       <AlertTriangle className="size-3" aria-hidden />
-      Sensitive
+    </span>
+  );
+}
+
+/**
+ * Shown to administrators on rows at the admin review stage — the submission
+ * displays "Under Review by IREB" to applicants but is actually waiting on an
+ * admin action (recommend / mark as sensitive / approve / reject).
+ */
+export function AdminActionBadge() {
+  return (
+    <span
+      role="status"
+      aria-label="Action required — waiting on admin"
+      title="Action required"
+      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+    >
+      <BellRing className="size-3" aria-hidden />
     </span>
   );
 }

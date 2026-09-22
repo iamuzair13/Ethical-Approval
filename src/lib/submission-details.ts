@@ -60,6 +60,9 @@ export type SubmissionDetail = {
   hod_email_snapshot: string | null;
   hod_department_snapshot: string | null;
   hod_faculty_snapshot: string | null;
+  /** IREB member the administrator recommended this submission to, if any. */
+  assigned_ireb_user_id: string | null;
+  assigned_ireb_name: string | null;
   /** Full approval decision history (newest first). */
   approval_decisions: ApprovalDecisionRow[];
 };
@@ -95,6 +98,8 @@ export async function getSubmissionDetailById(submissionId: number) {
         s.hod_email_snapshot,
         s.hod_department_snapshot,
         s.hod_faculty_snapshot,
+        s.assigned_ireb_user_id,
+        iau.name AS assigned_ireb_name,
         (
           SELECT COUNT(*)::int
           FROM submissions s2
@@ -135,6 +140,7 @@ export async function getSubmissionDetailById(submissionId: number) {
       LEFT JOIN submission_research_core src ON src.submission_id = s.id
       LEFT JOIN submission_ethics_payload sep ON sep.submission_id = s.id
       LEFT JOIN submission_timeline st ON st.submission_id = s.id
+      LEFT JOIN admin_users iau ON iau.id = s.assigned_ireb_user_id
       WHERE s.id = $1
       LIMIT 1
     `,

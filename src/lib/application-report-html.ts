@@ -2,6 +2,12 @@ import {
   inferFormIdFromLegacyRequiredForm,
   type ApprovalFormId,
 } from "@/app/profile/_components/forms/form-registry";
+import {
+  fieldLabel,
+  getFormSteps,
+  isEmptyValue,
+  isInternalIdKey,
+} from "@/lib/submission-form-steps";
 
 export type SubmissionReportInput = {
   id?: number;
@@ -16,6 +22,12 @@ export type SubmissionReportInput = {
   applicant_faculty?: string | null;
   applicant_department?: string | null;
   applicant_program?: string | null;
+  applicant_sap_id?: string | null;
+  hod_name_snapshot?: string | null;
+  hod_sap_id_snapshot?: string | null;
+  hod_email_snapshot?: string | null;
+  hod_department_snapshot?: string | null;
+  hod_faculty_snapshot?: string | null;
   ethics_json?: unknown;
 };
 
@@ -55,7 +67,7 @@ function inferFormIdFromEthics(ethics: Record<string, unknown> | null): Approval
   return null;
 }
 
-/** Human-readable labels for stepper `form` keys (camelCase → English). */
+/** Human-readable labels for stepper `form` keys — overrides on top of the shared map. */
 const LABELS: Record<string, string> = {
   scholarName: "Scholar's name",
   scholarSapId: "SAP ID / Reg. No.",
@@ -68,39 +80,18 @@ const LABELS: Record<string, string> = {
   hodEmail: "HOD email",
   hodFaculty: "HOD faculty",
   hodDepartment: "HOD department",
-  coHodType: "Co-hod type",
-  uolCoHodSapId: "Co-hod (UOL) SAP ID",
-  uolCoHodName: "Co-hod (UOL) name",
-  uolCoHodEmail: "Co-hod (UOL) email",
-  uolCoHodFaculty: "Co-hod (UOL) faculty",
-  uolCoHodDepartment: "Co-hod (UOL) department",
-  externalCoHodName: "External co-hod name",
-  externalCoHodRegNo: "External co-hod reg. no.",
-  externalCoHodEmail: "External co-hod email",
+  coHodType: "Co-HOD type",
+  uolCoHodSapId: "Co-HOD (UOL) SAP ID",
+  uolCoHodName: "Co-HOD (UOL) name",
+  uolCoHodEmail: "Co-HOD (UOL) email",
+  uolCoHodFaculty: "Co-HOD (UOL) faculty",
+  uolCoHodDepartment: "Co-HOD (UOL) department",
+  externalCoHodName: "External co-HOD name",
+  externalCoHodRegNo: "External co-HOD reg. no.",
+  externalCoHodEmail: "External co-HOD email",
   externalUniversity: "External university",
   externalFaculty: "External faculty",
   externalDepartment: "External department",
-  thesisTitle: "Thesis / project title",
-  expectedStartDate: "Expected start date",
-  expectedEndDate: "Expected end date",
-  researchLocations: "Research location(s)",
-  researchObjective1: "Research objective 1",
-  researchObjective2: "Research objective 2",
-  researchObjective3: "Research objective 3",
-  researchObjective4: "Research objective 4",
-  sdgs: "Sustainable Development Goals",
-  researchPurpose: "Purpose of research",
-  dataCollectionMethod: "Data collection method",
-  researchPopulation: "Research population (selected)",
-  methodology: "Research methodology",
-  participantsEstimate: "Estimated participants",
-  involveHumanParticipants: "Human participants involved?",
-  collectPii: "Personally identifiable information collected?",
-  piiTypes: "Types of PII",
-  recruitmentChannels: "Recruitment channels",
-  informedConsentType: "Informed consent type",
-  preApprovalDataCollected: "Data collected before approval?",
-  publicationPreApprovalDataCollected: "Data collected before approval? (publication)",
   informedConsentParticipantName: "Informed consent — participant name (English)",
   informedConsentParentage: "Informed consent — S/O, D/O (English)",
   informedConsentProjectTitle: "Informed consent — project title (English)",
@@ -115,147 +106,45 @@ const LABELS: Record<string, string> = {
   informedConsentSignatureUr: "Informed consent — signature (Urdu)",
   informedConsentCnicUr: "Informed consent — CNIC (Urdu)",
   informedConsentDateUr: "Informed consent — date (Urdu)",
-  canWithdraw: "Participants may withdraw?",
-  compensation: "Compensation for participants?",
-  confidentialityOptions: "Confidentiality / privacy measures",
-  confidentialityOtherDetails: "Confidentiality (other details)",
-  vulnerablePopulation: "Vulnerable populations?",
-  vulnerableGroups: "Vulnerable populations (selected)",
-  adverseEventsManagement: "Adverse events / complaint management",
-  vulnerableSafeguards: "Safeguards for vulnerable populations",
-  sensitiveTopics: "Sensitive topics?",
-  sensitiveTopicTypes: "Sensitive topic types",
-  sensitiveTopicOtherDetails: "Sensitive topics (other)",
-  potentialRisks: "Potential adverse effects / risks?",
-  potentialRiskDetails: "Risk details",
-  dataRetentionYears: "Data retention period",
-  longRetentionReason: "Reason for long retention",
-  conflictOfInterest: "Conflict of interest",
-  conflictManagement: "Conflict management",
-  recordsWithoutConsent: "Access records without consent?",
-  recordsWithoutConsentJustification: "Justification (records without consent)",
-  institutionalFunding: "Has your research received institutional funding? ",
-  externalFunding: "Has your research received external funding? ",
-  externalFundingSource: "External funding source",
-  internationalCollaboration: "International collaboration",
-  internationalCollaborationDetails: "International collaboration details",
-  conductedAbroad: "Will your research, or a part of it, be conducted overseas/abroad?",
   requiredAttachments: "Required attachments (selected)",
   declaration: "Declaration text",
   declarationAccepted: "Declaration accepted",
+  form3DeclarationAccepted: "Declaration accepted",
+  publicationDeclarationAccepted: "Declaration accepted",
   applicantName: "Applicant name (signature)",
   submissionDate: "Submission date",
-  form3DeclarationAccepted: "Declaration accepted (Form 3)",
-  publicationTitle: "Publication / research title",
-  publicationPharmaInterventions: "Pharmaceutical / drug administration involved",
-  publicationObjective1: "Objective 1",
-  publicationObjective2: "Objective 2",
-  publicationObjective3: "Objective 3",
-  publicationMethodology: "Methodology",
-  publicationParticipantsEstimate: "Participants estimate",
-  publicationPopulationType: "Population type",
-  publicationHumanSubjects: "Human subjects",
-  publicationRecruitmentChannels: "Recruitment",
-  publicationInformedConsent: "Informed consent",
-  publicationDeclarationAccepted: "Declaration accepted",
-  projectTitle: "Project title",
-  projectObjectives: "Project objectives",
-  researcherName: "Researcher name",
-  discipline: "Discipline",
-  coHodName: "Co-hod name",
-  expectedResponseDays: "Expected response (days)",
-  classification: "Classification",
-  recruitmentMethod: "Recruitment method",
-  consentProcess: "Consent process",
-  confidentiality: "Confidentiality",
-  riskMitigation: "Risk mitigation",
-  biomedicalDetails: "Biomedical details",
-  dataStorageMethod: "Data storage",
-  cloudServices: "Cloud services",
-  retentionPeriod: "Retention period",
-  accessToData: "Access to data",
-  dataSecurity: "Data security",
-  futureDataUse: "Future data use",
-  researchSetting: "Research setting",
-  fundingSource: "Funding source",
-  approvalsDetails: "Approvals details",
-  researchDiscipline: "Research discipline",
-  researchClassification: "Research classification (selected)",
-  researchRiskLevel: "Research risk level",
-  researchRiskJustification: "Research risk justification",
-  drugName: "Drug name",
-  drugDosageFrequency: "Dosage / frequency",
-  drugKnownSideEffects: "Known side effects",
-  drugRegulatoryApproval: "Regulatory approval",
-  drugAdministrationRoutes: "Administration routes",
-  monitoredAfterAdministration: "Monitoring after administration",
-  followUpDuration: "Follow-up duration",
-  emergencyProcedures: "Emergency procedures",
-  dataProtectionOptions: "Data protection options",
-  dataProtectionOtherDetails: "Data protection (other)",
-  sharedWithThirdParties: "Will data be shared with third parties, collaborators, or external institutions?",
-  thirdPartySharingDetails: "Third-party sharing details",
-  cloudPlatformsUsed: "Cloud platforms used",
-  cloudPlatformDetails: "Cloud platform details",
-  futureResearchDataUse: "Future research data use",
-  futureResearchDataUseConditions: "Future use conditions", 
-  healthcareExternalInstitutions: "External healthcare institutions",
-  thesisBiologicalSpecimensInvolved: "Biological specimens involved",
-  thesisBiologicalSpecimensDetails: "Biological specimen handling",
-  thesisAnimalSubjectsUsed: "Animal subjects used",
-  thesisAnimalCareWelfareDetails: "Animal care / welfare",
-  thesisAnimalEthicsCommitteeApproval: "Animal ethics committee approval",
 };
 
 function labelForKey(key: string): string {
-  return LABELS[key] ?? key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+  return LABELS[key] ?? fieldLabel(key);
 }
 
-function getFormValue(form: Record<string, unknown>, key: string): unknown {
-  return form[key];
-}
+/** Field groups rendered in dedicated tables, not the step tables. */
+const IDENTITY_KEYS = new Set([
+  "scholarName",
+  "scholarSapId",
+  "scholarEmail",
+  "scholarFaculty",
+  "scholarDepartment",
+  "scholarProgram",
+  "applicantName",
+]);
 
-function formatValue(key: string, raw: unknown): string {
-  if (raw == null) return "—";
-  if (typeof raw === "boolean") return raw ? "Yes" : "No";
-  if (typeof raw === "number") return String(raw);
-  if (typeof raw !== "string") {
-    try {
-      return JSON.stringify(raw, null, 2);
-    } catch {
-      return String(raw);
-    }
-  }
-  const s = raw.trim();
-  if (!s) return "—";
-  if (
-    key === "sdgs" ||
-    key === "researchPurpose" ||
-    key === "recruitmentChannels" ||
-    key === "confidentialityOptions" ||
-    key === "sensitiveTopicTypes" ||
-    key === "requiredAttachments" ||
-    key === "publicationRecruitmentChannels" ||
-    key === "researchClassification" ||
-    key === "researchPopulation" ||
-    key === "vulnerableGroups" ||
-    key === "drugAdministrationRoutes" ||
-    key === "dataProtectionOptions"
-  ) {
-    const parts = s
-      .split("|")
-      .map((p) => p.trim())
-      .filter(Boolean);
-    if (parts.length <= 1) return escapeHtml(s);
-    return `<ul class="pipe-list">${parts.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`;
-  }
-  if (s.length > 200 && (key.includes("Objective") || key.includes("methodology") || key === "declaration")) {
-    return `<div class="block">${escapeHtml(s)}</div>`;
-  }
-  return escapeHtml(s);
-}
+const HOD_DISPLAY_KEYS = new Set([
+  "hodName",
+  "hodSapId",
+  "hodEmail",
+  "hodFaculty",
+  "hodDepartment",
+  "hodDesignation",
+]);
 
-type SectionDef = { title: string; keys: string[] };
+const DECLARATION_KEYS = new Set([
+  "declaration",
+  "declarationAccepted",
+  "form3DeclarationAccepted",
+  "publicationDeclarationAccepted",
+]);
 
 const INFORMED_CONSENT_KEYS: string[] = [
   "informedConsentParticipantName",
@@ -275,8 +164,8 @@ const INFORMED_CONSENT_KEYS: string[] = [
 ];
 
 function preApprovalInformedConsentApplies(form: Record<string, unknown>): boolean {
-  const pre = getFormValue(form, "preApprovalDataCollected");
-  const pubPre = getFormValue(form, "publicationPreApprovalDataCollected");
+  const pre = form.preApprovalDataCollected;
+  const pubPre = form.publicationPreApprovalDataCollected;
   return pre === "Yes" || pubPre === "Yes";
 }
 
@@ -285,451 +174,87 @@ function shouldIncludeReportKey(key: string, form: Record<string, unknown>): boo
   return preApprovalInformedConsentApplies(form);
 }
 
-const THESIS_SCHOLAR: SectionDef = {
-  title: "Step 1 · Scholar's information",
-  keys: [
-    "scholarName",
-    "scholarSapId",
-    "scholarEmail",
-    "scholarFaculty",
-    "scholarDepartment",
-    "scholarProgram",
-  ],
-};
-
-const THESIS_HOD: SectionDef = {
-  title: "Step 1 · HOD",
-  keys: [
-    "hodSapId",
-    "hodName",
-    "hodEmail",
-    "hodFaculty",
-    "hodDepartment",
-  ],
-};
-
-const THESIS_COSUP: SectionDef = {
-  title: "Step 1 · Co-hod",
-  keys: [
-    "coHodType",
-    "uolCoHodSapId",
-    "uolCoHodName",
-    "uolCoHodEmail",
-    "uolCoHodFaculty",
-    "uolCoHodDepartment",
-    "externalCoHodName",
-    "externalCoHodRegNo",
-    "externalCoHodEmail",
-    "externalUniversity",
-    "externalFaculty",
-    "externalDepartment",
-  ],
-};
-
-const THESIS_PROJECT: SectionDef = {
-  title: "Step 1 · Thesis / project details",
-  keys: [
-    "thesisTitle",
-    "researchDiscipline",
-    "expectedStartDate",
-    "expectedEndDate",
-    "researchLocations",
-    "fundingSource",
-    "researchObjective1",
-    "researchObjective2",
-    "researchObjective3",
-    "researchObjective4",
-    "sdgs",
-    "researchPurpose",
-    "researchClassification",
-    "dataCollectionMethod",
-    "researchPopulation",
-    "methodology",
-    "participantsEstimate",
-  ],
-};
-
-const ETHICAL_KEYS: string[] = [
-  "involveHumanParticipants",
-  "collectPii",
-  "piiTypes",
-  "recruitmentChannels",
-  "informedConsentType",
-  "preApprovalDataCollected",
-  "canWithdraw",
-  "compensation",
-  "confidentialityOptions",
-  "confidentialityOtherDetails",
-  "vulnerablePopulation",
-  "vulnerableSafeguards",
-  "sensitiveTopics",
-  "sensitiveTopicTypes",
-  "sensitiveTopicOtherDetails",
-  "potentialRisks",
-  "potentialRiskDetails",
-  "dataRetentionYears",
-  "longRetentionReason",
-  "conflictOfInterest",
-  "conflictManagement",
-  "recordsWithoutConsent",
-  "recordsWithoutConsentJustification",
-  ...INFORMED_CONSENT_KEYS,
-];
-
-/** Form #3 Medical — Step 2 (matches Word Ethical Considerations section). */
-const MEDICAL_THESIS_ETHICAL_KEYS: string[] = [
-  "involveHumanParticipants",
-  "collectPii",
-  "piiName",
-  "piiEmailPhone",
-  "piiStudentEmployeeId",
-  "piiMedicalRecordNumber",
-  "piiAudioVideoRecordings",
-  "piiOther",
-  "recruitmentChannels",
-  "informedConsentType",
-  "preApprovalDataCollected",
-  "vulnerableGroups",
-  "canWithdraw",
-  "compensation",
-  "adverseEventsManagement",
-  "thesisBiologicalSpecimensInvolved",
-  "thesisBiologicalSpecimensDetails",
-  "researchRiskLevel",
-  "researchRiskJustification",
-  "potentialRiskDetails",
-  "conflictOfInterest",
-  "conflictManagement",
-  ...INFORMED_CONSENT_KEYS,
-];
-
-const MEDICAL_THESIS_ETHICAL: SectionDef = {
-  title: "Step 2 · Ethical considerations (Medical thesis)",
-  keys: MEDICAL_THESIS_ETHICAL_KEYS,
-};
-
-const THESIS_ETHICAL: SectionDef = {
-  title: "Step 2 · Ethical considerations",
-  keys: ETHICAL_KEYS,
-};
-
-const THESIS_INSTITUTIONAL: SectionDef = {
-  title: "Step 3 · Institutional approvals & collaboration",
-  keys: [
-    "institutionalFunding",
-    "externalFunding",
-    "externalFundingSource",
-    "internationalCollaboration",
-    "internationalCollaborationDetails",
-    "conductedAbroad",
-  ],
-};
-
-const FORM3_INSTITUTIONAL: SectionDef = {
-  title: "Step 5 · Institutional approvals & collaborations",
-  keys: [
-    "healthcareExternalInstitutions",
-    "institutionalFunding",
-    "externalFunding",
-    "externalFundingSource",
-    "internationalCollaboration",
-    "internationalCollaborationDetails",
-    "conductedAbroad",
-  ],
-};
-
-const FORM3_BIOMEDICAL: SectionDef = {
-  title: "Step 3 · Biomedical & pharmaceutical aspects",
-  keys: [
-    "publicationPharmaInterventions",
-    "drugName",
-    "drugDosageFrequency",
-    "drugKnownSideEffects",
-    "drugRegulatoryApproval",
-    "drugAdministrationRoutes",
-    "monitoredAfterAdministration",
-    "followUpDuration",
-    "emergencyProcedures",
-    "thesisAnimalSubjectsUsed",
-    "thesisAnimalCareWelfareDetails",
-    "thesisAnimalEthicsCommitteeApproval",
-  ],
-};
-
-const FORM3_DATA: SectionDef = {
-  title: "Step 4 · Data management",
-  keys: [
-    "dataStorageMethod",
-    "dataProtectionOptions",
-    "dataProtectionOtherDetails",
-    "sharedWithThirdParties",
-    "thirdPartySharingDetails",
-    "cloudPlatformsUsed",
-    "cloudPlatformDetails",
-    "futureResearchDataUse",
-    "futureResearchDataUseConditions",
-    "healthcareExternalInstitutions",
-  ],
-};
-
-const THESIS_DECLARATION: SectionDef = {
-  title: "Step 5 · Declaration & submission",
-  keys: ["declaration", "declarationAccepted", "applicantName", "submissionDate", "form3DeclarationAccepted"],
-};
-
-const GENERIC_STEPPER: SectionDef = {
-  title: "Research application",
-  keys: [
-    "researcherName",
-    "discipline",
-    "hodName",
-    "coHodName",
-    "projectTitle",
-    "projectObjectives",
-    "expectedResponseDays",
-    "classification",
-    "recruitmentMethod",
-    "consentProcess",
-    "confidentiality",
-    "riskMitigation",
-    "biomedicalDetails",
-    "dataStorageMethod",
-    "cloudServices",
-    "retentionPeriod",
-    "accessToData",
-    "dataSecurity",
-    "futureDataUse",
-    "researchSetting",
-    "fundingSource",
-    "approvalsDetails",
-    "declaration",
-    "applicantName",
-    "submissionDate",
-  ],
-};
-
-const PUBLICATION_SCHOLAR: SectionDef = {
-  title: "Step 1 · Scholar & publication",
-  keys: [
-    "scholarName",
-    "scholarSapId",
-    "scholarEmail",
-    "scholarFaculty",
-    "scholarDepartment",
-    "scholarProgram",
-    "publicationTitle",
-    "publicationObjective1",
-    "publicationObjective2",
-    "publicationObjective3",
-    "publicationMethodology",
-    "publicationParticipantsEstimate",
-    "publicationPopulationType",
-  ],
-};
-
-const PUBLICATION_ETHICAL: SectionDef = {
-  title: "Step 2 · Ethical considerations",
-  keys: [
-    "publicationHumanSubjects",
-    "publicationRecruitmentChannels",
-    "publicationInformedConsent",
-    "preApprovalDataCollected",
-    "publicationPreApprovalDataCollected",
-    "publicationCanWithdraw",
-    "publicationCompensation",
-    "publicationAnonymized",
-    "publicationSensitiveHealthTopics",
-    "publicationVulnerablePopulation",
-    "publicationVulnerableProtections",
-    "publicationBiologicalSpecimens",
-    "publicationBiologicalSpecimenDetails",
-    "publicationPharmaInterventions",
-    "publicationPharmaInterventionDetails",
-    "publicationAnimalSubjects",
-    "publicationAnimalWelfareDetails",
-    "publicationAnimalEthicsApproval",
-    "publicationConflictsUndisclosed",
-    "publicationConflictDisclosureDetails",
-    "publicationPotentialRisks",
-    "publicationSimultaneousJournals",
-    "publicationPreviouslyPublished",
-    "publicationDataAccurate",
-    "publicationReportingGuidelines",
-    "publicationAdverseEventsReported",
-    "publicationThirdPartyPermissions",
-    "publicationThirdPartyPermissionDetails",
-    ...INFORMED_CONSENT_KEYS,
-  ],
-};
-
-const PUBLICATION_COAUTHORS: SectionDef = {
-  title: "Authors & collaborators",
-  keys: [
-    "coauthorSapId",
-    "coauthorName",
-    "coauthorEmail",
-    "coauthorFaculty",
-    "coauthorDepartment",
-    "publicationCoAuthor1Type",
-    "publicationAuthor1UolSapId",
-    "publicationAuthor1UolName",
-    "publicationAuthor1UolEmail",
-    "publicationAuthor1UolFaculty",
-    "publicationAuthor1UolDepartment",
-    "publicationAuthor1ExternalName",
-    "publicationAuthor1ExternalEmail",
-    "publicationAuthor1ExternalUniversity",
-    "publicationAuthor1ExternalFaculty",
-    "publicationAuthor1ExternalDepartment",
-    "publicationCoAuthor2Type",
-    "publicationAuthor2UolSapId",
-    "publicationAuthor2UolName",
-    "publicationAuthor2UolEmail",
-    "publicationAuthor2UolFaculty",
-    "publicationAuthor2UolDepartment",
-    "publicationAuthor2ExternalName",
-    "publicationAuthor2ExternalEmail",
-    "publicationAuthor2ExternalUniversity",
-    "publicationAuthor2ExternalFaculty",
-    "publicationAuthor2ExternalDepartment",
-    "publicationCoAuthor3Type",
-    "publicationAuthor3UolSapId",
-    "publicationAuthor3UolName",
-    "publicationAuthor3UolEmail",
-    "publicationAuthor3UolFaculty",
-    "publicationAuthor3UolDepartment",
-    "publicationAuthor3ExternalName",
-    "publicationAuthor3ExternalEmail",
-    "publicationAuthor3ExternalUniversity",
-    "publicationAuthor3ExternalFaculty",
-    "publicationAuthor3ExternalDepartment",
-    "hasExternalResearcher",
-    "externalResearcherDetails",
-  ],
-};
-
-const PUBLICATION_INSTITUTIONAL: SectionDef = {
-  title: "Institutional approvals & collaboration",
-  keys: [
-    "institutionalFunding",
-    "externalFunding",
-    "externalFundingSource",
-    "internationalCollaboration",
-    "internationalCollaborationDetails",
-    "conductedAbroad",
-  ],
-};
-
-const PUBLICATION_DECLARATION: SectionDef = {
-  title: "Declaration & submission",
-  keys: ["declaration", "publicationDeclarationAccepted", "applicantName", "submissionDate"],
-};
-
-function sectionsForFormId(formId: ApprovalFormId | null): SectionDef[] {
-  switch (formId) {
-    case "form1-thesis-non-medical":
-      return [
-        THESIS_SCHOLAR,
-        THESIS_HOD,
-        THESIS_COSUP,
-        THESIS_PROJECT,
-        THESIS_ETHICAL,
-        THESIS_INSTITUTIONAL,
-        THESIS_DECLARATION,
-      ];
-    case "form3-thesis-medical":
-      return [
-        THESIS_SCHOLAR,
-        THESIS_HOD,
-        THESIS_COSUP,
-        THESIS_PROJECT,
-        MEDICAL_THESIS_ETHICAL,
-        FORM3_BIOMEDICAL,
-        FORM3_DATA,
-        FORM3_INSTITUTIONAL,
-        {
-          title: "Step 6 · Declaration & submission",
-          keys: THESIS_DECLARATION.keys,
-        },
-      ];
-    case "form2-publication-non-medical":
-    case "form4-publication-medical":
-    case "form5-publication-faculty-staff":
-      return [
-        PUBLICATION_SCHOLAR,
-        PUBLICATION_ETHICAL,
-        PUBLICATION_COAUTHORS,
-        PUBLICATION_INSTITUTIONAL,
-        PUBLICATION_DECLARATION,
-      ];
-    default:
-      return [GENERIC_STEPPER];
-  }
+/** Keys that never appear in the report. */
+function isSkippedKey(key: string): boolean {
+  return (
+    key.startsWith("hod") || // covered by the HOD table
+    isInternalIdKey(key) ||
+    key === "requiredAttachments" // covered by the attachments table
+  );
 }
 
-function collectUsedKeys(sections: SectionDef[]): Set<string> {
-  const s = new Set<string>();
-  for (const sec of sections) {
-    for (const k of sec.keys) s.add(k);
-  }
-  return s;
-}
-
-function renderDlRow(key: string, form: Record<string, unknown>): string | null {
-  const raw = getFormValue(form, key);
-  if (raw == null || (typeof raw === "string" && !raw.trim())) return null;
-  const val = formatValue(key, raw);
-  return `<div class="row"><dt>${escapeHtml(labelForKey(key))}</dt><dd>${val}</dd></div>`;
-}
-
-function renderSection(section: SectionDef, form: Record<string, unknown>): string {
-  const rows: string[] = [];
-  for (const key of section.keys) {
-    if (!shouldIncludeReportKey(key, form)) continue;
-    const row = renderDlRow(key, form);
-    if (row) rows.push(row);
-  }
-  if (rows.length === 0) return "";
-  return `<section class="sec"><h2>${escapeHtml(section.title)}</h2><dl class="grid">${rows.join("")}</dl></section>`;
-}
-
-function renderAttachmentsSection(
-  attachmentFiles: Record<string, string>,
-  extras: string[],
-): string {
-  const rows: string[] = [];
-  for (const [label, name] of Object.entries(attachmentFiles)) {
-    if (!name?.trim()) continue;
-    rows.push(
-      `<div class="row"><dt>${escapeHtml(label)}</dt><dd><span class="file-name">${escapeHtml(name)}</span></dd></div>`,
-    );
-  }
-  extras.forEach((name, i) => {
-    if (name?.trim()) {
-      rows.push(
-        `<div class="row"><dt>${escapeHtml(`Additional upload ${i + 1}`)}</dt><dd><span class="file-name">${escapeHtml(name)}</span></dd></div>`,
-      );
+function formatCell(key: string, raw: unknown): string {
+  if (raw == null) return "—";
+  if (typeof raw === "boolean") return raw ? "Yes" : "No";
+  if (typeof raw === "number") return escapeHtml(String(raw));
+  if (typeof raw !== "string") {
+    try {
+      return `<pre class="pre">${escapeHtml(JSON.stringify(raw, null, 2))}</pre>`;
+    } catch {
+      return escapeHtml(String(raw));
     }
-  });
-  if (rows.length === 0) return "";
-  return `<section class="sec"><h2>Required attachments & uploads</h2><dl class="grid">${rows.join("")}</dl><p class="hint">File names as selected in the application. Binary files are not stored on the server.</p></section>`;
+  }
+  const s = raw.trim();
+  if (!s) return "—";
+  if (isChipKeyForReport(key)) {
+    const parts = s.split("|").map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= 1) return escapeHtml(s);
+    return `<ul class="pipe-list">${parts.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`;
+  }
+  return `<span class="pre">${escapeHtml(s)}</span>`;
 }
 
-function renderOrphans(form: Record<string, unknown>, used: Set<string>): string {
-  const orphans: string[] = [];
-  for (const key of Object.keys(form).sort()) {
-    if (used.has(key)) continue;
-    if (!shouldIncludeReportKey(key, form)) continue;
-    const row = renderDlRow(key, form);
-    if (row) orphans.push(row);
-  }
-  if (orphans.length === 0) return "";
-  return `<section class="sec"><h2>Additional fields</h2><dl class="grid">${orphans.join("")}</dl></section>`;
+const PIPE_KEYS = new Set([
+  "sdgs",
+  "researchPurpose",
+  "recruitmentChannels",
+  "confidentialityOptions",
+  "sensitiveTopicTypes",
+  "requiredAttachments",
+  "publicationRecruitmentChannels",
+  "researchClassification",
+  "researchPopulation",
+  "publicationPopulationType",
+  "vulnerableGroups",
+  "drugAdministrationRoutes",
+  "dataProtectionOptions",
+  "dataCollectionMethod",
+]);
+
+function isChipKeyForReport(key: string): boolean {
+  return PIPE_KEYS.has(key);
+}
+
+function metaRow(label: string, value: string): string {
+  return `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`;
+}
+
+function fieldRow(key: string, form: Record<string, unknown>): string | null {
+  const raw = form[key];
+  if (isEmptyValue(raw)) return null;
+  return `<tr><th>${escapeHtml(labelForKey(key))}</th><td>${formatCell(key, raw)}</td></tr>`;
+}
+
+function renderFieldsTable(rows: string[]): string {
+  if (rows.length === 0) return "";
+  return `<table class="fields"><colgroup><col class="lc"/><col/></colgroup><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderSection(title: string, rows: string[]): string {
+  const table = renderFieldsTable(rows);
+  if (!table) return "";
+  return `<section class="sec"><h2>${escapeHtml(title)}</h2>${table}</section>`;
+}
+
+function formatStatus(status: string | null | undefined): string {
+  if (!status) return "—";
+  return status.replace(/_/g, " ");
 }
 
 /**
- * Builds a standalone HTML document: clean, print-friendly report of the ethical application
- * (all major stepper sections + attachment file names).
+ * Builds a standalone, print-friendly HTML report of the ethical application.
+ * All form data is rendered in tabular form — every value shown in full
+ * (a PDF cannot expand collapsed content).
  */
 export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
   const ethics =
@@ -742,9 +267,9 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
       : {};
 
   const formId = inferFormIdFromEthics(ethics);
-  const sections = sectionsForFormId(formId);
-  const used = collectUsedKeys(sections);
+  const steps = getFormSteps(formId);
 
+  // ─── Attachment file names ───
   const attachmentFiles: Record<string, string> = {};
   if (ethics?.attachmentFiles && typeof ethics.attachmentFiles === "object" && !Array.isArray(ethics.attachmentFiles)) {
     for (const [k, v] of Object.entries(ethics.attachmentFiles as Record<string, unknown>)) {
@@ -784,13 +309,117 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
         ? sub.submitted_at.slice(0, 10)
         : "—";
 
-  const title = sub.title?.trim() || "Ethical review application";
-  const status = sub.current_status?.replace(/_/g, " ") ?? "—";
+  const title =
+    sub.title?.trim() ||
+    (typeof form.thesisTitle === "string" && form.thesisTitle.trim()) ||
+    (typeof form.publicationTitle === "string" && form.publicationTitle.trim()) ||
+    "Ethical review application";
+
+  // ─── Applicant table ───
+  const applicantRows = [
+    metaRow("Name", escapeHtml(sub.applicant_name || (form.scholarName as string) || "—")),
+    metaRow("SAP ID / Reg. No.", escapeHtml(sub.applicant_sap_id || (form.scholarSapId as string) || "—")),
+    metaRow("Email", escapeHtml(sub.applicant_email || (form.scholarEmail as string) || "—")),
+    metaRow("Faculty", escapeHtml(sub.applicant_faculty || (form.scholarFaculty as string) || "—")),
+    metaRow("Department", escapeHtml(sub.applicant_department || (form.scholarDepartment as string) || "—")),
+    metaRow("Program", escapeHtml(sub.applicant_program || (form.scholarProgram as string) || "—")),
+  ];
+
+  // ─── HOD table (snapshots preferred, form values as fallback) ───
+  const hodName = sub.hod_name_snapshot || (form.hodName as string) || null;
+  const hodRows = hodName
+    ? [
+        metaRow("Name", escapeHtml(hodName)),
+        metaRow("SAP ID", escapeHtml(sub.hod_sap_id_snapshot || (form.hodSapId as string) || "—")),
+        metaRow("Email", escapeHtml(sub.hod_email_snapshot || (form.hodEmail as string) || "—")),
+        metaRow("Department", escapeHtml(sub.hod_department_snapshot || (form.hodDepartment as string) || "—")),
+        metaRow("Faculty", escapeHtml(sub.hod_faculty_snapshot || (form.hodFaculty as string) || "—")),
+      ]
+    : [];
+
+  // ─── Step sections ───
+  const covered = new Set<string>();
+  const stepSections: string[] = [];
+
+  if (steps) {
+    steps.forEach((step, index) => {
+      const isAttachments = step.keys.includes("requiredAttachments");
+      const isDeclaration = step.keys.some((k) => DECLARATION_KEYS.has(k));
+      for (const k of step.keys) covered.add(k);
+
+      if (isAttachments) {
+        const rows: string[] = [];
+        const checklist = form.requiredAttachments;
+        if (!isEmptyValue(checklist)) {
+          rows.push(
+            `<tr><th>${escapeHtml(labelForKey("requiredAttachments"))}</th><td>${formatCell("requiredAttachments", checklist)}</td></tr>`,
+          );
+        }
+        for (const [label, name] of Object.entries(attachmentFiles)) {
+          if (!name?.trim()) continue;
+          rows.push(
+            `<tr><th>${escapeHtml(label)}</th><td><span class="file-name">${escapeHtml(name)}</span></td></tr>`,
+          );
+        }
+        extras.forEach((name, i) => {
+          if (name?.trim()) {
+            rows.push(
+              `<tr><th>${escapeHtml(`Additional upload ${i + 1}`)}</th><td><span class="file-name">${escapeHtml(name)}</span></td></tr>`,
+            );
+          }
+        });
+        stepSections.push(renderSection(`Step ${index + 1} · ${step.title}`, rows));
+        return;
+      }
+
+      const rows: string[] = [];
+      // The signed declaration text is meaningful record content — include it
+      // with the declaration step even though it isn't a stepper field key.
+      if (isDeclaration && !isEmptyValue(form.declaration)) {
+        covered.add("declaration");
+        rows.push(
+          `<tr><th>${escapeHtml(labelForKey("declaration"))}</th><td>${formatCell("declaration", form.declaration)}</td></tr>`,
+        );
+      }
+      for (const key of step.keys) {
+        if (isSkippedKey(key) || IDENTITY_KEYS.has(key)) continue;
+        if (!shouldIncludeReportKey(key, form)) continue;
+        const row = fieldRow(key, form);
+        if (row) rows.push(row);
+      }
+      stepSections.push(renderSection(`Step ${index + 1} · ${step.title}`, rows));
+    });
+  } else {
+    // Unknown/legacy form — flat table of everything.
+    const rows: string[] = [];
+    for (const [key, value] of Object.entries(form)) {
+      if (isSkippedKey(key) || IDENTITY_KEYS.has(key) || DECLARATION_KEYS.has(key)) continue;
+      if (!shouldIncludeReportKey(key, form) || isEmptyValue(value)) continue;
+      covered.add(key);
+      rows.push(`<tr><th>${escapeHtml(labelForKey(key))}</th><td>${formatCell(key, value)}</td></tr>`);
+    }
+    stepSections.push(renderSection("Application responses", rows));
+
+    // Attachments fallback
+    const attRows = Object.entries(attachmentFiles)
+      .filter(([, n]) => n?.trim())
+      .map(([label, name]) => `<tr><th>${escapeHtml(label)}</th><td><span class="file-name">${escapeHtml(name)}</span></td></tr>`);
+    stepSections.push(renderSection("Required attachments & uploads", attRows));
+  }
+
+  // ─── Leftover fields — never silently drop submitted data ───
+  const orphanRows: string[] = [];
+  for (const [key, value] of Object.entries(form)) {
+    if (covered.has(key) || isSkippedKey(key) || IDENTITY_KEYS.has(key) || HOD_DISPLAY_KEYS.has(key)) continue;
+    if (!shouldIncludeReportKey(key, form) || isEmptyValue(value)) continue;
+    orphanRows.push(`<tr><th>${escapeHtml(labelForKey(key))}</th><td>${formatCell(key, value)}</td></tr>`);
+  }
 
   const bodySections = [
-    ...sections.map((s) => renderSection(s, form)).filter(Boolean),
-    renderAttachmentsSection(attachmentFiles, extras),
-    renderOrphans(form, used),
+    renderSection("Applicant", applicantRows),
+    hodRows.length ? renderSection("Reviewing HOD", hodRows) : "",
+    ...stepSections,
+    renderSection("Additional fields", orphanRows),
   ].join("");
 
   return `<!DOCTYPE html>
@@ -804,7 +433,7 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
       --ink: #0f172a;
       --muted: #64748b;
       --line: #e2e8f0;
-      --accent: #0d9488;
+      --accent: #4f46e5;
       --surface: #ffffff;
       --page: #f1f5f9;
     }
@@ -830,83 +459,107 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
     }
     @media print {
       body { background: #fff; padding: 0; }
-      .sheet { box-shadow: none; border: none; max-width: none; padding: 0; }
+      /* Flatten the card chrome — a printed report is a document, not a webpage. */
+      .sheet {
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        max-width: none;
+        padding: 0;
+      }
+      .summary { background: #fff; }
+      .sec { break-before: auto; }
+      h2 { break-after: avoid; page-break-after: avoid; }
+      table.fields { page-break-inside: auto; }
+      .fields tr { break-inside: avoid; page-break-inside: avoid; }
     }
-    .head { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+    .head { margin-bottom: 1.75rem; }
     h1 {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 700;
       letter-spacing: -0.03em;
-      margin: 0 0 0.5rem;
+      margin: 0 0 0.75rem;
       line-height: 1.25;
     }
-    .meta {
-      display: grid;
-      gap: 0.35rem 1.5rem;
-      font-size: 0.875rem;
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.9rem;
+      font-size: 0.85rem;
       color: var(--muted);
+      align-items: center;
     }
-    @media (min-width: 520px) {
-      .meta { grid-template-columns: auto 1fr; }
-    }
-    .meta strong { color: var(--ink); font-weight: 600; }
     .badge {
       display: inline-block;
       font-family: ui-monospace, "Cascadia Code", monospace;
       font-size: 0.8rem;
       font-weight: 600;
       color: var(--accent);
-      background: rgba(13, 148, 136, 0.08);
-      padding: 0.2rem 0.55rem;
+      background: rgba(79, 70, 229, 0.08);
+      padding: 0.15rem 0.55rem;
       border-radius: 6px;
       letter-spacing: 0.02em;
     }
+    .status {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: capitalize;
+      color: #92400e;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+    }
     .summary {
       margin-top: 1rem;
-      padding: 1rem 1.1rem;
+      padding: 0.85rem 1rem;
       background: #f8fafc;
       border-radius: 10px;
       border: 1px solid var(--line);
       font-size: 0.9rem;
     }
-    .summary h3 { margin: 0 0 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+    .summary h3 { margin: 0 0 0.4rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
     .summary p { margin: 0; white-space: pre-wrap; }
-    .sec { margin-top: 2rem; }
-    .sec:first-of-type { margin-top: 1.25rem; }
+    .sec { margin-top: 1.75rem; }
     h2 {
-      margin: 0 0 1rem;
-      font-size: 0.68rem;
+      margin: 0 0 0.65rem;
+      font-size: 0.7rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.09em;
       color: var(--accent);
     }
-    dl.grid { margin: 0; display: flex; flex-direction: column; gap: 0; }
-    .row {
-      display: grid;
-      grid-template-columns: minmax(140px, 240px) 1fr;
-      gap: 0.5rem 1.25rem;
-      padding: 0.65rem 0;
-      border-bottom: 1px solid #f1f5f9;
+    table.fields {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
     }
-    @media (max-width: 560px) {
-      .row { grid-template-columns: 1fr; gap: 0.2rem; padding: 0.75rem 0; }
+    .fields col.lc { width: 30%; }
+    .fields th, .fields td {
+      border: 1px solid var(--line);
+      padding: 0.45rem 0.7rem;
+      vertical-align: top;
+      text-align: left;
+      font-size: 0.83rem;
+      line-height: 1.5;
     }
-    dt {
-      margin: 0;
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-weight: 500;
+    .fields th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: var(--ink);
     }
-    dd { margin: 0; font-size: 0.9rem; }
-    .block { white-space: pre-wrap; word-break: break-word; }
-    ul.pipe-list { margin: 0.25rem 0 0; padding-left: 1.15rem; }
-    ul.pipe-list li { margin: 0.15rem 0; }
-    .file-name { font-family: ui-monospace, monospace; font-size: 0.85rem; }
-    .hint { margin: 0.75rem 0 0; font-size: 0.78rem; color: var(--muted); }
+    .fields tr { break-inside: avoid; page-break-inside: avoid; }
+    .pre { white-space: pre-wrap; word-break: break-word; }
+    pre.pre { margin: 0; font-family: inherit; font-size: inherit; }
+    ul.pipe-list { margin: 0; padding-left: 1.1rem; }
+    ul.pipe-list li { margin: 0.1rem 0; }
+    .file-name { font-family: ui-monospace, monospace; font-size: 0.8rem; }
     footer {
-      margin-top: 2.5rem;
-      padding-top: 1rem;
+      margin-top: 2.25rem;
+      padding-top: 0.9rem;
       border-top: 1px solid var(--line);
       font-size: 0.72rem;
       color: var(--muted);
@@ -917,12 +570,11 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
   <div class="sheet">
     <header class="head">
       <h1>${escapeHtml(title)}</h1>
-      <div class="meta">
-        <span>Application ID</span><span><span class="badge">${escapeHtml(sub.application_id)}</span></span>
-        <span>Status</span><span><strong>${escapeHtml(status)}</strong></span>
-        <span>Submitted</span><span>${escapeHtml(submitted)}</span>
-        ${sub.applicant_name ? `<span>Applicant</span><span><strong>${escapeHtml(sub.applicant_name)}</strong>${sub.applicant_email ? ` · ${escapeHtml(sub.applicant_email)}` : ""}</span>` : ""}
-        ${sub.applicant_faculty ? `<span>Faculty / Dept</span><span>${escapeHtml(sub.applicant_faculty)}${sub.applicant_department ? ` · ${escapeHtml(sub.applicant_department)}` : ""}</span>` : ""}
+      <div class="meta-line">
+        <span class="badge">${escapeHtml(sub.application_id)}</span>
+        <span class="status">${escapeHtml(formatStatus(sub.current_status))}</span>
+        <span>Submitted ${escapeHtml(submitted)}</span>
+        ${sub.applicant_name ? `<span>${escapeHtml(sub.applicant_name)}</span>` : ""}
       </div>
       ${
         sub.objectives?.trim()
@@ -931,7 +583,7 @@ export function buildApplicationReportHtml(sub: SubmissionReportInput): string {
       }
       ${
         sub.methodology?.trim()
-          ? `<div class="summary" style="margin-top:0.75rem"><h3>Methodology (record)</h3><p>${escapeHtml(sub.methodology.trim())}</p></div>`
+          ? `<div class="summary" style="margin-top:0.6rem"><h3>Methodology (record)</h3><p>${escapeHtml(sub.methodology.trim())}</p></div>`
           : ""
       }
     </header>

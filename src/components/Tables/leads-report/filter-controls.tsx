@@ -194,9 +194,11 @@ type ActiveFiltersBarProps = {
   facultyFilter: string[];
   departmentFilter: string[];
   currentStatusFilter: string[];
+  irebMemberFilter?: string[];
   onClearFaculty: (value: string) => void;
   onClearDepartment: (value: string) => void;
   onClearStatus: (value: string) => void;
+  onClearIrebMember?: (value: string) => void;
   onClearAll: () => void;
 };
 
@@ -204,13 +206,19 @@ export function ActiveFiltersBar({
   facultyFilter,
   departmentFilter,
   currentStatusFilter,
+  irebMemberFilter = [],
   onClearFaculty,
   onClearDepartment,
   onClearStatus,
+  onClearIrebMember,
   onClearAll,
 }: ActiveFiltersBarProps) {
   const hasFilters =
-    facultyFilter.length + departmentFilter.length + currentStatusFilter.length > 0;
+    facultyFilter.length +
+      departmentFilter.length +
+      currentStatusFilter.length +
+      irebMemberFilter.length >
+    0;
 
   if (!hasFilters) return null;
 
@@ -244,6 +252,15 @@ export function ActiveFiltersBar({
             onClear={() => onClearStatus(value)}
           />
         ))}
+        {onClearIrebMember &&
+          irebMemberFilter.map((value) => (
+            <FilterChip
+              key={`ireb-${value}`}
+              label="IREB Member"
+              value={value}
+              onClear={() => onClearIrebMember(value)}
+            />
+          ))}
       </div>
       <button
         type="button"

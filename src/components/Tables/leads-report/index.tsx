@@ -50,8 +50,15 @@ import { AdminReleaseModal, type AdminReleaseAction } from "./modals/admin-relea
 import { DecisionModal } from "./modals/decision-modal";
 import { ExportModal } from "./modals/export-modal";
 import { FeedbackModal } from "./modals/feedback-modal";
+import {
+  COLUMN_DEF_MAP,
+  ColumnManagerButton,
+  useColumnLayout,
+  type ColumnId,
+} from "./column-manager";
 import { RowActions } from "./row-actions";
 import {
+  AdminActionBadge,
   ApplicationIdBadge,
   ApplicationTypeBadge,
   StatusBadge,
@@ -64,6 +71,7 @@ import type {
   CountEntry,
   DecisionAction,
   Lead,
+  LeadsTab,
   LeadStatus,
   SlotFileInfo,
 } from "./types";
@@ -285,7 +293,7 @@ export function LeadsReport({
   currentRole = null,
 }: PropsType) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"all" | "overdue" | "approved" | "pending" | "rejected">("pending");
+  const [activeTab, setActiveTab] = useState<LeadsTab>("pending");
   const [busyLeadId, setBusyLeadId] = useState<number | null>(null);
   const [actionMenuLeadId, setActionMenuLeadId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -307,6 +315,7 @@ export function LeadsReport({
   const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
   const [currentStatusFilter, setCurrentStatusFilter] = useState<LeadStatus[]>([]);
   const [applicationTypeFilter, setApplicationTypeFilter] = useState<string[]>([]);
+  const [irebMemberFilter, setIrebMemberFilter] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [attachmentModalLead, setAttachmentModalLead] = useState<Lead | null>(null);
@@ -335,6 +344,29 @@ export function LeadsReport({
   const [exportColState, setExportColState] = useState<Record<string, boolean>>(() =>
     defaultLeadsExcelColumnSelection(),
   );
+  const columnLayout = useColumnLayout();
+  const { visibleColumns, widthOf, pinnedLeftOffset, api: columnApi } = columnLayout;
+  const resizeSession = useRef<{ id: ColumnId; startX: number; startWidth: number } | null>(null);
+
+  const startColumnResize = (e: React.PointerEvent, id: ColumnId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeSession.current = { id, startX: e.clientX, startWidth: widthOf(id) };
+    const onMove = (ev: PointerEvent) => {
+      const s = resizeSession.current;
+      if (s) columnApi.setWidth(s.id, s.startWidth + (ev.clientX - s.startX));
+    };
+    const onUp = () => {
+      resizeSession.current = null;
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
   const [overdueBannerDismissed, setOverdueBannerDismissed] = useState(false);
 
   const sourceLeads = providedLeads ?? LEADS;
@@ -365,6 +397,11 @@ export function LeadsReport({
         !applicationTypeFilter.includes(lead.applicationType)
       )
         return false;
+      if (
+        irebMemberFilter.length > 0 &&
+        (!lead.assignedIrebName || !irebMemberFilter.includes(lead.assignedIrebName))
+      )
+        return false;
       if (!q) return true;
       const app = lead.applicationId.toLowerCase();
       return (
@@ -384,6 +421,7 @@ export function LeadsReport({
     departmentFilter,
     currentStatusFilter,
     applicationTypeFilter,
+    irebMemberFilter,
   ]);
 
   // Live counts (entity + count) â€” derived from the scope (e.g. hod-only,
@@ -426,6 +464,17 @@ export function LeadsReport({
     [scopeFilteredLeads],
   );
 
+  // IREB members that currently have recommended submissions in scope —
+  // used for the administrator-only "IREB Member" filter.
+  const irebMemberCounts = useMemo(
+    () =>
+      buildCountsList(
+        scopeFilteredLeads.filter((lead) => lead.assignedIrebName),
+        (lead) => lead.assignedIrebName as string,
+      ),
+    [scopeFilteredLeads],
+  );
+
   // Build FilterOption arrays for ColumnHeaderFilter components
   const statusFilterOptions: FilterOption[] = useMemo(
     () =>
@@ -452,6 +501,7 @@ export function LeadsReport({
     setDepartmentFilter([]);
     setCurrentStatusFilter([]);
     setApplicationTypeFilter([]);
+    setIrebMemberFilter([]);
   }, []);
 
   useEffect(() => {
@@ -511,17 +561,29 @@ export function LeadsReport({
   );
 
   const showApprovedTab = currentRole !== null;
+  const showAdminActionTab = currentRole === "administrator";
+
+  // Submissions at the admin review stage — the administrator must act on
+  // these (recommend to an IREB member, mark as sensitive, or decide
+  // directly). They display as "Under Review by IREB" to applicants, so this
+  // tab gives the administrator a dedicated work queue.
+  const adminActionLeads = useMemo(
+    () => leads.filter((lead) => lead.stage === "admin"),
+    [leads],
+  );
 
   const visibleLeads =
     activeTab === "overdue"
       ? overdueLeads
       : activeTab === "approved"
         ? approvedLeads
-        : activeTab === "pending"
-          ? pendingLeads
-          : activeTab === "rejected"
-            ? rejectedLeads
-            : leads;
+        : activeTab === "adminAction"
+          ? adminActionLeads
+          : activeTab === "pending"
+            ? pendingLeads
+            : activeTab === "rejected"
+              ? rejectedLeads
+              : leads;
   const totalPages = Math.max(1, Math.ceil(visibleLeads.length / pageSize));
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -588,6 +650,7 @@ export function LeadsReport({
     departmentFilter,
     currentStatusFilter,
     applicationTypeFilter,
+    irebMemberFilter,
   ]);
 
   useEffect(() => {
@@ -1019,6 +1082,258 @@ export function LeadsReport({
     }
   };
 
+  // ─── Column management: header/cell renderers keyed by column id ───
+
+  const resizeHandleFor = (id: ColumnId) => (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${COLUMN_DEF_MAP.get(id)?.label ?? "column"} column`}
+      title="Drag to resize"
+      onPointerDown={(e) => startColumnResize(e, id)}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:right-0 after:w-0.5 after:rounded-full after:bg-indigo-300/70 after:transition-all hover:after:bg-indigo-500 hover:after:w-1 dark:after:bg-indigo-600/70 dark:hover:after:bg-indigo-400"
+    />
+  );
+
+  const headerCellFor = (id: ColumnId): React.ReactNode => {
+    const def = COLUMN_DEF_MAP.get(id)!;
+    const left = pinnedLeftOffset(id);
+    const pinnedCls =
+      left !== null
+        ? "sticky z-20 bg-indigo-50/95 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.10)] backdrop-blur-sm dark:bg-indigo-950/90"
+        : "";
+    const style = left !== null ? { left } : undefined;
+    const headCls =
+      "relative overflow-hidden whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300";
+
+    switch (id) {
+      case "currentStatus":
+        return (
+          <ColumnHeaderFilter
+            key={id}
+            label="Current Status"
+            options={statusFilterOptions}
+            selected={currentStatusFilter as string[]}
+            onChange={(vals) => setCurrentStatusFilter(vals as LeadStatus[])}
+            searchPlaceholder="Search statuses…"
+            className={cn("relative overflow-hidden", pinnedCls)}
+            style={style}
+          >
+            {resizeHandleFor(id)}
+          </ColumnHeaderFilter>
+        );
+      case "applicationType":
+        return (
+          <ColumnHeaderFilter
+            key={id}
+            label="Application Type"
+            options={applicationTypeFilterOptions}
+            selected={applicationTypeFilter}
+            onChange={setApplicationTypeFilter}
+            searchPlaceholder="Search types…"
+            className={cn("relative overflow-hidden", pinnedCls)}
+            style={style}
+          >
+            {resizeHandleFor(id)}
+          </ColumnHeaderFilter>
+        );
+      case "actions":
+        return (
+          <TableHead
+            key={id}
+            className="sticky right-0 z-20 bg-indigo-50/80 shadow-md backdrop-blur-sm dark:bg-indigo-950/40"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              Actions
+            </span>
+          </TableHead>
+        );
+      default:
+        return (
+          <TableHead key={id} className={cn(headCls, pinnedCls)} style={style}>
+            {def.label}
+            {resizeHandleFor(id)}
+          </TableHead>
+        );
+    }
+  };
+
+  const bodyCellFor = (
+    id: ColumnId,
+    lead: Lead,
+    index: number,
+    openUpward: boolean,
+    canDecide: boolean,
+  ): React.ReactNode => {
+    const left = pinnedLeftOffset(id);
+    const pinnedCls =
+      left !== null
+        ? cn(
+            "sticky z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.10)]",
+            index % 2 === 1
+              ? "bg-gray-50 dark:bg-gray-800"
+              : "bg-white dark:bg-gray-800",
+          )
+        : "";
+    const style = left !== null ? { left } : undefined;
+
+    switch (id) {
+      case "applicationId":
+        return (
+          <TableCell key={id} className={cn("whitespace-nowrap", pinnedCls)} style={style}>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setProfileModalLead(lead)}
+                aria-label={`View profile for ${lead.name}`}
+                title="View applicant profile"
+                className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width={16}
+                  height={16}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <ApplicationIdBadge id={lead.applicationId} />
+            </div>
+          </TableCell>
+        );
+      case "name":
+        return (
+          <TableCell key={id} className={pinnedCls} style={style}>
+            <LeadTableAvatar name={lead.name} avatar={lead.avatar} />
+          </TableCell>
+        );
+      case "email":
+        return (
+          <TableCell key={id} className={pinnedCls} style={style}>
+            <a
+              className="block max-w-48 truncate text-sm text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+              href={`mailto:${lead.email}`}
+            >
+              {lead.email}
+            </a>
+          </TableCell>
+        );
+      case "currentStatus":
+        return (
+          <TableCell key={id} className={pinnedCls} style={style}>
+            <div className="flex items-center gap-1.5">
+              <StatusBadge status={lead.currentStatus} hodName={lead.hodName} />
+              {lead.isSensitive && <SensitiveBadge />}
+              {lead.stage === "admin" && currentRole === "administrator" && (
+                <AdminActionBadge />
+              )}
+            </div>
+          </TableCell>
+        );
+      case "applicationType":
+        return (
+          <TableCell key={id} className={cn("whitespace-nowrap", pinnedCls)} style={style}>
+            <ApplicationTypeBadge type={lead.applicationType} />
+          </TableCell>
+        );
+      case "title":
+        return (
+          <TableCell
+            key={id}
+            className={cn(
+              "truncate text-sm text-gray-700 dark:text-gray-300",
+              pinnedCls,
+            )}
+            style={style}
+            title={lead.researchTitle}
+          >
+            {lead.researchTitle}
+          </TableCell>
+        );
+      case "responseIn":
+        return (
+          <TableCell key={id} className={cn("text-sm text-gray-700 dark:text-gray-300", pinnedCls)} style={style}>
+            {lead.project}
+          </TableCell>
+        );
+      case "duration":
+        return (
+          <TableCell key={id} className={cn("text-sm text-gray-700 dark:text-gray-300", pinnedCls)} style={style}>
+            {lead.duration}
+          </TableCell>
+        );
+      case "actions":
+        return (
+          <TableCell
+            key={id}
+            className={cn(
+              "sticky right-0 min-w-40 bg-white align-top shadow-md dark:bg-gray-800",
+              actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
+              index % 2 === 1 && "bg-gray-50 dark:bg-gray-800",
+            )}
+          >
+            <RowActions
+              lead={lead}
+              currentRole={currentRole}
+              busyLeadId={busyLeadId}
+              isMenuOpen={actionMenuLeadId === lead.id}
+              onMenuOpenChange={(next) => {
+                const isCurrent = actionMenuLeadId === lead.id;
+                const resolved =
+                  typeof next === "function" ? next(isCurrent) : next;
+                setActionMenuLeadId(resolved ? lead.id : null);
+              }}
+              openUpward={openUpward}
+              onView={() => router.push(`/admin/submissions/${lead.id}/profile`)}
+              onDownload={() => void openAttachmentModal(lead)}
+              onGetReports={
+                currentRole === "administrator"
+                  ? () => openAdminReportPicker(lead)
+                  : undefined
+              }
+              onViewFeedback={
+                lead.latestFeedbackComment
+                  ? () => setFeedbackModalLead(lead)
+                  : undefined
+              }
+              onViewActionTrace={
+                lead.latestActionTrace
+                  ? () => setActionTraceModalLead(lead)
+                  : undefined
+              }
+              onApprove={
+                canDecide ? () => openDecisionModal(lead, "approved") : undefined
+              }
+              onReject={
+                canDecide ? () => openDecisionModal(lead, "rejected") : undefined
+              }
+              onRecommend={
+                lead.stage === "admin" && currentRole === "administrator"
+                  ? () => openAdminReleaseModal(lead, "recommend")
+                  : undefined
+              }
+              onMarkSensitive={
+                lead.stage === "admin" && currentRole === "administrator"
+                  ? () => openAdminReleaseModal(lead, "mark_sensitive")
+                  : undefined
+              }
+            />
+          </TableCell>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className={cn("col-span-12", className)}>
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-gray-700 dark:bg-gray-800">
@@ -1035,6 +1350,10 @@ export function LeadsReport({
           currentStatusCounts={currentStatusCounts}
           scopeFilteredCount={scopeFilteredLeads.length}
           departmentScopeCount={departmentScopeLeads.length}
+          irebMemberFilter={irebMemberFilter}
+          irebMemberCounts={irebMemberCounts}
+          onIrebMemberChange={setIrebMemberFilter}
+          showIrebMemberFilter={currentRole === "administrator"}
           onFacultyChange={setFacultyFilter}
           onDepartmentChange={setDepartmentFilter}
           onStatusChange={setCurrentStatusFilter}
@@ -1047,9 +1366,10 @@ export function LeadsReport({
           pendingCount={pendingLeads.length}
           rejectedCount={rejectedLeads.length}
           showApprovedTab={showApprovedTab}
+          adminActionCount={adminActionLeads.length}
+          showAdminActionTab={showAdminActionTab}
           overdueBannerDismissed={overdueBannerDismissed}
           onDismissOverdueBanner={() => setOverdueBannerDismissed(true)}
-          onRefresh={() => router.refresh()}
           onClearFaculty={(value) =>
             setFacultyFilter((current) => current.filter((item) => item !== value))
           }
@@ -1061,55 +1381,30 @@ export function LeadsReport({
               current.filter((item) => item !== value),
             )
           }
+          onClearIrebMember={(value) =>
+            setIrebMemberFilter((current) =>
+              current.filter((item) => item !== value),
+            )
+          }
           onClearAllFilters={clearAllFilters}
           actionError={actionError}
+          columnManager={<ColumnManagerButton layoutApi={columnLayout} />}
         />
 
         <TableTopScrollArea maxHeight="34.375rem">
-          <Table unwrapped>
-            <TableHeader className="sticky top-0 z-10 bg-gray-50/80 backdrop-blur-sm dark:bg-gray-800/80">
-              <TableRow className="border-b border-gray-200 [&>th]:px-4 [&>th]:py-3 md:[&>th]:px-6 md:[&>th]:py-4">
-                <TableHead className="min-w-28 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Application ID
-                </TableHead>
-                <TableHead className="min-w-40 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Name
-                </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Email
-                </TableHead>
-                <ColumnHeaderFilter
-                  label="Current Status"
-                  options={statusFilterOptions}
-                  selected={currentStatusFilter as string[]}
-                  onChange={(vals) =>
-                    setCurrentStatusFilter(vals as LeadStatus[])
-                  }
-                  searchPlaceholder="Search statuses…"
-                  className="text-xs font-semibold uppercase tracking-wider text-gray-500"
-                />
-                <ColumnHeaderFilter
-                  label="Application Type"
-                  options={applicationTypeFilterOptions}
-                  selected={applicationTypeFilter}
-                  onChange={setApplicationTypeFilter}
-                  searchPlaceholder="Search types…"
-                  className="min-w-22.5 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-gray-500"
-                />
-                <TableHead className="min-w-48 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Title
-                </TableHead>
-                <TableHead className="min-w-40 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Response In
-                </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Duration
-                </TableHead>
-                <TableHead className="sticky right-0 z-20 min-w-40 bg-gray-50/80 shadow-md backdrop-blur-sm dark:bg-gray-800/80">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Actions
-                  </span>
-                </TableHead>
+          <Table
+            unwrapped
+            className="table-fixed min-w-full"
+            style={{ width: visibleColumns.reduce((sum, id) => sum + widthOf(id), 0) }}
+          >
+            <colgroup>
+              {visibleColumns.map((id) => (
+                <col key={id} style={{ width: widthOf(id) }} />
+              ))}
+            </colgroup>
+            <TableHeader className="sticky top-0 z-10 bg-indigo-50/80 backdrop-blur-sm dark:bg-indigo-950/40">
+              <TableRow className="border-b border-indigo-100 [&>th]:px-4 [&>th]:py-3 dark:border-indigo-900/50 md:[&>th]:px-6 md:[&>th]:py-4">
+                {visibleColumns.map(headerCellFor)}
               </TableRow>
             </TableHeader>
 
@@ -1122,135 +1417,21 @@ export function LeadsReport({
                   <TableRow
                     key={lead.id}
                     className={cn(
-                      "border-b border-gray-100 transition-colors hover:bg-blue-50/50 dark:border-gray-700 dark:hover:bg-gray-700/50",
+                      "border-b border-gray-100 transition-colors hover:bg-indigo-50/60 dark:border-gray-700 dark:hover:bg-indigo-950/30",
                       index % 2 === 1 && "bg-gray-50/30 dark:bg-gray-800/30",
                       "[&>td]:px-4 [&>td]:py-3 md:[&>td]:px-6 md:[&>td]:py-4",
                       busyLeadId === lead.id && "cursor-wait opacity-60",
                     )}
                   >
-                    <TableCell className="whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setProfileModalLead(lead)}
-                          aria-label={`View profile for ${lead.name}`}
-                          title="View applicant profile"
-                          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width={16}
-                            height={16}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </button>
-                        <ApplicationIdBadge id={lead.applicationId} />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <LeadTableAvatar
-                        name={lead.name}
-                        avatar={lead.avatar}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <a
-                        className="block max-w-48 truncate text-sm text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                        href={`mailto:${lead.email}`}
-                      >
-                        {lead.email}
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <StatusBadge status={lead.currentStatus} hodName={lead.hodName} />
-                        {lead.isSensitive && <SensitiveBadge />}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <ApplicationTypeBadge type={lead.applicationType} />
-                    </TableCell>
-                    <TableCell
-                      className="max-w-xs truncate text-sm text-gray-700 dark:text-gray-300"
-                      title={lead.researchTitle}
-                    >
-                      {lead.researchTitle}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">
-                      {lead.project}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">
-                      {lead.duration}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "sticky right-0 min-w-40 bg-white align-top shadow-md dark:bg-gray-800",
-                        actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
-                        index % 2 === 1 && "bg-gray-50/30 dark:bg-gray-800/30",
-                      )}
-                    >
-                      <RowActions
-                        lead={lead}
-                        currentRole={currentRole}
-                        busyLeadId={busyLeadId}
-                        isMenuOpen={actionMenuLeadId === lead.id}
-                        onMenuOpenChange={(next) => {
-                          const isCurrent = actionMenuLeadId === lead.id;
-                          const resolved =
-                            typeof next === "function" ? next(isCurrent) : next;
-                          setActionMenuLeadId(resolved ? lead.id : null);
-                        }}
-                        openUpward={openUpward}
-                        onView={() => router.push(`/admin/submissions/${lead.id}/profile`)}
-                        onDownload={() => void openAttachmentModal(lead)}
-                        onGetReports={
-                          currentRole === "administrator"
-                            ? () => openAdminReportPicker(lead)
-                            : undefined
-                        }
-                        onViewFeedback={
-                          lead.latestFeedbackComment
-                            ? () => setFeedbackModalLead(lead)
-                            : undefined
-                        }
-                        onViewActionTrace={
-                          lead.latestActionTrace
-                            ? () => setActionTraceModalLead(lead)
-                            : undefined
-                        }
-                        onApprove={
-                          canDecide ? () => openDecisionModal(lead, "approved") : undefined
-                        }
-                        onReject={
-                          canDecide ? () => openDecisionModal(lead, "rejected") : undefined
-                        }
-                        onRecommend={
-                          lead.stage === "admin" && currentRole === "administrator"
-                            ? () => openAdminReleaseModal(lead, "recommend")
-                            : undefined
-                        }
-                        onMarkSensitive={
-                          lead.stage === "admin" && currentRole === "administrator"
-                            ? () => openAdminReleaseModal(lead, "mark_sensitive")
-                            : undefined
-                        }
-                      />
-                    </TableCell>
+                    {visibleColumns.map((id) =>
+                      bodyCellFor(id, lead, index, openUpward, canDecide),
+                    )}
                   </TableRow>
                 );
               })}
               {visibleLeads.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="p-0">
+                  <TableCell colSpan={visibleColumns.length} className="p-0">
                     <EmptyState
                       message={
                         activeTab === "pending"

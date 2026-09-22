@@ -12,7 +12,10 @@ import ApprovalRequestStepperBase, {
   type SubmissionFileBundle,
 } from "@/app/profile/_components/approval-request-stepper";
 import {
-  isMedicalPublicationFaculty,
+  FACULTY_FORM_CATALOG,
+  STUDENT_FORM_CATALOG,
+  getFacultyFormById,
+  getStudentFormById,
   resolveRequiredFormByFaculty,
   type ApplicationType,
   type RequiredForm,
@@ -347,7 +350,6 @@ export default function ProfileDashboard() {
   const getStageState = (_current: string, _stage: string) => "pending" as const;
   const handleOpenApplicationFlow = () => {};
   const handleViewSubmission = async (_id: number | null) => {};
-  const handleSelectApplicationType = (_type: string) => {};
   const [discardConfirmRequest, setDiscardConfirmRequest] = useState<RequestItem | null>(null);
   const [discardingDraftId, setDiscardingDraftId] = useState<number | null>(null);
   const stepperViewSubmissionId: number | null = null;
@@ -482,51 +484,27 @@ export default function ProfileDashboard() {
     { inHod: 0, inEthical: 0, completed: 0 } as RequestStats,
   );
   const effectiveRequestStats = computedRequestStats;
-  const facultyPublicationForm: RequiredForm = isMedicalPublicationFaculty(
-    resolvedProfile.faculty || resolvedProfile.department || "",
-  )
-    ? {
-        id: "form7-publication-faculty-staff-medical",
-        label: "Research Publication (Faculty/Staff Medical Sciences)",
-        href: "#",
-        applicationType: "research-publication",
-      }
-    : {
-        id: "form6-publication-faculty-non-medical",
-        label: "Research Publication (Faculty Non-Medical)",
-        href: "#",
-        applicationType: "research-publication",
-      };
   const openNewApprovalFlow = () => {
     handleOpenApplicationFlow();
-    if (!isStudentEmail) {
-      setApprovalDraftSessionId(newDraftSessionId());
-      setRequiredForm(facultyPublicationForm);
-      setLocalRequiredForm(facultyPublicationForm);
-      setLocalIsApplicationPickerOpen(false);
-      setLocalStepperMode("create");
-      setLocalIsStepperOpen(true);
-      return;
-    }
     if (!localIsApplicationPickerOpen && !localIsStepperOpen) {
       setApprovalDraftSessionId(newDraftSessionId());
       setLocalIsApplicationPickerOpen(true);
     }
   };
-  const selectApplicationType = (type: string) => {
-    handleSelectApplicationType(type);
-    const selected = resolveRequiredFormByFaculty(
-      type as ApplicationType,
-      resolvedProfile.faculty || resolvedProfile.department || "",
-    );
-    setRequiredForm(selected);
-    setLocalRequiredForm(selected);
+  const openStepperWithForm = (form: RequiredForm | null) => {
+    if (!form) return;
+    setRequiredForm(form);
+    setLocalRequiredForm(form);
     if (!localIsStepperOpen) {
       setLocalIsApplicationPickerOpen(false);
       setLocalStepperMode("create");
       setLocalIsStepperOpen(true);
     }
   };
+  const selectFacultyForm = (formId: string) =>
+    openStepperWithForm(getFacultyFormById(formId));
+  const selectStudentForm = (formId: string) =>
+    openStepperWithForm(getStudentFormById(formId));
 
   const openSubmissionView = async (submissionId: number | null) => {
     await handleViewSubmission(submissionId);
@@ -1229,32 +1207,33 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold text-dark dark:text-white">
-              Select Application Type
+              Select Application Form
             </h3>
             <p className="mt-2 text-sm text-body">
-              Choose your application type. The required form will be selected automatically based on your faculty.
+              {isStudentEmail
+                ? "Choose which form to submit. The form will open in the application workflow."
+                : "Choose which faculty form to submit. The form will open in the application workflow."}
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => selectApplicationType("thesis")}
-                className="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-stroke py-6 text-sm font-semibold text-dark transition-colors hover:border-primary hover:bg-primary/[0.03] dark:border-dark-3 dark:text-white"
-              >
-                <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                Thesis
-              </button>
-              <button
-                onClick={() => selectApplicationType("research-publication")}
-                className="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-stroke py-6 text-sm font-semibold text-dark transition-colors hover:border-primary hover:bg-primary/[0.03] dark:border-dark-3 dark:text-white"
-              >
-                <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2 2H7m2 13a2 2 0 01-2-2H7m2 13a2 2 0 01-2 2H7m2 13a2 2 0 01-2-2H7m2 13a2 2 0 01-2 2H7" />
-                </svg>
-                Research Publication
-              </button>
-            </div>
+            <div className="mt-6 grid gap-3">
+              {(isStudentEmail ? STUDENT_FORM_CATALOG : FACULTY_FORM_CATALOG).map(
+                (form) => (
+                  <button
+                    key={form.id}
+                    onClick={() =>
+                      isStudentEmail
+                        ? selectStudentForm(form.id)
+                        : selectFacultyForm(form.id)
+                    }
+                    className="flex items-center gap-3 rounded-[10px] border border-dashed border-stroke px-4 py-4 text-left text-sm font-semibold text-dark transition-colors hover:border-primary hover:bg-primary/[0.03] dark:border-dark-3 dark:text-white"
+                  >
+                    <svg className="h-5 w-5 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {form.navTitle}
+                  </button>
+                ))}
+              </div>
 
             <div className="mt-6 flex justify-end">
               <button

@@ -23,6 +23,8 @@ export type Lead = {
   hodName?: string | null;
   stage: "hod" | "admin" | "ireb" | "completed";
   isSensitive?: boolean;
+  /** Name of the IREB member this was recommended to (admin recommendation). */
+  assignedIrebName?: string | null;
   submittedAt: string;
   hodDecisionAt: string | null;
   avatar: string | null;
@@ -32,6 +34,14 @@ export type Lead = {
 };
 
 export type CountEntry = { value: string; count: number };
+
+export type LeadsTab =
+  | "all"
+  | "overdue"
+  | "approved"
+  | "pending"
+  | "rejected"
+  | "adminAction";
 
 export type DecisionAction = "approved" | "rejected";
 

@@ -4,50 +4,44 @@ import { authOptions } from "@/lib/auth-options";
 import { normalizeFacultyIds, type AuthenticatedAdmin } from "@/lib/admin-auth";
 import { canAccessFacultySnapshot } from "@/lib/authorization";
 import { listSubmissionDocuments } from "@/lib/list-submission-documents";
-import { getSubmissionDetailById, getApprovalDecisionsBySubmissionId, type ApprovalDecisionRow } from "@/lib/submission-details";
+import {
+  getSubmissionDetailById,
+  getApprovalDecisionsBySubmissionId,
+  type ApprovalDecisionRow,
+} from "@/lib/submission-details";
+import { FieldRows } from "@/app/admin/submissions/[id]/profile/_components/field-rows";
+import {
+  getFormSteps,
+  isEmptyValue,
+  isHodKey,
+  isIdentityKey,
+  isInternalIdKey,
+  isSpecialKey,
+} from "@/lib/submission-form-steps";
 import { cn } from "@/lib/utils";
 import { getServerSession } from "next-auth";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-function formatLabel(value: string) {
-  return value
-    .replace(/([A-Z])/g, " $1")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (char) => char.toUpperCase());
-}
+// ─── Status / stage labels ───
 
-function formatValue(value: unknown): string {
-  if (value == null) return "—";
-  if (typeof value === "string") return value.trim() || "—";
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map((item) => formatValue(item)).join(", ") || "—";
-  if (typeof value === "object") return JSON.stringify(value, null, 2);
-  return String(value);
-}
+type SubmissionStatus =
+  | "submitted"
+  | "under_hod_review"
+  | "hod_approved"
+  | "hod_rejected"
+  | "under_admin_review"
+  | "under_ireb_review"
+  | "approved"
+  | "rejected";
 
-function formatSubmissionStatus(
-  status:
-    | "submitted"
-    | "under_hod_review"
-    | "hod_approved"
-    | "hod_rejected"
-    | "under_admin_review"
-    | "under_ireb_review"
-    | "approved"
-    | "rejected",
-  hodName?: string | null,
-): string {
+function formatSubmissionStatus(status: SubmissionStatus, hodName?: string | null): string {
   switch (status) {
     case "submitted":
     case "under_hod_review":
-      return hodName
-        ? `Under Review by ${hodName}`
-        : "HOD not Assigned";
+      return hodName ? `Under Review by ${hodName}` : "HOD not Assigned";
     case "hod_approved":
     case "under_admin_review":
-      return "Under Review by IREB";
     case "under_ireb_review":
       return "Under Review by IREB";
     case "hod_rejected":
@@ -61,48 +55,77 @@ function formatSubmissionStatus(
   }
 }
 
-function statusBadgeClass(status: ReturnType<typeof formatSubmissionStatus>): string {
-  if (status.includes("Approved")) return "bg-[#10B981]/[0.08] text-green";
-  if (status.includes("Rejected")) return "bg-[#FB5454]/[0.08] text-red";
-  return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200";
+function statusTone(status: string): "success" | "danger" | "pending" {
+  if (status.includes("Approved")) return "success";
+  if (status.includes("Rejected")) return "danger";
+  return "pending";
 }
 
-function formatDomain(domain: "medical" | "non_medical"): string {
-  return domain === "medical" ? "Medical" : "Non-medical";
+function decisionStageLabel(stage: string): string {
+  if (stage === "hod") return "HOD";
+  if (stage === "admin") return "Administrator";
+  return "IREB";
 }
 
-function formStr(form: Record<string, unknown> | null, key: string): string {
-  if (!form) return "";
-  const v = form[key];
-  return typeof v === "string" ? v.trim() : "";
+function decisionLabel(decision: string): string {
+  if (decision === "recommended") return "Recommended to IREB";
+  if (decision === "marked_sensitive") return "Marked as sensitive";
+  return decision;
 }
 
-function renderDetailGrid(data: Record<string, unknown>) {
-  const entries = Object.entries(data).filter(([, value]) => {
-    if (value == null) return false;
-    if (typeof value === "string") return value.trim().length > 0;
-    if (Array.isArray(value)) return value.length > 0;
-    if (typeof value === "object") return Object.keys(value).length > 0;
-    return true;
-  });
+// ─── Small presentational helpers ───
 
-  if (entries.length === 0) {
-    return <p className="text-sm text-body">No additional details recorded.</p>;
-  }
-
+function Pill({ tone, children }: { tone: "success" | "danger" | "pending" | "info"; children: React.ReactNode }) {
+  const cls =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+      : tone === "danger"
+        ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
+        : tone === "info"
+          ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300"
+          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400";
   return (
-    <dl className="grid gap-4 sm:grid-cols-2">
-      {entries.map(([key, value]) => (
-        <div key={key} className="rounded-lg border border-stroke p-4 dark:border-dark-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-body">
-            {formatLabel(key)}
-          </dt>
-          <dd className="mt-2 whitespace-pre-wrap break-words text-sm text-dark dark:text-white">
-            {formatValue(value)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold", cls)}>
+      {children}
+    </span>
+  );
+}
+
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-xl border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card", className)}>
+      {children}
+    </section>
+  );
+}
+
+function CardTitle({ eyebrow, title }: { eyebrow?: string; title: string }) {
+  return (
+    <div className="border-b border-stroke px-5 py-4 dark:border-dark-3">
+      {eyebrow && (
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{eyebrow}</p>
+      )}
+      <h2 className="mt-0.5 text-base font-bold text-dark dark:text-white">{title}</h2>
+    </div>
+  );
+}
+
+function FieldLabel({ children, as: Tag = "dt" }: { children: React.ReactNode; as?: "dt" | "p" }) {
+  return (
+    <Tag className="text-xs font-bold uppercase tracking-wider text-dark dark:text-white">
+      {children}
+    </Tag>
+  );
+}
+
+function MetaItem({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <FieldLabel>{label}</FieldLabel>
+      <dd className={cn("mt-1 truncate text-sm font-medium text-dark dark:text-white", mono && "font-mono")}>
+        {children}
+      </dd>
+    </div>
   );
 }
 
@@ -112,14 +135,11 @@ export default async function AdminSubmissionProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect("/auth/sign-in");
-  }
+  if (!session) redirect("/auth/sign-in");
 
   if (
     !session.user.adminId ||
     !session.user.adminRole ||
-    !session.user.adminStatus ||
     session.user.adminStatus !== "active"
   ) {
     redirect("/auth/sign-in");
@@ -152,232 +172,353 @@ export default async function AdminSubmissionProfilePage({
     ethics?.form && typeof ethics.form === "object"
       ? (ethics.form as Record<string, unknown>)
       : null;
-  const attachmentFiles =
-    ethics?.attachmentFiles &&
-    typeof ethics.attachmentFiles === "object" &&
-    !Array.isArray(ethics.attachmentFiles)
-      ? (ethics.attachmentFiles as Record<string, unknown>)
+
+  const requiredForm =
+    ethics?.requiredForm && typeof ethics.requiredForm === "object"
+      ? (ethics.requiredForm as { id?: string; label?: string })
       : null;
-  const extraUploads = Array.isArray(ethics?.extraUploadFiles)
-    ? (ethics.extraUploadFiles as unknown[])
+  const formId = requiredForm?.id ?? null;
+
+  const steps = getFormSteps(formId);
+
+  // Fields covered by the curated step map — everything else lands in a
+  // trailing "Additional responses" section so nothing is ever hidden.
+  const coveredKeys = new Set<string>();
+  if (steps) for (const s of steps) for (const k of s.keys) coveredKeys.add(k);
+
+  const isSkippedKey = (k: string) =>
+    isIdentityKey(k) || isHodKey(k) || isSpecialKey(k) || isInternalIdKey(k);
+
+  const leftoverEntries = formData
+    ? Object.entries(formData).filter(
+        ([k, v]) => !coveredKeys.has(k) && !isSkippedKey(k) && !isEmptyValue(v),
+      )
     : [];
 
   const applicationType = formatSubmissionApplicationType(submission.type);
   const researchTitle =
-    submission.title?.trim() || formStr(formData, "thesisTitle") || "—";
+    submission.title?.trim() ||
+    (formData && typeof formData.thesisTitle === "string" ? formData.thesisTitle.trim() : "") ||
+    (formData && typeof formData.publicationTitle === "string" ? formData.publicationTitle.trim() : "") ||
+    "—";
 
-  // Use the hod name snapshot stored at submission time (authoritative,
-  // per-application routing) instead of the old faculty-scoped lookup.
   const hodName = submission.hod_name_snapshot ?? null;
-
   const statusLabel = formatSubmissionStatus(submission.current_status, hodName);
   const documents = listSubmissionDocuments(submissionId, ethics);
-
   const decisions = await getApprovalDecisionsBySubmissionId(submissionId);
 
+  const isAcceptedValue = (v: unknown) =>
+    typeof v === "string" && ["yes", "true", "on", "accepted"].includes(v.trim().toLowerCase());
+  const hasDeclaration =
+    isAcceptedValue(formData?.declarationAccepted) ||
+    isAcceptedValue(formData?.form3DeclarationAccepted) ||
+    isAcceptedValue(formData?.publicationDeclarationAccepted);
+
   return (
-    <div className="mx-auto w-full max-w-[1100px]">
+    <div className="mx-auto w-full max-w-[1280px]">
+      <Link
+        href="/"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-body transition hover:text-primary"
+      >
+        <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        All applications
+      </Link>
 
-      <div className="grid gap-6">
-        {/* Priority summary */}
-        <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-heading-5 font-bold text-dark dark:text-white">
-                  {submission.applicant_name}
-                </h1>
-                <span
-                  className={cn(
-                    "inline-block rounded px-2.5 py-1 text-xs font-semibold capitalize",
-                    statusBadgeClass(statusLabel),
-                  )}
-                >
-                  {statusLabel}
-                </span>
-              </div>
-
-              <p className="mt-2 font-mono text-sm font-semibold text-primary">
-                Application ID: {submission.application_id}
-              </p>
-
-              <dl className="mt-5 grid gap-4 border-t border-stroke pt-5 dark:border-dark-3 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-body">
-                    Application type
-                  </dt>
-                  <dd className="mt-1 text-base font-medium text-dark dark:text-white">
-                    {applicationType}
-                    <span className="ml-2 text-sm font-normal text-body">
-                      ({formatDomain(submission.domain)})
-                    </span>
-                  </dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-body">
-                    Title
-                  </dt>
-                  <dd className="mt-1 text-base font-medium leading-snug text-dark dark:text-white">
-                    {researchTitle}
-                  </dd>
-                </div>
-              </dl>
+      {/* ─── Hero card: identity + meta + title ─── */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h1 className="text-2xl font-bold tracking-tight text-dark dark:text-white">
+                {submission.applicant_name}
+              </h1>
+              <Pill tone={statusTone(statusLabel)}>{statusLabel}</Pill>
+              {submission.is_sensitive && <Pill tone="danger">Sensitive</Pill>}
             </div>
-
-            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-              <ViewDocumentsButton
-                applicationId={submission.application_id}
-                documents={documents}
-              />
-              {submission.submission_attachment_count > 0 ? (
-                <p className="text-center text-xs text-body sm:text-right">
-                  {submission.submission_attachment_count} file
-                  {submission.submission_attachment_count === 1 ? "" : "s"} on record
-                </p>
-              ) : null}
-            </div>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-body">
+              <span className="font-mono font-semibold text-primary">{submission.application_id}</span>
+              <span aria-hidden>·</span>
+              <span>{applicationType}</span>
+              <span aria-hidden>·</span>
+              <span>{submission.domain === "medical" ? "Medical" : "Non-medical"}</span>
+              {requiredForm?.label && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{requiredForm.label.replace(/\.docx$/i, "")}</span>
+                </>
+              )}
+            </p>
           </div>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            <ViewDocumentsButton
+              applicationId={submission.application_id}
+              documents={documents}
+            />
+            {submission.submission_attachment_count > 0 && (
+              <p className="text-center text-xs text-body sm:text-right">
+                {submission.submission_attachment_count} file
+                {submission.submission_attachment_count === 1 ? "" : "s"} on record
+              </p>
+            )}
+          </div>
+        </div>
 
-          <dl className="mt-6 grid gap-3 border-t border-stroke pt-5 text-sm dark:border-dark-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">Email</dt>
-              <dd className="mt-1 break-all text-dark dark:text-white">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-stroke bg-gray-1/50 px-6 py-4 dark:border-dark-3 dark:bg-dark-2/40 sm:grid-cols-4">
+          <MetaItem label="Application type">{applicationType}</MetaItem>
+          <MetaItem label="Domain">
+            {submission.domain === "medical" ? "Medical" : "Non-medical"}
+          </MetaItem>
+          <MetaItem label="Submission attempt">
+            {submission.applicant_attempt_number} of {submission.applicant_total_submissions}
+          </MetaItem>
+          <MetaItem label="Submitted">
+            {new Date(submission.submitted_at).toLocaleString()}
+          </MetaItem>
+        </dl>
+        <div className="border-t border-stroke px-6 py-4 dark:border-dark-3">
+          <FieldLabel as="p">Title</FieldLabel>
+          <p className="mt-1 text-base font-semibold leading-snug text-dark dark:text-white">
+            {researchTitle}
+          </p>
+        </div>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        {/* ─── Left rail: people + review timeline ─── */}
+        <aside className="flex flex-col gap-6 self-start lg:sticky lg:top-6">
+          <Card>
+            <CardTitle eyebrow="Applicant" title={submission.applicant_name} />
+            <dl className="grid gap-4 px-5 py-4">
+              <MetaItem label="SAP ID" mono>{submission.applicant_sap_id}</MetaItem>
+              <MetaItem label="Email">
                 <a className="hover:underline" href={`mailto:${submission.applicant_email}`}>
                   {submission.applicant_email}
                 </a>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">Faculty</dt>
-              <dd className="mt-1 text-dark dark:text-white">{submission.applicant_faculty}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">
-                Department
-              </dt>
-              <dd className="mt-1 text-dark dark:text-white">{submission.applicant_department}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">Program</dt>
-              <dd className="mt-1 text-dark dark:text-white">
-                {submission.applicant_program || "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">SAP ID</dt>
-              <dd className="mt-1 font-mono text-dark dark:text-white">
-                {submission.applicant_sap_id}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">Submitted</dt>
-              <dd className="mt-1 text-dark dark:text-white">
-                {new Date(submission.submitted_at).toLocaleString()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-body">
-                Submission attempt
-              </dt>
-              <dd className="mt-1 text-dark dark:text-white">
-                {submission.applicant_attempt_number} of {submission.applicant_total_submissions}
-              </dd>
-            </div>
-          </dl>
-        </section>
+              </MetaItem>
+              <MetaItem label="Faculty">{submission.applicant_faculty || "—"}</MetaItem>
+              <MetaItem label="Department">{submission.applicant_department || "—"}</MetaItem>
+              <MetaItem label="Program">{submission.applicant_program || "—"}</MetaItem>
+            </dl>
+          </Card>
 
-        {/* Research summary */}
-        <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-          <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-            Research summary
-          </h2>
-          {renderDetailGrid({
-            objectives: submission.objectives,
-            methodology: submission.methodology,
-            participantsRange: submission.participants_range,
-            researchPopulation: submission.research_population,
-            timelineStart: submission.start_date
-              ? new Date(submission.start_date).toLocaleDateString()
-              : null,
-            timelineEnd: submission.end_date
-              ? new Date(submission.end_date).toLocaleDateString()
-              : null,
-          })}
-        </section>
+          {hodName && (
+            <Card>
+              <CardTitle eyebrow="Reviewing HOD" title={hodName} />
+              <dl className="grid gap-4 px-5 py-4">
+                {submission.hod_sap_id_snapshot && (
+                  <MetaItem label="SAP ID" mono>{submission.hod_sap_id_snapshot}</MetaItem>
+                )}
+                {submission.hod_email_snapshot && (
+                  <MetaItem label="Email">
+                    <a className="hover:underline" href={`mailto:${submission.hod_email_snapshot}`}>
+                      {submission.hod_email_snapshot}
+                    </a>
+                  </MetaItem>
+                )}
+                {submission.hod_department_snapshot && (
+                  <MetaItem label="Department">{submission.hod_department_snapshot}</MetaItem>
+                )}
+                {submission.hod_faculty_snapshot && (
+                  <MetaItem label="Faculty">{submission.hod_faculty_snapshot}</MetaItem>
+                )}
+              </dl>
+            </Card>
+          )}
 
-        {!!ethics?.requiredForm && typeof ethics.requiredForm === "object" && (
-          <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-            <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-              Required form
-            </h2>
-            {renderDetailGrid(ethics.requiredForm as Record<string, unknown>)}
-          </section>
-        )}
+          <Card>
+            <CardTitle eyebrow="Workflow" title="Review timeline" />
+            <ol className="relative ml-5 mr-4 my-4 space-y-5 border-l border-stroke pl-5 dark:border-dark-3">
+              <TimelineItem
+                tone="neutral"
+                title="Submitted"
+                by={submission.applicant_name}
+                at={submission.submitted_at}
+              />
+              {submission.assigned_ireb_name && (
+                <TimelineItem
+                  tone="info"
+                  title="Recommended to IREB"
+                  by={submission.assigned_ireb_name}
+                />
+              )}
+              {[...decisions].reverse().map((d: ApprovalDecisionRow) => (
+                <TimelineItem
+                  key={d.id}
+                  tone={d.decision === "approved" ? "success" : d.decision === "rejected" ? "danger" : "info"}
+                  title={`${decisionStageLabel(d.stage as string)} ${decisionLabel(d.decision)}`}
+                  by={d.decided_by_name}
+                  at={d.decided_at}
+                  comment={d.comment}
+                />
+              ))}
+              {(submission.current_status === "approved" || submission.current_status === "rejected") && (
+                <TimelineItem
+                  tone={submission.current_status === "approved" ? "success" : "danger"}
+                  title={submission.current_status === "approved" ? "Approved" : "Rejected"}
+                />
+              )}
+            </ol>
+          </Card>
+        </aside>
 
-        {decisions.length > 0 && (
-          <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-            <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-              Review decisions & feedback
-            </h2>
-            <div className="space-y-4">
-              {decisions.map((d: ApprovalDecisionRow) => {
-                const stageLabel = d.stage === "hod" ? "HOD" : "IREB";
-                const isApproved = d.decision === "approved";
+        {/* ─── Main column: application content as steps ─── */}
+        <main className="flex min-w-0 flex-col gap-6">
+          {/* Step sections — same order the applicant filled them */}
+          {steps ? (
+            steps.map((step, index) => {
+              const isAttachments = step.keys.includes("requiredAttachments");
+              const isDeclaration = step.keys.some(
+                (k) => k === "declarationAccepted" || k === "form3DeclarationAccepted" || k === "publicationDeclarationAccepted",
+              );
+
+              const pairs: [string, unknown][] = formData
+                ? step.keys.map((k) => [k, formData[k]] as [string, unknown])
+                : [];
+
+              if (isAttachments) {
                 return (
-                  <div
-                    key={d.id}
-                    className="rounded-lg border border-stroke p-4 dark:border-dark-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-block rounded px-2.5 py-1 text-xs font-semibold capitalize",
-                          isApproved
-                            ? "bg-[#10B981]/[0.08] text-green"
-                            : "bg-[#FB5454]/[0.08] text-red",
-                        )}
-                      >
-                        {stageLabel} {d.decision}
-                      </span>
-                      {d.decided_by_name && (
-                        <span className="text-xs text-body">
-                          by {d.decided_by_name}
-                        </span>
-                      )}
-                      <span className="text-xs text-body">
-                        {new Date(d.decided_at).toLocaleString()}
-                      </span>
-                    </div>
-                    {d.comment && (
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-dark dark:text-white">
-                        {d.comment}
+                  <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                    {documents.length > 0 ? (
+                      <ul className="grid gap-2 sm:grid-cols-2">
+                        {documents.map((doc) => (
+                          <li
+                            key={doc.id}
+                            className="flex items-center gap-2.5 rounded-lg border border-stroke px-3 py-2.5 dark:border-dark-3"
+                          >
+                            <svg className="size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" />
+                              <path d="M14 2v6h6" strokeLinecap="round" />
+                            </svg>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-dark dark:text-white">{doc.label}</p>
+                              <p className="truncate font-mono text-xs text-body">{doc.fileName}</p>
+                            </div>
+                            {!doc.hasStoredFile && (
+                              <span className="ml-auto shrink-0 text-xs text-amber-700 dark:text-amber-300">name only</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-body">No attachments recorded.</p>
+                    )}
+                    {documents.length > 0 && (
+                      <p className="mt-3 text-xs text-body">
+                        Open files via the <span className="font-semibold">View documents</span> button above.
                       </p>
                     )}
-                  </div>
+                  </StepCard>
                 );
-              })}
-            </div>
-          </section>
-        )}
+              }
 
-        {extraUploads.length > 0 && (
-          <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-            <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-              Additional documents (metadata)
-            </h2>
-            {renderDetailGrid({ uploads: extraUploads })}
-          </section>
-        )}
+              if (isDeclaration) {
+                return (
+                  <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                    <div className="flex items-center gap-2.5">
+                      <Pill tone={hasDeclaration ? "success" : "pending"}>
+                        {hasDeclaration ? "Declaration accepted" : "Declaration status not recorded"}
+                      </Pill>
+                    </div>
+                  </StepCard>
+                );
+              }
 
-        {formData && (
-          <section className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark dark:shadow-card">
-            <h2 className="mb-4 text-heading-6 font-bold text-dark dark:text-white">
-              Complete submitted application
-            </h2>
-            {renderDetailGrid(formData)}
-          </section>
-        )}
+              return (
+                <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                  <FieldRows pairs={pairs} />
+                </StepCard>
+              );
+            })
+          ) : formData ? (
+            <StepCard index={1} title="Application responses" anchor="step-1">
+              <FieldRows
+                pairs={Object.entries(formData).filter(([k]) => !isSkippedKey(k))}
+              />
+            </StepCard>
+          ) : (
+            <Card>
+              <p className="px-5 py-6 text-sm text-body">No application form data recorded.</p>
+            </Card>
+          )}
+
+          {/* Leftover fields — never silently drop submitted data */}
+          {steps && leftoverEntries.length > 0 && (
+            <StepCard index={steps.length + 1} title="Additional responses" anchor={`step-${steps.length + 1}`}>
+              <FieldRows pairs={leftoverEntries} />
+            </StepCard>
+          )}
+        </main>
       </div>
     </div>
+  );
+}
+
+// ─── Step card ───
+
+function StepCard({
+  index,
+  title,
+  anchor,
+  children,
+}: {
+  index: number;
+  title: string;
+  anchor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={anchor}
+      className="scroll-mt-6 overflow-hidden rounded-xl border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
+    >
+      <div className="flex items-center gap-3 border-b border-stroke bg-gray-1/50 px-5 py-3.5 dark:border-dark-3 dark:bg-dark-2/40">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-white">
+          {index}
+        </span>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-dark dark:text-white">{title}</h2>
+      </div>
+      <div className="px-6 py-5">{children}</div>
+    </section>
+  );
+}
+
+// ─── Timeline item ───
+
+function TimelineItem({
+  tone,
+  title,
+  by,
+  at,
+  comment,
+}: {
+  tone: "success" | "danger" | "info" | "neutral";
+  title: string;
+  by?: string | null;
+  at?: Date | null;
+  comment?: string | null;
+}) {
+  const dot =
+    tone === "success"
+      ? "bg-emerald-500"
+      : tone === "danger"
+        ? "bg-red-500"
+        : tone === "info"
+          ? "bg-indigo-500"
+          : "bg-gray-300 dark:bg-gray-600";
+  return (
+    <li className="relative">
+      <span className={cn("absolute -left-[26.5px] top-1.5 size-2.5 rounded-full ring-4 ring-white dark:ring-gray-dark", dot)} />
+      <p className="text-sm font-semibold leading-snug text-dark dark:text-white">{title}</p>
+      <p className="mt-0.5 text-xs text-body">
+        {[by, at ? new Date(at).toLocaleString() : null].filter(Boolean).join(" · ")}
+      </p>
+      {comment && (
+        <p className="mt-1.5 whitespace-pre-wrap rounded-md bg-gray-1 px-2.5 py-2 text-xs leading-relaxed text-dark dark:bg-dark-2 dark:text-white">
+          {comment}
+        </p>
+      )}
+    </li>
   );
 }

@@ -51,6 +51,10 @@ type ColumnHeaderFilterProps = {
   dropdownWidth?: number;
   /** Additional className for the header cell. */
   className?: string;
+  /** Inline style for the header cell (e.g., sticky offsets for pinned columns). */
+  style?: CSSProperties;
+  /** Extra content rendered inside the header cell (e.g., a resize handle). */
+  children?: React.ReactNode;
 };
 
 export function ColumnHeaderFilter({
@@ -64,6 +68,8 @@ export function ColumnHeaderFilter({
   maxOptionsHeight = 280,
   dropdownWidth = 240,
   className,
+  style,
+  children,
 }: ColumnHeaderFilterProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -308,6 +314,7 @@ export function ColumnHeaderFilter({
         "select-none",
         className,
       )}
+      style={style}
     >
       <button
         ref={triggerRef}
@@ -358,6 +365,7 @@ export function ColumnHeaderFilter({
         </button>
       )}
 
+      {children}
       {dropdown && createPortal(dropdown, document.body)}
     </th>
   );

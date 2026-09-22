@@ -65,9 +65,29 @@ export const authOptions: NextAuthOptions = {
             const claims = await buildAdminClaims(user);
 
             // Check if this user also has a faculty profile
-            const faculty = await getFacultyMemberByEmail(email, {
+            let faculty = await getFacultyMemberByEmail(email, {
               includeInactive: true,
             });
+
+            // Role-less users without a faculty profile still need one to
+            // initiate applications (/my-applications requires a faculty
+            // member record). Verify them against the SAP employee service
+            // and create/link the profile opportunistically. On SAP failure
+            // we degrade gracefully — the user can still sign in.
+            if (!faculty) {
+              const empResult = await verifyEmployeeByEmail(email);
+              if (empResult.ok) {
+                faculty = await upsertFacultyMemberFromSap({
+                  sapId: empResult.sapId,
+                  name: empResult.employeeName ?? empResult.email,
+                  email: empResult.email,
+                  department: empResult.department ?? "Unknown Department",
+                  designation: empResult.designation,
+                  employeeType: null,
+                });
+                await linkFacultyMemberToUser(faculty.id, user.id);
+              }
+            }
 
             const baseReturn: Record<string, unknown> = {
               id: user.id,

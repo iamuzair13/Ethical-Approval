@@ -4,18 +4,21 @@ import { authOptions } from "@/lib/auth-options";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import {
   listHodsForDepartment,
+  listAllHods,
   getHodForSelection,
 } from "@/lib/hod-selection";
 
 /**
+ * GET /api/profile/hods
  * GET /api/profile/hods?departmentId=<id>
  * GET /api/profile/hods?hodUserId=<uuid>
  *
- * Two modes:
- *   1. `departmentId` query param — returns the list of active HODs in
- *      that department (used to populate the HOD dropdown after the
- *      student selects a Department).
- *   2. `hodUserId` query param — returns a single HOD's full
+ * Three modes:
+ *   1. no params — returns every eligible HOD across all departments
+ *      (HOD-first picker: student selects the HOD, department auto-fills).
+ *   2. `departmentId` query param — returns the list of active HODs in
+ *      that department.
+ *   3. `hodUserId` query param — returns a single HOD's full
  *      details (used to auto-fill the read-only HOD fields after the
  *      student selects a HOD, and to rehydrate a saved draft).
  *
@@ -46,10 +49,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, hod });
   }
 
+  if (!departmentIdRaw) {
+    const hods = await listAllHods();
+    return NextResponse.json({ ok: true, hods });
+  }
+
   const departmentId = Number(departmentIdRaw);
-  if (!departmentIdRaw || !Number.isInteger(departmentId) || departmentId <= 0) {
+  if (!Number.isInteger(departmentId) || departmentId <= 0) {
     return NextResponse.json(
-      { ok: false, error: "departmentId query parameter is required." },
+      { ok: false, error: "Invalid departmentId query parameter." },
       { status: 400 },
     );
   }

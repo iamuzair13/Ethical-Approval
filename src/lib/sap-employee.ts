@@ -364,8 +364,60 @@ export async function fetchAllEmployees(): Promise<SapEmployeeListResult> {
 }
 
 /**
+ * Capitalizes each `.`/`_`/`-`-separated segment of an email local part.
+ * "imran.asghar" → "Imran.Asghar", "muhammad_usman" → "Muhammad_Usman".
+ */
+function capitalizeLocalSegments(local: string): string {
+  return local
+    .split(/([._-])/)
+    .map((seg, i) =>
+      i % 2 === 0 && seg
+        ? seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase()
+        : seg,
+    )
+    .join("");
+}
+
+/**
+ * Builds an ordered, deduplicated list of case variants for an email to use
+ * as empinfoSet keys.
+ *
+ * SAP stores employee emails with inconsistent casing — some records are
+ * all-lowercase, some ALL-UPPERCASE, and some mixed ("Imran.Asghar"). OData
+ * entity keys are case-sensitive, so a single canonical form is not enough;
+ * we try a bounded set of realistic variants (local-part and domain casing
+ * independently) in order of likelihood instead.
+ */
+function buildEmailKeyVariants(email: string): string[] {
+  const at = email.indexOf("@");
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+
+  const localLower = local.toLowerCase();
+  const localUpper = local.toUpperCase();
+  const localCap = capitalizeLocalSegments(local);
+  const domainLower = domain.toLowerCase();
+  const domainUpper = domain.toUpperCase();
+
+  const candidates = [
+    email, // exactly as typed
+    `${localLower}@${domainLower}`, // most common storage form
+    `${localUpper}@${domainUpper}`, // all caps
+    `${localCap}@${domainLower}`, // Imran.Asghar@spmo.uol.edu.pk
+    `${localCap}@${domainUpper}`, // Imran.Asghar@SPMO.UOL.EDU.PK
+    `${localLower}@${domainUpper}`, // lowercase local, uppercase domain
+    `${localUpper}@${domainLower}`, // uppercase local, lowercase domain
+    `${localCap}@${domain}`, // capitalized local, domain as typed
+    `${local}@${domainUpper}`, // local as typed, uppercase domain
+  ];
+
+  return [...new Set(candidates)];
+}
+
+/**
  * Validates faculty/staff against SAP using full email as empinfoSet key.
- * Tries uppercase key first, then lowercase fallback.
+ * Because SAP stores email keys with scattered casing, a bounded set of case
+ * variants is tried in order until a record matches.
  */
 export async function verifyEmployeeByEmail(
   email: string,
@@ -381,28 +433,16 @@ export async function verifyEmployeeByEmail(
   }
 
   const normalizedEmail = trimmed.toLowerCase();
-  const keys = [trimmed.toUpperCase(), normalizedEmail];
-  const uniqueKeys = [...new Set(keys)];
 
-  let lastResult:
-    | { kind: "not_found" }
-    | { kind: "error" }
-    | null = null;
-
-  for (const key of uniqueKeys) {
+  for (const key of buildEmailKeyVariants(trimmed)) {
     const result = await fetchEmployeeByKey(key, authHeader);
     if (result.kind === "found") {
       return parseEmployeeSuccess(result.d, normalizedEmail);
     }
-    lastResult = result;
     if (result.kind === "error") {
       return { ok: false, errorCode: "SAP_ERROR" };
     }
   }
 
-  if (lastResult?.kind === "not_found") {
-    return { ok: false, errorCode: "NOT_FOUND" };
-  }
-
-  return { ok: false, errorCode: "SAP_ERROR" };
+  return { ok: false, errorCode: "NOT_FOUND" };
 }
