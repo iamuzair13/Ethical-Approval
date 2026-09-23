@@ -337,7 +337,7 @@ export default function ActivityCenterPage() {
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h3 className="text-xl font-semibold text-dark dark:text-white">
-              Notifications &amp; Activity Audit
+              Notifications Activity Audit
             </h3>
             <p className="mt-1 text-sm text-dark-5">
               Search and filter all tracked actions. Exports use the same filters as this table.
