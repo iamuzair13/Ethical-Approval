@@ -3,9 +3,9 @@
   "version": "1.2.3",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack --port 3004",
-    "build": "next build",
-    "start": "next start -p 3004",
+    "dev": "node api.js && next dev --webpack --port 3004",
+    "build": "node api.js && next build",
+    "start": "node api.js && next start -p 3004",
     "lint": "next lint",
     "db:migrate:008": "node scripts/run-sql-migration.mjs migrations/008_activity_events.sql",
     "db:migrate:009": "node scripts/run-sql-migration.mjs migrations/009_backfill_activity_from_approval_decisions.sql",
