@@ -191,11 +191,9 @@ export function FilterChip({
 }
 
 type ActiveFiltersBarProps = {
-  facultyFilter: string[];
   departmentFilter: string[];
   currentStatusFilter: string[];
   irebMemberFilter?: string[];
-  onClearFaculty: (value: string) => void;
   onClearDepartment: (value: string) => void;
   onClearStatus: (value: string) => void;
   onClearIrebMember?: (value: string) => void;
@@ -203,19 +201,16 @@ type ActiveFiltersBarProps = {
 };
 
 export function ActiveFiltersBar({
-  facultyFilter,
   departmentFilter,
   currentStatusFilter,
   irebMemberFilter = [],
-  onClearFaculty,
   onClearDepartment,
   onClearStatus,
   onClearIrebMember,
   onClearAll,
 }: ActiveFiltersBarProps) {
   const hasFilters =
-    facultyFilter.length +
-      departmentFilter.length +
+    departmentFilter.length +
       currentStatusFilter.length +
       irebMemberFilter.length >
     0;
@@ -228,14 +223,6 @@ export function ActiveFiltersBar({
         Active filters:
       </span>
       <div className="flex flex-1 items-center gap-2 overflow-x-auto pb-1">
-        {facultyFilter.map((value) => (
-          <FilterChip
-            key={`faculty-${value}`}
-            label="Faculty"
-            value={value}
-            onClear={() => onClearFaculty(value)}
-          />
-        ))}
         {departmentFilter.map((value) => (
           <FilterChip
             key={`department-${value}`}

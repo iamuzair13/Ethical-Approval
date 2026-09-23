@@ -66,10 +66,8 @@ type TableToolbarProps = {
   totalCount: number;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  facultyFilter: string[];
   departmentFilter: string[];
   currentStatusFilter: LeadStatus[];
-  facultyCounts: CountEntry[];
   departmentCounts: CountEntry[];
   currentStatusCounts: CountEntry[];
   scopeFilteredCount: number;
@@ -78,7 +76,6 @@ type TableToolbarProps = {
   irebMemberCounts: CountEntry[];
   onIrebMemberChange: (values: string[]) => void;
   showIrebMemberFilter?: boolean;
-  onFacultyChange: (values: string[]) => void;
   onDepartmentChange: (values: string[]) => void;
   onStatusChange: (values: LeadStatus[]) => void;
   onExport: () => void;
@@ -94,7 +91,6 @@ type TableToolbarProps = {
   showAdminActionTab?: boolean;
   overdueBannerDismissed: boolean;
   onDismissOverdueBanner: () => void;
-  onClearFaculty: (value: string) => void;
   onClearDepartment: (value: string) => void;
   onClearStatus: (value: string) => void;
   onClearIrebMember: (value: string) => void;
@@ -109,10 +105,8 @@ export function TableToolbar({
   totalCount,
   searchQuery,
   onSearchChange,
-  facultyFilter,
   departmentFilter,
   currentStatusFilter,
-  facultyCounts,
   departmentCounts,
   currentStatusCounts,
   scopeFilteredCount,
@@ -121,7 +115,6 @@ export function TableToolbar({
   irebMemberCounts,
   onIrebMemberChange,
   showIrebMemberFilter = false,
-  onFacultyChange,
   onDepartmentChange,
   onStatusChange,
   onExport,
@@ -137,7 +130,6 @@ export function TableToolbar({
   showAdminActionTab,
   overdueBannerDismissed,
   onDismissOverdueBanner,
-  onClearFaculty,
   onClearDepartment,
   onClearStatus,
   onClearIrebMember,
@@ -198,14 +190,6 @@ export function TableToolbar({
           <div className="flex flex-wrap items-center gap-2">
             <FilterMenu
               multiple
-              label="Faculty"
-              value={facultyFilter}
-              options={facultyCounts}
-              totalCount={scopeFilteredCount}
-              onChange={onFacultyChange}
-            />
-            <FilterMenu
-              multiple
               label="Department"
               value={departmentFilter}
               options={departmentCounts}
@@ -243,11 +227,9 @@ export function TableToolbar({
       </div>
 
       <ActiveFiltersBar
-        facultyFilter={facultyFilter}
         departmentFilter={departmentFilter}
         currentStatusFilter={currentStatusFilter}
         irebMemberFilter={irebMemberFilter}
-        onClearFaculty={onClearFaculty}
         onClearDepartment={onClearDepartment}
         onClearStatus={onClearStatus}
         onClearIrebMember={onClearIrebMember}

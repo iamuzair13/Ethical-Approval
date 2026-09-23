@@ -311,7 +311,6 @@ export function LeadsReport({
   }>({ hodOption: null, irebOptions: [] });
   const [selectedOnBehalfOf, setSelectedOnBehalfOf] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [facultyFilter, setFacultyFilter] = useState<string[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
   const [currentStatusFilter, setCurrentStatusFilter] = useState<LeadStatus[]>([]);
   const [applicationTypeFilter, setApplicationTypeFilter] = useState<string[]>([]);
@@ -380,8 +379,6 @@ export function LeadsReport({
   const leads = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return scopeFilteredLeads.filter((lead) => {
-      if (facultyFilter.length > 0 && !facultyFilter.includes(lead.faculty))
-        return false;
       if (
         departmentFilter.length > 0 &&
         !departmentFilter.includes(lead.department)
@@ -417,7 +414,6 @@ export function LeadsReport({
   }, [
     scopeFilteredLeads,
     searchQuery,
-    facultyFilter,
     departmentFilter,
     currentStatusFilter,
     applicationTypeFilter,
@@ -427,26 +423,13 @@ export function LeadsReport({
   // Live counts (entity + count) â€” derived from the scope (e.g. hod-only,
   // ireb-only, or all). Always shows the maximum possible count regardless of
   // which other filter chips are active.
-  const facultyCounts = useMemo(
-    () =>
-      buildCountsList(scopeFilteredLeads, (lead) => lead.faculty || "Unknown"),
-    [scopeFilteredLeads],
-  );
-
-  const departmentScopeLeads = useMemo(() => {
-    if (facultyFilter.length === 0) return scopeFilteredLeads;
-    return scopeFilteredLeads.filter((lead) =>
-      facultyFilter.includes(lead.faculty),
-    );
-  }, [scopeFilteredLeads, facultyFilter]);
-
   const departmentCounts = useMemo(
     () =>
       buildCountsList(
-        departmentScopeLeads,
+        scopeFilteredLeads,
         (lead) => lead.department || "Unknown",
       ),
-    [departmentScopeLeads],
+    [scopeFilteredLeads],
   );
   const currentStatusCounts = useMemo(
     () =>
@@ -497,7 +480,6 @@ export function LeadsReport({
   );
 
   const clearAllFilters = useCallback(() => {
-    setFacultyFilter([]);
     setDepartmentFilter([]);
     setCurrentStatusFilter([]);
     setApplicationTypeFilter([]);
@@ -611,7 +593,7 @@ export function LeadsReport({
         generatedAt: new Date(),
         activeTab,
         searchQuery,
-        facultyFilter,
+        facultyFilter: [],
         departmentFilter,
         currentStatusFilter,
         hodOnly,
@@ -631,7 +613,6 @@ export function LeadsReport({
     departmentFilter,
     ethicalOnly,
     exportColState,
-    facultyFilter,
     scopeFilteredLeads.length,
     searchQuery,
     title,
@@ -646,7 +627,6 @@ export function LeadsReport({
     hodOnly,
     ethicalOnly,
     providedLeads,
-    facultyFilter,
     departmentFilter,
     currentStatusFilter,
     applicationTypeFilter,
@@ -1342,19 +1322,16 @@ export function LeadsReport({
           totalCount={visibleLeads.length}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          facultyFilter={facultyFilter}
           departmentFilter={departmentFilter}
           currentStatusFilter={currentStatusFilter}
-          facultyCounts={facultyCounts}
           departmentCounts={departmentCounts}
           currentStatusCounts={currentStatusCounts}
           scopeFilteredCount={scopeFilteredLeads.length}
-          departmentScopeCount={departmentScopeLeads.length}
+          departmentScopeCount={scopeFilteredLeads.length}
           irebMemberFilter={irebMemberFilter}
           irebMemberCounts={irebMemberCounts}
           onIrebMemberChange={setIrebMemberFilter}
           showIrebMemberFilter={currentRole === "administrator"}
-          onFacultyChange={setFacultyFilter}
           onDepartmentChange={setDepartmentFilter}
           onStatusChange={setCurrentStatusFilter}
           onExport={openExportModal}
@@ -1370,9 +1347,6 @@ export function LeadsReport({
           showAdminActionTab={showAdminActionTab}
           overdueBannerDismissed={overdueBannerDismissed}
           onDismissOverdueBanner={() => setOverdueBannerDismissed(true)}
-          onClearFaculty={(value) =>
-            setFacultyFilter((current) => current.filter((item) => item !== value))
-          }
           onClearDepartment={(value) =>
             setDepartmentFilter((current) => current.filter((item) => item !== value))
           }
