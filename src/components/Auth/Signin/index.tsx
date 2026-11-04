@@ -7,6 +7,23 @@ import { signIn } from "next-auth/react";
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { resolvePostLoginRedirect } from "@/lib/post-login-redirect";
+
+function validateStudentEmailFormat(email: string): string | null {
+  const trimmed = email.trim().toLowerCase();
+  const at = trimmed.indexOf("@");
+  if (at <= 0) {
+    return "Enter a full email address (e.g. 70088579@student.uol.edu.pk).";
+  }
+  // Only apply strict SAP-ID validation to student emails. Faculty/staff
+  // emails have different local-part formats (e.g. "name.surname").
+  if (!trimmed.endsWith("@student.uol.edu.pk")) return null;
+  const local = trimmed.slice(0, at);
+  if (!local || !/^[a-zA-Z0-9_-]+$/.test(local)) {
+    return "Invalid SAP ID: use only letters, numbers, _ or - before the @ symbol.";
+  }
+  return null;
+}
 
 function mapAuthError(code: string | null): string | null {
   if (!code) return null;
@@ -18,7 +35,7 @@ function mapAuthError(code: string | null): string | null {
     case "SAP_ERROR":
       return "The SAP service could not be reached or returned an error. Please try again later.";
     case "MissingEmail":
-      return "Google did not return an email address. Please use another account.";
+      return "Google did not return an email address. Use another account or testing mode.";
     case "AccessDenied":
       return "Sign-in was denied. If you use Google, your account must exist in SAP.";
     case "Configuration":
@@ -26,12 +43,16 @@ function mapAuthError(code: string | null): string | null {
     case "Verification":
       return "The sign-in link is no longer valid.";
     default:
-      return `Sign-in failed (${code}). Please try again.`;
+      return `Sign-in failed (${code}). Please try again or use testing mode.`;
   }
 }
 
 const FACULTY_ERP_NOT_FOUND_MESSAGE =
   "We could not find your employee record in the university SAP. Please contact the HR department to ensure your official email and employment details are correctly updated in SAP, then try signing in again.";
+
+function isStudentEmailAddress(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@student.uol.edu.pk");
+}
 
 function mapSapError(
   code: string | null,
@@ -57,9 +78,15 @@ function mapSapError(
   }
 }
 
+function isFacultyErpNotFoundError(code: string | null | undefined): boolean {
+  return code === "FACULTY_NOT_FOUND" || code === "NOT_FOUND";
+}
+
 export default function Signin() {
   const searchParams = useSearchParams();
+  const [manualEmail, setManualEmail] = useState("");
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingManual, setLoadingManual] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formWarning, setFormWarning] = useState<string | null>(null);
 
@@ -121,6 +148,87 @@ export default function Signin() {
       setLoadingGoogle(false);
     }
   }, [callbackUrl]);
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFormWarning(null);
+    const email = manualEmail.trim();
+    const isFacultyEmail = !isStudentEmailAddress(email);
+    if (!email) {
+      const message = "Enter your university email address.";
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+
+    const formatError = validateStudentEmailFormat(email);
+
+    setLoadingManual(true);
+    try {
+      const verifyRes = await fetch("/api/auth/verify-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!verifyRes.ok) {
+        const verifyBody = (await verifyRes.json().catch(() => null)) as
+          | { errorCode?: string }
+          | null;
+        if (formatError && verifyBody?.errorCode === "INVALID_EMAIL") {
+          showSignInMessage(formatError);
+        } else if (
+          isFacultyEmail &&
+          isFacultyErpNotFoundError(verifyBody?.errorCode)
+        ) {
+          showSignInMessage(FACULTY_ERP_NOT_FOUND_MESSAGE, { warning: true });
+        } else {
+          showSignInMessage(
+            mapSapError(verifyBody?.errorCode ?? null, {
+              isFacultyEmail: isFacultyEmail,
+            }),
+          );
+        }
+        return;
+      }
+
+      const result = await signIn("student-email", {
+        email,
+        redirect: false,
+        callbackUrl,
+      });
+
+      console.log("[signin] signIn result:", result);
+
+      if (result?.error) {
+        const message = "Sign-in failed after verification. Please try again.";
+        setFormError(message);
+        toast.error(message);
+        return;
+      }
+
+      // Treat any non-error response as success. Some next-auth v4 versions
+      // don't set `ok: true` explicitly, so checking `!result?.error` is
+      // more reliable than `result?.ok`.
+      toast.success("Login successful.");
+      const redirectUrl = await resolvePostLoginRedirect(result?.url ?? callbackUrl);
+      console.log("[signin] redirectUrl:", redirectUrl);
+      // Use a full-page navigation (window.location) instead of router.replace
+      // to ensure the auth cookie is sent with the request and the middleware
+      // sees the authenticated session. router.replace can fail silently on
+      // production when the middleware redirects back to sign-in because the
+      // client-side router doesn't re-send cookies the same way.
+      window.location.href = redirectUrl;
+    } catch (err) {
+      console.error("[signin] handleManualSubmit error:", err);
+      const message = "Sign-in failed. Please try again.";
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setLoadingManual(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#3b5bdb] to-[#1e3a8a] sm:px-8 lg:flex lg:items-center lg:overflow-hidden">
@@ -265,7 +373,7 @@ export default function Signin() {
               <button
                 type="button"
                 onClick={handleGoogle}
-                disabled={loadingGoogle}
+                disabled={loadingGoogle || loadingManual}
                 className="group flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition-all hover:border-blue-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:hover:border-blue-700 dark:hover:bg-dark-3"
               >
                 {loadingGoogle ? (
@@ -283,6 +391,54 @@ export default function Signin() {
                 {loadingGoogle ? "Connecting…" : "Sign in with Google"}
               </button>
 
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200 dark:border-dark-3" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                  <span className="bg-white px-3 text-slate-500 dark:bg-gray-dark dark:text-dark-6">
+                    or continue with email
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
+                <p className="text-center text-xs font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                  Testing mode only
+                </p>
+                <p className="mt-1 text-center text-xs text-amber-800/90 dark:text-amber-100/80">
+                  Use when you cannot sign in with Google. Same SAP verification as
+                  Google sign-in. Works for both students and faculty.
+                </p>
+
+                <form onSubmit={handleManualSubmit} className="mt-4 space-y-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-left text-xs font-medium text-slate-700 dark:text-dark-6">
+                      University email
+                    </span>
+                    <input
+                      type="email"
+                      name="email"
+                      autoComplete="email"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      placeholder="70088579@student.uol.edu.pk or name@uol.edu.pk"
+                      disabled={loadingManual || loadingGoogle}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 placeholder:text-slate-400 focus:border-primary focus:ring-2 disabled:opacity-60 dark:border-dark-3 dark:bg-[#020d1a] dark:text-white"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loadingManual || loadingGoogle}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingManual && (
+                      <span className="inline-block size-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
+                    )}
+                    {loadingManual ? "Verifying with SAP…" : "Sign in with email"}
+                  </button>
+                </form>
+              </div>
             </div>
 
             <p className="mt-8 text-center text-xs text-slate-500 dark:text-dark-6">
