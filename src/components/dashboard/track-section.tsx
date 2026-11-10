@@ -24,12 +24,15 @@ const OUTCOME_TOOLTIPS = {
 function OutcomeNumber({
   value,
   label,
+  pct,
   colorClass,
   tooltip,
   onClick,
 }: {
   value: number;
   label: string;
+  /** Percentage text shown under the label, e.g. "33%". */
+  pct: string;
   colorClass: string;
   tooltip: string;
   onClick?: () => void;
@@ -39,14 +42,23 @@ function OutcomeNumber({
       type="button"
       onClick={onClick}
       title={`${tooltip}${onClick ? " Click to filter the requests table." : ""}`}
-      className="flex flex-col items-center rounded-lg px-2 py-1.5 transition hover:bg-gray-1 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:hover:bg-dark-2"
+      className="flex min-w-0 flex-col items-center rounded-lg px-1 py-1.5 transition hover:bg-gray-1 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:hover:bg-dark-2"
     >
-      <span className={cn("text-xl font-bold leading-none", colorClass)}>
+      <span className={cn("text-xl font-bold leading-none tabular-nums", colorClass)}>
         <CountUp value={value} />
       </span>
-      <span className="mt-1 text-[11px] font-medium text-dark-5 dark:text-dark-6">{label}</span>
+      <span className="mt-1 text-[11px] font-medium text-dark-5 dark:text-dark-6">
+        {label}
+      </span>
+      <span className="text-[11px] font-semibold tabular-nums text-dark-6 dark:text-dark-6">
+        {pct}
+      </span>
     </button>
   );
+}
+
+function pctOf(part: number, whole: number): string {
+  return whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
 }
 
 function DeciderBlock({
@@ -60,14 +72,14 @@ function DeciderBlock({
 }) {
   const stage = decider.key;
   return (
-    <div className="flex-1 rounded-xl border border-stroke px-4 py-3 dark:border-dark-3">
-      <div className="mb-1.5 flex items-center justify-between">
+    <div className="min-w-0 rounded-xl border border-stroke px-4 py-3 dark:border-dark-3">
+      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
           {decider.label}
         </p>
         {decider.decided > 0 && (
           <p
-            className="text-[11px] font-medium text-dark-6"
+            className="text-[11px] font-medium tabular-nums text-dark-6"
             title={`${decider.approved} approved of ${decider.decided} decided at this stage`}
           >
             {decider.approvalRate}% approved · {decider.decided} decided
@@ -78,8 +90,9 @@ function DeciderBlock({
         <OutcomeNumber
           value={decider.pending}
           label="Pending"
+          pct={pctOf(decider.pending, track.total)}
           colorClass="text-amber-600 dark:text-amber-400"
-          tooltip={OUTCOME_TOOLTIPS.pending}
+          tooltip={`${OUTCOME_TOOLTIPS.pending} ${decider.pending} of ${track.total} submitted.`}
           onClick={() =>
             onDrill({
               track: track.track,
@@ -92,8 +105,9 @@ function DeciderBlock({
         <OutcomeNumber
           value={decider.approved}
           label="Approved"
+          pct={pctOf(decider.approved, decider.decided)}
           colorClass="text-emerald-600 dark:text-emerald-400"
-          tooltip={OUTCOME_TOOLTIPS.approved}
+          tooltip={`${OUTCOME_TOOLTIPS.approved} ${decider.approved} of ${decider.decided} decided by ${decider.label}.`}
           onClick={() =>
             onDrill({
               track: track.track,
@@ -106,8 +120,9 @@ function DeciderBlock({
         <OutcomeNumber
           value={decider.rejected}
           label="Rejected"
+          pct={pctOf(decider.rejected, decider.decided)}
           colorClass="text-red-600 dark:text-red-400"
-          tooltip={OUTCOME_TOOLTIPS.rejected}
+          tooltip={`${OUTCOME_TOOLTIPS.rejected} ${decider.rejected} of ${decider.decided} decided by ${decider.label}.`}
           onClick={() =>
             onDrill({
               track: track.track,
@@ -146,10 +161,10 @@ function MiniFact({
     neutral: "text-dark dark:text-white",
   };
   return (
-    <div className="flex items-center gap-2" title={tooltip}>
-      <Icon className={cn("size-4", tones[tone])} aria-hidden="true" />
+    <div className="flex min-w-0 items-center gap-2" title={tooltip}>
+      <Icon className={cn("size-4 shrink-0", tones[tone])} aria-hidden="true" />
       <span className="text-sm">
-        <span className={cn("font-bold", tones[tone])}>{value}</span>{" "}
+        <span className={cn("font-bold tabular-nums", tones[tone])}>{value}</span>{" "}
         <span className="text-dark-5 dark:text-dark-6">{label}</span>
       </span>
     </div>
@@ -164,26 +179,34 @@ export function TrackSection({
   onDrill: (filter: DrillFilter) => void;
 }) {
   const empty = track.total === 0;
+  const deciderGrid =
+    track.deciders.length >= 3
+      ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+      : "grid grid-cols-1 gap-3 md:grid-cols-2";
+
   return (
     <section
       id={`track-${track.track}`}
       aria-labelledby={`track-${track.track}-title`}
-      className="scroll-mt-24 rounded-[10px] border border-stroke bg-white px-5 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
+      className="min-w-0 scroll-mt-40 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
     >
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h3
             id={`track-${track.track}-title`}
-            className="text-body-2xlg font-bold text-dark dark:text-white"
+            className="truncate text-body-2xlg font-bold text-dark dark:text-white"
           >
             {track.label}
           </h3>
           <p className="text-xs text-dark-5 dark:text-dark-6">
-            {track.forms} · <span className="font-semibold">{track.total}</span> submitted in range
+            {track.forms} · <span className="font-semibold tabular-nums">{track.total}</span>{" "}
+            submitted in range
           </p>
         </div>
-        <TrackSparkline trend={track.trend} />
+        <div className="shrink-0">
+          <TrackSparkline trend={track.trend} />
+        </div>
       </div>
 
       {empty ? (
@@ -202,14 +225,14 @@ export function TrackSection({
           } />
 
           {/* Outcome blocks per deciding body */}
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <div className={cn("mt-4", deciderGrid)}>
             {track.deciders.map((d) => (
               <DeciderBlock key={d.key} track={track} decider={d} onDrill={onDrill} />
             ))}
           </div>
 
           {/* Trend */}
-          <div className="mt-5">
+          <div className="mt-5 min-w-0">
             <TrackTrend trend={track.trend} trackLabel={track.label} />
           </div>
 

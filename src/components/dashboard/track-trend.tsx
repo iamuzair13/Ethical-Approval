@@ -3,9 +3,9 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { TrendPoint } from "./types";
 import { COLOR_APPROVED, COLOR_REJECTED, COLOR_TOTAL } from "./types";
-import { cn } from "@/lib/utils";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -25,7 +25,7 @@ export function TrackSparkline({ trend }: { trend: TrendPoint[] }) {
     },
   };
   return (
-    <div className="h-9 w-28" aria-hidden="true">
+    <div className="h-9 w-28 shrink-0" aria-hidden="true">
       <Chart
         options={options}
         series={[{ name: "Submitted", data: trend.map((p) => p.submitted) }]}
@@ -40,16 +40,31 @@ export function TrackSparkline({ trend }: { trend: TrendPoint[] }) {
 /** Stacked submitted/approved/rejected bar chart with a Table View toggle. */
 export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLabel: string }) {
   const [mode, setMode] = useState<"graph" | "table">("graph");
+  const isMobile = useIsMobile();
+  const height = isMobile ? 260 : 320;
   const hasData = trend.some((p) => p.submitted + p.approved + p.rejected > 0);
 
   const options: ApexOptions = {
-    chart: { type: "bar", stacked: true, toolbar: { show: false }, fontFamily: "inherit" },
+    chart: {
+      type: "bar",
+      stacked: true,
+      toolbar: { show: false },
+      fontFamily: "inherit",
+      width: "100%",
+      height,
+    },
     colors: [COLOR_TOTAL, COLOR_APPROVED, COLOR_REJECTED],
     plotOptions: {
       bar: { columnWidth: "60%", borderRadius: 3, borderRadiusApplication: "end" },
     },
-    legend: { position: "bottom", horizontalAlign: "center", fontSize: "12px", markers: { size: 6 } },
-    grid: { strokeDashArray: 5, yaxis: { lines: { show: true } } },
+    legend: {
+      position: "bottom",
+      horizontalAlign: "center",
+      fontSize: isMobile ? "11px" : "12px",
+      markers: { size: 6 },
+      itemMargin: { horizontal: 8, vertical: 4 },
+    },
+    grid: { strokeDashArray: 5, yaxis: { lines: { show: true } }, padding: { left: 8, right: 8 } },
     dataLabels: { enabled: false },
     tooltip: {
       shared: true,
@@ -60,7 +75,13 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
       categories: trend.map((p) => p.label),
       axisBorder: { show: false },
       axisTicks: { show: false },
-      labels: { rotate: -45, style: { fontSize: "10px" }, maxHeight: 60 },
+      labels: {
+        rotate: isMobile ? -45 : 0,
+        style: { fontSize: isMobile ? "9px" : "10px" },
+        maxHeight: isMobile ? 60 : 40,
+        trim: true,
+      },
+      tickAmount: isMobile ? Math.min(6, trend.length) : undefined,
     },
     yaxis: {
       min: 0,
@@ -70,8 +91,8 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
   };
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
           Trend
         </p>
@@ -91,7 +112,11 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
       )}
 
       {hasData && mode === "graph" && (
-        <div className="-ml-3" role="img" aria-label={`${trackLabel} submitted, approved and rejected trend`}>
+        <div
+          className="w-full min-w-0 overflow-visible"
+          role="img"
+          aria-label={`${trackLabel} submitted, approved and rejected trend`}
+        >
           <Chart
             options={options}
             series={[
@@ -100,18 +125,19 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
               { name: "Rejected", data: trend.map((p) => p.rejected) },
             ]}
             type="bar"
-            height={240}
+            height={height}
+            width="100%"
           />
         </div>
       )}
 
       {hasData && mode === "table" && (
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-stroke dark:border-dark-3">
-          <table className="w-full text-left text-xs">
+        <div className="max-h-64 overflow-auto rounded-lg border border-stroke dark:border-dark-3">
+          <table className="w-full min-w-[320px] text-left text-xs">
             <thead className="sticky top-0 bg-gray-1 dark:bg-dark-2">
               <tr>
                 {["Period", "Submitted", "Approved", "Rejected"].map((h) => (
-                  <th key={h} className={cn("px-3 py-2 font-semibold text-dark dark:text-white")}>
+                  <th key={h} className="px-3 py-2 font-semibold text-dark dark:text-white">
                     {h}
                   </th>
                 ))}
@@ -120,10 +146,10 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
             <tbody>
               {trend.map((p) => (
                 <tr key={p.label} className="border-t border-stroke dark:border-dark-3">
-                  <td className="px-3 py-1.5 text-dark-5 dark:text-dark-6">{p.label}</td>
-                  <td className="px-3 py-1.5 font-medium text-dark dark:text-white">{p.submitted}</td>
-                  <td className="px-3 py-1.5 font-medium text-emerald-600 dark:text-emerald-400">{p.approved}</td>
-                  <td className="px-3 py-1.5 font-medium text-red-600 dark:text-red-400">{p.rejected}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-dark-5 dark:text-dark-6">{p.label}</td>
+                  <td className="px-3 py-1.5 font-medium tabular-nums text-dark dark:text-white">{p.submitted}</td>
+                  <td className="px-3 py-1.5 font-medium tabular-nums text-emerald-600 dark:text-emerald-400">{p.approved}</td>
+                  <td className="px-3 py-1.5 font-medium tabular-nums text-red-600 dark:text-red-400">{p.rejected}</td>
                 </tr>
               ))}
             </tbody>

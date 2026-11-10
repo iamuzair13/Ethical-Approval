@@ -1,5 +1,7 @@
 "use client";
 
+import { Fragment } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { StageKey, TrackSummary } from "./types";
 import { STAGE_LABELS } from "./types";
 import { CountUp } from "./count-up";
@@ -23,6 +25,35 @@ const TONE_CLASSES = {
   red: "bg-red-500",
 } as const;
 
+/** Connector between pipeline nodes — horizontal on lg+, vertical below. */
+function FlowConnector({ entered }: { entered: number }) {
+  return (
+    <>
+      <div
+        className="hidden w-9 shrink-0 flex-col items-center justify-center lg:flex"
+        aria-hidden="true"
+        title={`${entered} reached this stage`}
+      >
+        <span className="whitespace-nowrap text-[10px] font-bold tabular-nums text-dark-6">
+          {entered}
+        </span>
+        <ChevronRight className="size-3.5 text-stroke dark:text-dark-3" />
+      </div>
+      <div
+        className="flex items-center justify-center gap-1 py-1 lg:hidden"
+        aria-hidden="true"
+        title={`${entered} reached this stage`}
+      >
+        <ChevronDown className="size-3.5 text-stroke dark:text-dark-3" />
+        <span className="text-[10px] font-bold tabular-nums text-dark-6">{entered}</span>
+      </div>
+    </>
+  );
+}
+
+const NODE_BASE =
+  "flex min-h-[92px] w-full min-w-0 flex-col items-center justify-center rounded-xl border border-stroke bg-gray-1 px-3 py-3 text-center dark:border-dark-3 dark:bg-dark-2";
+
 export function PipelineStepper({
   track,
   onStageClick,
@@ -30,89 +61,67 @@ export function PipelineStepper({
   track: TrackSummary;
   onStageClick: (stage: StageKey) => void;
 }) {
-  const nodes = track.stages.map((stage) => ({
-    stage,
-    waiting: track.stageCounts[stage] ?? 0,
-    entered: track.funnel.find((f) => f.stage === stage)?.entered ?? 0,
-    aging: track.agingByStage[stage],
-  }));
   const decided = track.outcomes.approved + track.outcomes.rejected;
 
   return (
     <div
-      className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-0"
+      className="flex flex-col lg:flex-row lg:items-stretch"
       role="list"
       aria-label={`${track.label} approval pipeline`}
     >
-      {nodes.map((node, i) => {
-        const tone = agingTone(node.aging?.avgDays ?? null, node.aging?.overThreshold ?? 0);
+      {track.stages.map((stage, i) => {
+        const waiting = track.stageCounts[stage] ?? 0;
+        const entered = track.funnel.find((f) => f.stage === stage)?.entered ?? 0;
+        const aging = track.agingByStage[stage];
+        const tone = agingTone(aging?.avgDays ?? null, aging?.overThreshold ?? 0);
         return (
-          <div key={node.stage} className="flex items-center sm:flex-1" role="listitem">
-            {i > 0 && (
-              <div
-                className="hidden w-9 shrink-0 flex-col items-center justify-center sm:flex"
-                aria-hidden="true"
-                title={`${node.entered} reached ${STAGE_LABELS[node.stage]}`}
+          <Fragment key={stage}>
+            {i > 0 && <FlowConnector entered={entered} />}
+            <div className="lg:flex-1 lg:min-w-0" role="listitem">
+              <button
+                type="button"
+                onClick={() => onStageClick(stage)}
+                title={`${STAGE_TOOLTIPS[stage]} Click to filter the requests table.`}
+                className={cn(
+                  NODE_BASE,
+                  "transition hover:border-primary/50 hover:shadow-sm",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/40",
+                )}
               >
-                <span className="whitespace-nowrap text-[10px] font-bold text-dark-6">
-                  {node.entered}
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+                  {STAGE_LABELS[stage]}
                 </span>
-                <svg className="size-3.5 text-stroke dark:text-dark-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => onStageClick(node.stage)}
-              title={`${STAGE_TOOLTIPS[node.stage]} Click to filter the requests table.`}
-              className={cn(
-                "group flex min-h-[92px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-center transition",
-                "border-stroke bg-gray-1 hover:border-primary/50 hover:shadow-sm",
-                "dark:border-dark-3 dark:bg-dark-2 dark:hover:border-primary/50",
-                "focus:outline-none focus:ring-2 focus:ring-primary/40",
-              )}
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
-                {STAGE_LABELS[node.stage]}
-              </span>
-              <span className="mt-1 text-2xl font-bold leading-none text-dark dark:text-white">
-                <CountUp value={node.waiting} />
-              </span>
-              <span className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium">
-                <span
-                  className={cn("inline-block size-2 rounded-full", TONE_CLASSES[tone])}
-                  aria-hidden="true"
-                />
-                <span className="text-dark-6 dark:text-dark-6">
-                  {node.aging?.avgDays != null ? `avg ${node.aging.avgDays}d` : "—"}
-                  {(node.aging?.overThreshold ?? 0) > 0 && (
-                    <span className="text-red-600 dark:text-red-400">
-                      {" "}· {node.aging!.overThreshold} &gt;7d
-                    </span>
-                  )}
+                <span className="mt-1 text-2xl font-bold leading-none tabular-nums text-dark dark:text-white">
+                  <CountUp value={waiting} />
                 </span>
-              </span>
-            </button>
-          </div>
+                <span className="mt-1.5 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] font-medium">
+                  <span
+                    className={cn("inline-block size-2 rounded-full", TONE_CLASSES[tone])}
+                    aria-hidden="true"
+                  />
+                  <span className="text-dark-6 dark:text-dark-6">
+                    {aging?.avgDays != null ? `avg ${aging.avgDays}d` : "—"}
+                    {(aging?.overThreshold ?? 0) > 0 && (
+                      <span className="text-red-600 dark:text-red-400">
+                        {" "}· {aging!.overThreshold} &gt;7d
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </button>
+            </div>
+          </Fragment>
         );
       })}
 
       {/* Decision terminal node */}
-      <div className="flex items-center sm:flex-1" role="listitem">
-        <div
-          className="hidden w-9 shrink-0 flex-col items-center justify-center sm:flex"
-          aria-hidden="true"
-          title={`${decided} reached a final decision`}
-        >
-          <span className="whitespace-nowrap text-[10px] font-bold text-dark-6">
-            {decided}
-          </span>
-          <svg className="size-3.5 text-stroke dark:text-dark-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
-        </div>
-        <div className="flex min-h-[92px] w-full flex-col items-center justify-center rounded-xl border border-stroke bg-gray-1 px-3 py-3 text-center dark:border-dark-3 dark:bg-dark-2">
+      <FlowConnector entered={decided} />
+      <div className="lg:flex-1 lg:min-w-0" role="listitem">
+        <div className={NODE_BASE}>
           <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
             Decision
           </span>
-          <span className="mt-1 text-2xl font-bold leading-none text-dark dark:text-white">
+          <span className="mt-1 text-2xl font-bold leading-none tabular-nums text-dark dark:text-white">
             <CountUp value={decided} />
           </span>
           <span className="mt-1.5 flex items-center gap-2 text-[11px] font-medium">

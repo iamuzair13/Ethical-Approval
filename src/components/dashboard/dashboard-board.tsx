@@ -166,14 +166,22 @@ export function DashboardBoard({
   const updatedAgo = secondsAgo(summary.generatedAt, clock);
 
   return (
-    <div className="col-span-12 grid gap-4 md:gap-6">
+    // --dashboard-header-h: sticky offset = Header height (py-5 + size-12
+    // avatar + 1px border ≈ 89px). Update if the Header layout changes.
+    <div
+      className="grid w-full min-w-0 max-w-full gap-4 md:gap-6"
+      style={{ "--dashboard-header-h": "89px" } as React.CSSProperties}
+    >
       {/* Filter bar — sticky under the header */}
-      <div className="sticky top-[70px] z-30 lg:top-[82px]">
+      <div
+        className="sticky z-30 min-w-0"
+        style={{ top: "var(--dashboard-header-h)" }}
+      >
         <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
       </div>
 
       {/* Refresh / export row */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-dark-5 dark:text-dark-6" aria-live="polite">
           {loading ? "Refreshing…" : `Updated ${updatedAgo}s ago`}
         </p>
@@ -221,19 +229,21 @@ export function DashboardBoard({
         </p>
       )}
 
-      <div className={cn("grid gap-4 transition-opacity md:gap-6", loading && "opacity-60")}>
+      <div className={cn("grid min-w-0 gap-4 transition-opacity md:gap-6", loading && "opacity-60")}>
         {visibleTracks.map((track) => (
           <TrackSection key={track} track={summary.tracks[track]} onDrill={onDrill} />
         ))}
       </div>
 
-      <NeedsAttention
-        items={summary.needsAttention}
-        thresholdDays={summary.tracks.student_thesis.aging.thresholdDays}
-      />
+      <div className="min-w-0">
+        <NeedsAttention
+          items={summary.needsAttention}
+          thresholdDays={summary.tracks.student_thesis.aging.thresholdDays}
+        />
+      </div>
 
       {/* All Requests / Sensitive Cases — reacts to drill-down */}
-      <div ref={tableRef} className="scroll-mt-24">
+      <div ref={tableRef} className="min-w-0 scroll-mt-40">
         <LeadsReportTabs
           leads={leads}
           sensitiveLeads={sensitiveLeads}
