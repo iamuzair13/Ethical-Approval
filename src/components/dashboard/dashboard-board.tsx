@@ -95,6 +95,10 @@ export function DashboardBoard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drillFilter, setDrillFilter] = useState<DrillFilter | null>(null);
+  // Accordion: at most one track section is expanded at a time.
+  const [openTrack, setOpenTrack] = useState<TrackKey | null>(
+    initialFilters.track ?? TRACK_ORDER[0],
+  );
   const [clock, setClock] = useState(() => Date.now());
   const tableRef = useRef<HTMLDivElement>(null);
   const firstLoad = useRef(true);
@@ -128,6 +132,11 @@ export function DashboardBoard({
     window.history.replaceState(null, "", `?${qs}`);
     void fetchSummary(filters);
   }, [filters, fetchSummary]);
+
+  // When the filter narrows to a single track, expand that section.
+  useEffect(() => {
+    if (filters.track) setOpenTrack(filters.track);
+  }, [filters.track]);
 
   // Auto-refresh every 60s + "updated Xs ago" ticker.
   useEffect(() => {
@@ -229,9 +238,20 @@ export function DashboardBoard({
         </p>
       )}
 
-      <div className={cn("grid min-w-0 gap-4 transition-opacity md:gap-6", loading && "opacity-60")}>
+      <div
+        className={cn(
+          "flex min-w-0 flex-wrap gap-4 transition-opacity md:gap-6",
+          loading && "opacity-60",
+        )}
+      >
         {visibleTracks.map((track) => (
-          <TrackSection key={track} track={summary.tracks[track]} onDrill={onDrill} />
+          <TrackSection
+            key={track}
+            track={summary.tracks[track]}
+            open={openTrack === track}
+            onToggle={() => setOpenTrack((prev) => (prev === track ? null : track))}
+            onDrill={onDrill}
+          />
         ))}
       </div>
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { StageKey, TrackSummary } from "./types";
 import { STAGE_LABELS } from "./types";
@@ -196,13 +195,17 @@ function MiniFact({
 
 export function TrackSection({
   track,
+  open,
+  onToggle,
   onDrill,
 }: {
   track: TrackSummary;
+  /** Controlled by the parent board — only one section is open at a time. */
+  open: boolean;
+  onToggle: () => void;
   onDrill: (filter: DrillFilter) => void;
 }) {
   const empty = track.total === 0;
-  const [open, setOpen] = useState(true);
   const deciderGrid =
     track.deciders.length >= 3
       ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
@@ -213,13 +216,17 @@ export function TrackSection({
     <section
       id={`track-${track.track}`}
       aria-labelledby={`track-${track.track}-title`}
-      className="min-w-0 scroll-mt-40 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
+      className={cn(
+        "min-w-0 scroll-mt-40 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5",
+        // Accordion: the open section takes a full row; collapsed ones share a row.
+        open ? "w-full" : "min-w-[280px] flex-1",
+      )}
     >
       {/* Header — click toggles the section body */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={onToggle}
           aria-expanded={open}
           aria-controls={bodyId}
           className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
