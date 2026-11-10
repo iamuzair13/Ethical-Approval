@@ -1,42 +1,112 @@
-import { PaymentsOverview } from "@/components/Charts/payments-overview";
-import { UsedDevices } from "@/components/Charts/used-devices";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { createTimeFrameExtractor } from "@/utils/timeframe-extractor";
 import { authOptions } from "@/lib/auth-options";
-import { OverviewCardsGroup } from "./_components/overview-cards";
-import { LeadsReportTabs } from "./_components/leads-report-tabs";
-import { getDashboardLeads, getOverviewData, getUsedDevicesData } from "./fetch";
+import { adminFromSession, isAdministrator } from "@/lib/admin-auth";
+import { getDashboardSummary, type TrackKey } from "@/lib/dashboard-summary";
+import { listDepartments, listFaculties, listPrograms } from "@/lib/admin-repository";
+import { intIdEq } from "@/lib/admin-report-faculty-dept-filters";
+import { DashboardBoard } from "@/components/dashboard/dashboard-board";
+import {
+  defaultFilterState,
+  type DashboardFilterState,
+} from "@/components/dashboard/filter-bar";
+import type { FilterOptions } from "@/components/dashboard/types";
+import { getDashboardLeads } from "./fetch";
 import DashboardApiProbe from "@/components/debug/dashboard-api-probe";
 
 type PropsType = {
   searchParams: Promise<{
-    selected_time_frame?: string;
+    from?: string;
+    to?: string;
+    facultyId?: string;
+    departmentId?: string;
+    programId?: string;
+    track?: string;
   }>;
 };
 
+function parseIntParam(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const n = Number.parseInt(value, 10);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
+function parseIsoDate(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : value;
+}
+
+const VALID_TRACKS: TrackKey[] = [
+  "student_thesis",
+  "student_publication",
+  "faculty_publication",
+];
+
 export default async function Home({ searchParams }: PropsType) {
-  const { selected_time_frame } = await searchParams;
-  const extractTimeFrame = createTimeFrameExtractor(selected_time_frame);
+  const params = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.adminId || !session.user?.adminRole) {
     redirect("/auth/sign-in?callbackUrl=/");
   }
 
-  const [overviewData, usedDevicesData, leadsData] = await Promise.all([
-    getOverviewData(session),
-    getUsedDevicesData(session),
+  const admin = adminFromSession(session);
+  if (!admin) {
+    redirect("/auth/sign-in?callbackUrl=/");
+  }
+
+  const defaults = defaultFilterState();
+  const initialFilters: DashboardFilterState = {
+    preset: params.from || params.to ? "custom" : defaults.preset,
+    from: parseIsoDate(params.from) ?? defaults.from,
+    to: parseIsoDate(params.to) ?? defaults.to,
+    facultyId: parseIntParam(params.facultyId),
+    departmentId: parseIntParam(params.departmentId),
+    programId: parseIntParam(params.programId),
+    track: VALID_TRACKS.includes(params.track as TrackKey)
+      ? (params.track as TrackKey)
+      : undefined,
+  };
+
+  // Filter options restricted to the viewer's faculty scope (same rule as
+  // /api/admin/reports/report-filters).
+  const restrictToFacultyIds =
+    !isAdministrator(admin) && admin.scopeMode === "restricted" && admin.facultyIds.length > 0;
+  const facultyIdFilter = restrictToFacultyIds ? admin.facultyIds : undefined;
+
+  const [summary, filterOptions, leadsData] = await Promise.all([
+    getDashboardSummary(admin, initialFilters),
+    (async (): Promise<FilterOptions> => {
+      const allFaculties = await listFaculties();
+      const faculties = facultyIdFilter
+        ? allFaculties.filter((f) => facultyIdFilter.some((fid) => intIdEq(fid, f.id)))
+        : allFaculties;
+      const departments = await listDepartments(
+        facultyIdFilter && facultyIdFilter.length > 0 ? { facultyIds: facultyIdFilter } : {},
+      );
+      const programs = await listPrograms(
+        departments.length > 0 ? { departmentIds: departments.map((d) => Number(d.id)) } : {},
+      );
+      return {
+        faculties: faculties.map((f) => ({ id: Number(f.id), name: f.name })),
+        departments: departments.map((d) => ({
+          id: Number(d.id),
+          name: d.name,
+          facultyId: Number(d.faculty_id),
+          facultyName: d.faculty_name ?? "",
+        })),
+        programs: programs.map((p) => ({
+          id: Number(p.id),
+          name: p.name,
+          departmentId: Number(p.department_id),
+          departmentName: p.department_name,
+        })),
+      };
+    })(),
     getDashboardLeads(session),
   ]);
-  const usedDevicesTitle =
-    session.user.adminRole === "hod"
-      ? "HOD Request Breakdown"
-      : session.user.adminRole === "ireb"
-        ? "IREB Request Breakdown"
-        : "Request Status Breakdown";
 
   // Sensitive cases are visible only to Administrators and IREB members.
-  // They remain faculty-scoped via the existing RBAC in getDashboardLeads.
   const role = session.user.adminRole;
   const canViewSensitive = role === "administrator" || role === "ireb";
   const sensitiveLeads = canViewSensitive
@@ -46,32 +116,15 @@ export default async function Home({ searchParams }: PropsType) {
   return (
     <>
       <DashboardApiProbe tag="home" />
-      <OverviewCardsGroup overviewData={overviewData} />
-
-      <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-9 2xl:gap-7.5">
-        <PaymentsOverview
-          className="col-span-12 xl:col-span-7"
-          key={extractTimeFrame("payments_overview")}
-          timeFrame={extractTimeFrame("payments_overview")?.split(":")[1]}
-          overviewData={overviewData}
-          session={session}
-        />
-
-        <UsedDevices
-          className="col-span-12 xl:col-span-5"
-          key={extractTimeFrame("used_devices")}
-          timeFrame={extractTimeFrame("used_devices")?.split(":")[1]}
-          title={usedDevicesTitle}
-          data={usedDevicesData}
-        />
-
-        <LeadsReportTabs
-          leads={leadsData}
-          sensitiveLeads={sensitiveLeads}
-          currentRole={role ?? null}
-          canViewSensitive={canViewSensitive}
-        />
-      </div>
+      <DashboardBoard
+        initialSummary={summary}
+        initialFilters={initialFilters}
+        filterOptions={filterOptions}
+        leads={leadsData}
+        sensitiveLeads={sensitiveLeads}
+        currentRole={role ?? null}
+        canViewSensitive={canViewSensitive}
+      />
     </>
   );
 }

@@ -62,6 +62,8 @@ export type DashboardLead = {
   currentStatus: LeadStatus;
   hodName: string | null;
   stage: "hod" | "admin" | "ireb" | "completed";
+  /** Stage that produced the final approved/rejected outcome, for drill-down. */
+  decidingStage: "hod" | "admin" | "ireb" | null;
   isSensitive: boolean;
   /** Name of the IREB member the administrator recommended this to, if any. */
   assignedIrebName: string | null;
@@ -98,8 +100,8 @@ type SubmissionScopeRow = {
   latest_feedback_comment: string | null;
   latest_audit_note: string | null;
   latest_actor_name: string | null;
-  latest_decision: "approved" | "rejected" | null;
-  latest_decision_stage: "hod" | "ireb" | null;
+  latest_decision: "approved" | "rejected" | "recommended" | "marked_sensitive" | null;
+  latest_decision_stage: "hod" | "admin" | "ireb" | null;
   latest_decided_by_name: string | null;
   applicant_avatar_url: string | null;
   submission_type: "thesis" | "publication";
@@ -150,15 +152,27 @@ function splitFeedbackAndAudit(
 }
 
 function buildActionTrace(input: {
-  latestDecision: "approved" | "rejected" | null;
-  latestDecisionStage: "hod" | "ireb" | null;
+  latestDecision: "approved" | "rejected" | "recommended" | "marked_sensitive" | null;
+  latestDecisionStage: "hod" | "admin" | "ireb" | null;
   latestDecidedByName: string | null;
   latestAuditNote: string | null;
 }): string | null {
   if (input.latestAuditNote) return input.latestAuditNote;
   if (!input.latestDecision || !input.latestDecisionStage || !input.latestDecidedByName) return null;
-  const stageLabel = input.latestDecisionStage === "hod" ? "HOD" : "IREB";
-  const decisionLabel = input.latestDecision === "approved" ? "approved" : "rejected";
+  const stageLabel =
+    input.latestDecisionStage === "hod"
+      ? "HOD"
+      : input.latestDecisionStage === "admin"
+        ? "Administrator"
+        : "IREB";
+  const decisionLabel =
+    input.latestDecision === "approved"
+      ? "approved"
+      : input.latestDecision === "rejected"
+        ? "rejected"
+        : input.latestDecision === "marked_sensitive"
+          ? "marked as sensitive"
+          : "recommended to IREB";
   return `${stageLabel} ${decisionLabel} by ${input.latestDecidedByName}.`;
 }
 
@@ -212,8 +226,8 @@ async function getLatestDecisionBySubmissionIds(
   Map<
     number,
     {
-      latestDecision: "approved" | "rejected" | null;
-      latestDecisionStage: "hod" | "ireb" | null;
+      latestDecision: "approved" | "rejected" | "recommended" | "marked_sensitive" | null;
+      latestDecisionStage: "hod" | "admin" | "ireb" | null;
       latestDecidedByName: string | null;
     }
   >
@@ -221,8 +235,8 @@ async function getLatestDecisionBySubmissionIds(
   if (submissionIds.length === 0) return new Map();
   const decisionResult = await db.query<{
     submission_id: number;
-    latest_decision: "approved" | "rejected";
-    latest_decision_stage: "hod" | "ireb";
+    latest_decision: "approved" | "rejected" | "recommended" | "marked_sensitive";
+    latest_decision_stage: "hod" | "admin" | "ireb";
     latest_decided_by_name: string | null;
   }>(
     `
@@ -249,8 +263,8 @@ async function getLatestDecisionBySubmissionIds(
   const decisionMap = new Map<
     number,
     {
-      latestDecision: "approved" | "rejected" | null;
-      latestDecisionStage: "hod" | "ireb" | null;
+      latestDecision: "approved" | "rejected" | "recommended" | "marked_sensitive" | null;
+      latestDecisionStage: "hod" | "admin" | "ireb" | null;
       latestDecidedByName: string | null;
     }
   >();
@@ -903,6 +917,12 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
       currentStatus,
       hodName: row.hod_name,
       stage,
+      decidingStage:
+        row.current_status === "hod_rejected"
+          ? "hod"
+          : row.current_status === "approved" || row.current_status === "rejected"
+            ? row.latest_decision_stage
+            : null,
       isSensitive: Boolean(row.is_sensitive),
       assignedIrebName: row.assigned_ireb_name ?? null,
       submittedAt,

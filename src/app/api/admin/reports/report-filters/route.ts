@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isAdministrator } from "@/lib/admin-auth";
 import { intIdEq } from "@/lib/admin-report-faculty-dept-filters";
-import { listDepartments, listFaculties } from "@/lib/admin-repository";
+import { listDepartments, listFaculties, listPrograms } from "@/lib/admin-repository";
 
 export async function GET(request: NextRequest) {
   const actor = await assertActiveAdmin(request);
@@ -25,6 +25,10 @@ export async function GET(request: NextRequest) {
     facultyIdFilter && facultyIdFilter.length > 0 ? { facultyIds: facultyIdFilter } : {},
   );
 
+  const programs = await listPrograms(
+    departments.length > 0 ? { departmentIds: departments.map((d) => Number(d.id)) } : {},
+  );
+
   return NextResponse.json({
     ok: true,
     faculties: faculties.map((f) => ({ id: Number(f.id), name: f.name })),
@@ -33,6 +37,12 @@ export async function GET(request: NextRequest) {
       name: d.name,
       facultyId: Number(d.faculty_id),
       facultyName: d.faculty_name,
+    })),
+    programs: programs.map((p) => ({
+      id: Number(p.id),
+      name: p.name,
+      departmentId: Number(p.department_id),
+      departmentName: p.department_name,
     })),
   });
 }

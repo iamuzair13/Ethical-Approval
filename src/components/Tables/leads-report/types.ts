@@ -22,6 +22,8 @@ export type Lead = {
   currentStatus: LeadStatus;
   hodName?: string | null;
   stage: "hod" | "admin" | "ireb" | "completed";
+  /** Stage that produced the final approved/rejected outcome (for drill-down). */
+  decidingStage?: "hod" | "admin" | "ireb" | null;
   isSensitive?: boolean;
   /** Name of the IREB member this was recommended to (admin recommendation). */
   assignedIrebName?: string | null;

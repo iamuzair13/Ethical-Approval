@@ -1,0 +1,215 @@
+"use client";
+
+import type { FilterOptions, TrackKey } from "./types";
+import { cn } from "@/lib/utils";
+import { TRACK_LABELS, TRACK_ORDER } from "./types";
+
+export type DatePreset = "7d" | "30d" | "90d" | "year" | "custom";
+
+export type DashboardFilterState = {
+  preset: DatePreset;
+  from: string; // yyyy-mm-dd
+  to: string; // yyyy-mm-dd
+  facultyId?: number;
+  departmentId?: number;
+  programId?: number;
+  track?: TrackKey;
+};
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function rangeForPreset(preset: DatePreset, now = new Date()): { from: string; to: string } {
+  const to = isoDate(now);
+  if (preset === "year") return { from: isoDate(new Date(now.getFullYear(), 0, 1)), to };
+  const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
+  return { from: isoDate(new Date(now.getTime() - days * 86400000)), to };
+}
+
+export function defaultFilterState(now = new Date()): DashboardFilterState {
+  return { preset: "90d", ...rangeForPreset("90d", now) };
+}
+
+const PRESETS: { key: DatePreset; label: string }[] = [
+  { key: "7d", label: "7d" },
+  { key: "30d", label: "30d" },
+  { key: "90d", label: "90d" },
+  { key: "year", label: "This year" },
+  { key: "custom", label: "Custom" },
+];
+
+const selectClass =
+  "h-9 rounded-lg border border-stroke bg-white px-2.5 text-xs font-medium text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-gray-dark dark:text-white";
+
+export function DashboardFilterBar({
+  filters,
+  options,
+  onChange,
+}: {
+  filters: DashboardFilterState;
+  options: FilterOptions;
+  onChange: (next: DashboardFilterState) => void;
+}) {
+  const departments = filters.facultyId
+    ? options.departments.filter((d) => d.facultyId === filters.facultyId)
+    : options.departments;
+  const programs = filters.departmentId
+    ? options.programs.filter((p) => p.departmentId === filters.departmentId)
+    : filters.facultyId
+      ? options.programs.filter((p) =>
+          departments.some((d) => d.id === p.departmentId),
+        )
+      : options.programs;
+
+  const setPreset = (preset: DatePreset) => {
+    if (preset === "custom") {
+      onChange({ ...filters, preset });
+      return;
+    }
+    onChange({ ...filters, preset, ...rangeForPreset(preset) });
+  };
+
+  const setNum = (key: "facultyId" | "departmentId" | "programId") => (v: string) => {
+    const n = v ? Number.parseInt(v, 10) : undefined;
+    const next = { ...filters, [key]: Number.isInteger(n) ? n : undefined };
+    if (key === "facultyId") {
+      next.departmentId = undefined;
+      next.programId = undefined;
+    }
+    if (key === "departmentId") next.programId = undefined;
+    onChange(next);
+  };
+
+  return (
+    <div className="rounded-[10px] border border-stroke bg-white px-4 py-3 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        {/* Date presets */}
+        <div className="flex items-center gap-1" role="group" aria-label="Date range">
+          {PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => setPreset(p.key)}
+              className={cn(
+                "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition",
+                filters.preset === p.key
+                  ? "bg-primary text-white"
+                  : "text-dark-5 hover:bg-gray-2 dark:text-dark-6 dark:hover:bg-dark-2",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+          {filters.preset === "custom" && (
+            <span className="ml-1 flex items-center gap-1.5">
+              <input
+                type="date"
+                aria-label="From date"
+                value={filters.from}
+                max={filters.to}
+                onChange={(e) => onChange({ ...filters, from: e.target.value })}
+                className={cn(selectClass, "px-1.5")}
+              />
+              <span className="text-xs text-dark-5 dark:text-dark-6">–</span>
+              <input
+                type="date"
+                aria-label="To date"
+                value={filters.to}
+                min={filters.from}
+                onChange={(e) => onChange({ ...filters, to: e.target.value })}
+                className={cn(selectClass, "px-1.5")}
+              />
+            </span>
+          )}
+        </div>
+
+        <span className="hidden h-5 w-px bg-stroke dark:bg-dark-3 sm:block" />
+
+        {/* Org selects — options are already restricted to the viewer's scope */}
+        <label className="flex items-center gap-1.5 text-xs font-medium text-dark-5 dark:text-dark-6">
+          Faculty
+          <select
+            aria-label="Filter by faculty"
+            value={filters.facultyId ?? ""}
+            onChange={(e) => setNum("facultyId")(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">All</option>
+            {options.faculties.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs font-medium text-dark-5 dark:text-dark-6">
+          Department
+          <select
+            aria-label="Filter by department"
+            value={filters.departmentId ?? ""}
+            onChange={(e) => setNum("departmentId")(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">All</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs font-medium text-dark-5 dark:text-dark-6">
+          Program
+          <select
+            aria-label="Filter by program"
+            value={filters.programId ?? ""}
+            onChange={(e) => setNum("programId")(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">All</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <span className="hidden h-5 w-px bg-stroke dark:bg-dark-3 sm:block" />
+
+        <label className="flex items-center gap-1.5 text-xs font-medium text-dark-5 dark:text-dark-6">
+          Track
+          <select
+            aria-label="Filter by track"
+            value={filters.track ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...filters,
+                track: (e.target.value || undefined) as TrackKey | undefined,
+              })
+            }
+            className={selectClass}
+          >
+            <option value="">All</option>
+            {TRACK_ORDER.map((t) => (
+              <option key={t} value={t}>
+                {TRACK_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => onChange(defaultFilterState())}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+        >
+          Reset
+        </button>
+      </div>
+    </div>
+  );
+}
