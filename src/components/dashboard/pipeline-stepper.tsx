@@ -47,16 +47,17 @@ export function PipelineStepper({
       {nodes.map((node, i) => {
         const tone = agingTone(node.aging?.avgDays ?? null, node.aging?.overThreshold ?? 0);
         return (
-          <div key={node.stage} className="flex items-stretch sm:flex-1" role="listitem">
+          <div key={node.stage} className="flex items-center sm:flex-1" role="listitem">
             {i > 0 && (
               <div
-                className="hidden w-8 shrink-0 flex-col items-center justify-center sm:flex"
+                className="hidden w-9 shrink-0 flex-col items-center justify-center sm:flex"
                 aria-hidden="true"
+                title={`${node.entered} reached ${STAGE_LABELS[node.stage]}`}
               >
-                <span className="h-px w-full bg-stroke dark:bg-dark-3" />
-                <span className="mt-1 whitespace-nowrap text-[10px] font-semibold text-dark-6">
+                <span className="whitespace-nowrap text-[10px] font-bold text-dark-6">
                   {node.entered}
                 </span>
+                <svg className="size-3.5 text-stroke dark:text-dark-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
               </div>
             )}
             <button
@@ -64,7 +65,7 @@ export function PipelineStepper({
               onClick={() => onStageClick(node.stage)}
               title={`${STAGE_TOOLTIPS[node.stage]} Click to filter the requests table.`}
               className={cn(
-                "group flex w-full flex-col items-center rounded-xl border px-3 py-3.5 text-center transition",
+                "group flex min-h-[92px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-center transition",
                 "border-stroke bg-gray-1 hover:border-primary/50 hover:shadow-sm",
                 "dark:border-dark-3 dark:bg-dark-2 dark:hover:border-primary/50",
                 "focus:outline-none focus:ring-2 focus:ring-primary/40",
@@ -96,17 +97,18 @@ export function PipelineStepper({
       })}
 
       {/* Decision terminal node */}
-      <div className="flex items-stretch sm:flex-1" role="listitem">
+      <div className="flex items-center sm:flex-1" role="listitem">
         <div
-          className="hidden w-8 shrink-0 flex-col items-center justify-center sm:flex"
+          className="hidden w-9 shrink-0 flex-col items-center justify-center sm:flex"
           aria-hidden="true"
+          title={`${decided} reached a final decision`}
         >
-          <span className="h-px w-full bg-stroke dark:bg-dark-3" />
-          <span className="mt-1 whitespace-nowrap text-[10px] font-semibold text-dark-6">
+          <span className="whitespace-nowrap text-[10px] font-bold text-dark-6">
             {decided}
           </span>
+          <svg className="size-3.5 text-stroke dark:text-dark-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
         </div>
-        <div className="flex w-full flex-col items-center rounded-xl border border-stroke bg-gray-1 px-3 py-3.5 text-center dark:border-dark-3 dark:bg-dark-2">
+        <div className="flex min-h-[92px] w-full flex-col items-center justify-center rounded-xl border border-stroke bg-gray-1 px-3 py-3 text-center dark:border-dark-3 dark:bg-dark-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
             Decision
           </span>
