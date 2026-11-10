@@ -174,8 +174,8 @@ export function DashboardBoard({
     >
       {/* Filter bar — sticky under the header */}
       <div
-        className="sticky z-30 min-w-0"
-        style={{ top: "var(--dashboard-header-h)" }}
+        className="sticky  min-w-0"
+        // style={{ top: "var(--dashboard-header-h)" }}
       >
         <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
       </div>

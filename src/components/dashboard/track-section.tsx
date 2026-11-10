@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { StageKey, TrackSummary } from "./types";
 import { STAGE_LABELS } from "./types";
 import { PipelineStepper } from "./pipeline-stepper";
@@ -14,6 +16,27 @@ import {
   Clock,
   type LucideIcon,
 } from "lucide-react";
+
+/** One-line outcome summary shown when the section is collapsed. */
+function CollapsedSummary({ track }: { track: TrackSummary }) {
+  const { pending, approved, rejected } = track.outcomes;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium">
+      <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+        <span className="size-1.5 rounded-full bg-amber-500" />
+        {pending} pending
+      </span>
+      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+        <span className="size-1.5 rounded-full bg-emerald-500" />
+        {approved} approved
+      </span>
+      <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+        <span className="size-1.5 rounded-full bg-red-500" />
+        {rejected} rejected
+      </span>
+    </span>
+  );
+}
 
 const OUTCOME_TOOLTIPS = {
   pending: "Currently waiting for a decision by this body.",
@@ -179,10 +202,12 @@ export function TrackSection({
   onDrill: (filter: DrillFilter) => void;
 }) {
   const empty = track.total === 0;
+  const [open, setOpen] = useState(true);
   const deciderGrid =
     track.deciders.length >= 3
       ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
       : "grid grid-cols-1 gap-3 md:grid-cols-2";
+  const bodyId = `track-${track.track}-body`;
 
   return (
     <section
@@ -190,85 +215,117 @@ export function TrackSection({
       aria-labelledby={`track-${track.track}-title`}
       className="min-w-0 scroll-mt-40 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
     >
-      {/* Header */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h3
-            id={`track-${track.track}-title`}
-            className="truncate text-body-2xlg font-bold text-dark dark:text-white"
-          >
-            {track.label}
-          </h3>
-          <p className="text-xs text-dark-5 dark:text-dark-6">
-            {track.forms} · <span className="font-semibold tabular-nums">{track.total}</span>{" "}
-            submitted in range
-          </p>
-        </div>
-        <div className="shrink-0">
-          <TrackSparkline trend={track.trend} />
-        </div>
+      {/* Header — click toggles the section body */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <ChevronDown
+            className={cn(
+              "size-5 shrink-0 text-dark-5 transition-transform duration-300 dark:text-dark-6",
+              !open && "-rotate-90",
+            )}
+            aria-hidden="true"
+          />
+          <span className="min-w-0">
+            <h3
+              id={`track-${track.track}-title`}
+              className="truncate text-body-2xlg font-bold text-dark group-hover:text-primary dark:text-white"
+            >
+              {track.label}
+            </h3>
+            <span className="block text-xs text-dark-5 dark:text-dark-6">
+              {track.forms} ·{" "}
+              <span className="font-semibold tabular-nums">{track.total}</span>{" "}
+              submitted in range
+            </span>
+            {!open && <CollapsedSummary track={track} />}
+          </span>
+        </button>
+        {open && (
+          <div className="shrink-0">
+            <TrackSparkline trend={track.trend} />
+          </div>
+        )}
       </div>
 
-      {empty ? (
-        <p className="rounded-lg border border-dashed border-stroke px-4 py-8 text-center text-sm text-dark-5 dark:border-dark-3 dark:text-dark-6">
-          No {track.label.toLowerCase()} submissions in this range.
-        </p>
-      ) : (
-        <>
-          <PipelineStepper track={track} onStageClick={(stage: StageKey) =>
-            onDrill({
-              track: track.track,
-              outcome: "pending",
-              stage,
-              label: `Pending at ${STAGE_LABELS[stage]}`,
-            })
-          } />
+      {/* Collapsible body — grid-rows trick animates without measuring height */}
+      <div
+        id={bodyId}
+        className={cn(
+          "grid motion-safe:transition-[grid-template-rows] motion-safe:duration-300",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {empty ? (
+            <p className="mt-4 rounded-lg border border-dashed border-stroke px-4 py-8 text-center text-sm text-dark-5 dark:border-dark-3 dark:text-dark-6">
+              No {track.label.toLowerCase()} submissions in this range.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4">
+                <PipelineStepper track={track} onStageClick={(stage: StageKey) =>
+                  onDrill({
+                    track: track.track,
+                    outcome: "pending",
+                    stage,
+                    label: `Pending at ${STAGE_LABELS[stage]}`,
+                  })
+                } />
+              </div>
 
-          {/* Outcome blocks per deciding body */}
-          <div className={cn("mt-4", deciderGrid)}>
-            {track.deciders.map((d) => (
-              <DeciderBlock key={d.key} track={track} decider={d} onDrill={onDrill} />
-            ))}
-          </div>
+              {/* Outcome blocks per deciding body */}
+              <div className={cn("mt-4", deciderGrid)}>
+                {track.deciders.map((d) => (
+                  <DeciderBlock key={d.key} track={track} decider={d} onDrill={onDrill} />
+                ))}
+              </div>
 
-          {/* Trend */}
-          <div className="mt-5 min-w-0">
-            <TrackTrend trend={track.trend} trackLabel={track.label} />
-          </div>
+              {/* Trend */}
+              <div className="mt-5 min-w-0">
+                <TrackTrend trend={track.trend} trackLabel={track.label} />
+              </div>
 
-          {/* Mini facts */}
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-stroke pt-4 dark:border-dark-3">
-            <MiniFact
-              icon={ShieldAlert}
-              value={String(track.sensitiveCount)}
-              label="sensitive cases"
-              tone={track.sensitiveCount > 0 ? "amber" : "neutral"}
-              tooltip="Submissions flagged as sensitive (visible to Administrator + IREB only)."
-            />
-            <MiniFact
-              icon={UserX}
-              value={String(track.unassignedIrebCount)}
-              label="unassigned to an IREB member"
-              tone={track.unassignedIrebCount > 0 ? "amber" : "neutral"}
-              tooltip="Items in IREB review with no specific IREB member assigned yet."
-            />
-            <MiniFact
-              icon={Clock}
-              value={track.avgDaysToDecision != null ? `${track.avgDaysToDecision}d` : "—"}
-              label="avg days to decision"
-              tone="neutral"
-              tooltip="Average days from submission to the final approve/reject decision."
-            />
-            <MiniFact
-              icon={AlertTriangle}
-              value={String(track.aging.overThreshold)}
-              label={`waiting > ${track.aging.thresholdDays}d`}
-              tone={track.aging.overThreshold > 0 ? "red" : "neutral"}
-              tooltip={`Items pending longer than ${track.aging.thresholdDays} days in their current stage.`}
-            />
-          </div>
-        </>
-      )}
+              {/* Mini facts */}
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-stroke pt-4 dark:border-dark-3">
+                <MiniFact
+                  icon={ShieldAlert}
+                  value={String(track.sensitiveCount)}
+                  label="sensitive cases"
+                  tone={track.sensitiveCount > 0 ? "amber" : "neutral"}
+                  tooltip="Submissions flagged as sensitive (visible to Administrator + IREB only)."
+                />
+                <MiniFact
+                  icon={UserX}
+                  value={String(track.unassignedIrebCount)}
+                  label="unassigned to an IREB member"
+                  tone={track.unassignedIrebCount > 0 ? "amber" : "neutral"}
+                  tooltip="Items in IREB review with no specific IREB member assigned yet."
+                />
+                <MiniFact
+                  icon={Clock}
+                  value={track.avgDaysToDecision != null ? `${track.avgDaysToDecision}d` : "—"}
+                  label="avg days to decision"
+                  tone="neutral"
+                  tooltip="Average days from submission to the final approve/reject decision."
+                />
+                <MiniFact
+                  icon={AlertTriangle}
+                  value={String(track.aging.overThreshold)}
+                  label={`waiting > ${track.aging.thresholdDays}d`}
+                  tone={track.aging.overThreshold > 0 ? "red" : "neutral"}
+                  tooltip={`Items pending longer than ${track.aging.thresholdDays} days in their current stage.`}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
