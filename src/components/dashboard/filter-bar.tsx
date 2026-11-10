@@ -20,7 +20,7 @@ const PRESETS: { key: DatePreset; label: string }[] = [
 ];
 
 const selectClass =
-  "h-9 rounded-lg border border-stroke bg-white px-2.5 text-xs font-medium text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-gray-dark dark:text-white";
+  "h-9 w-full max-w-[170px] min-w-0 truncate rounded-lg border border-stroke bg-white px-2.5 text-xs font-medium text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-gray-dark dark:text-white";
 
 export function DashboardFilterBar({
   filters,

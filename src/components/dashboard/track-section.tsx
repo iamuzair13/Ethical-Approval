@@ -91,7 +91,7 @@ function DeciderBlock({
         />
         <OutcomeNumber
           value={decider.approved}
-          label={stage === "hod" ? "Approved (moved on)" : "Approved"}
+          label="Approved"
           colorClass="text-emerald-600 dark:text-emerald-400"
           tooltip={OUTCOME_TOOLTIPS.approved}
           onClick={() =>
