@@ -16,7 +16,7 @@ import type {
 import { TRACK_ORDER } from "./types";
 import { DashboardFilterBar } from "./filter-bar";
 import { GlanceStrip } from "./glance-strip";
-import { TrackSection } from "./track-section";
+import { TrackSection, TrackTabCard } from "./track-section";
 import { NeedsAttention } from "./needs-attention";
 import { cn } from "@/lib/utils";
 
@@ -238,22 +238,32 @@ export function DashboardBoard({
         </p>
       )}
 
+      {/* Track tabs — always in one strip on top; detail renders below. */}
       <div
-        className={cn(
-          "flex min-w-0 flex-wrap gap-4 transition-opacity md:gap-6",
-          loading && "opacity-60",
-        )}
+        className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3"
+        role="group"
+        aria-label="Submission tracks"
       >
         {visibleTracks.map((track) => (
-          <TrackSection
+          <TrackTabCard
             key={track}
             track={summary.tracks[track]}
             open={openTrack === track}
             onToggle={() => setOpenTrack((prev) => (prev === track ? null : track))}
-            onDrill={onDrill}
           />
         ))}
       </div>
+
+      {openTrack && visibleTracks.includes(openTrack) && (
+        <div className={cn("min-w-0 transition-opacity", loading && "opacity-60")}>
+          <TrackSection
+            track={summary.tracks[openTrack]}
+            open
+            onToggle={() => setOpenTrack(null)}
+            onDrill={onDrill}
+          />
+        </div>
+      )}
 
       <div className="min-w-0">
         <NeedsAttention

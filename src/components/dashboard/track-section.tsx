@@ -193,6 +193,59 @@ function MiniFact({
   );
 }
 
+/** Compact tab card — always visible in the top strip; clicking opens the detail below. */
+export function TrackTabCard({
+  track,
+  open,
+  onToggle,
+}: {
+  track: TrackSummary;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      id={`track-${track.track}`}
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={`track-${track.track}-detail`}
+      aria-pressed={open}
+      className={cn(
+        "group flex min-w-0 scroll-mt-40 items-center gap-2 rounded-[10px] border bg-white px-4 py-3.5 text-left shadow-1 transition",
+        "focus:outline-none focus:ring-2 focus:ring-primary/40",
+        open
+          ? "border-primary/60 ring-1 ring-primary/30 dark:border-primary/50"
+          : "border-stroke hover:border-primary/40 dark:border-dark-3",
+        "dark:bg-gray-dark dark:shadow-card",
+      )}
+    >
+      <ChevronDown
+        className={cn(
+          "size-4 shrink-0 transition-transform duration-300",
+          open ? "text-primary" : "-rotate-90 text-dark-5 dark:text-dark-6",
+        )}
+        aria-hidden="true"
+      />
+      <span className="min-w-0">
+        <span
+          className={cn(
+            "block truncate text-sm font-bold",
+            open ? "text-primary" : "text-dark group-hover:text-primary dark:text-white",
+          )}
+        >
+          {track.label}
+        </span>
+        <span className="block text-[11px] text-dark-5 dark:text-dark-6">
+          {track.forms} ·{" "}
+          <span className="font-semibold tabular-nums">{track.total}</span> submitted
+        </span>
+        <CollapsedSummary track={track} />
+      </span>
+    </button>
+  );
+}
+
 export function TrackSection({
   track,
   open,
@@ -214,13 +267,9 @@ export function TrackSection({
 
   return (
     <section
-      id={`track-${track.track}`}
+      id={`track-${track.track}-detail`}
       aria-labelledby={`track-${track.track}-title`}
-      className={cn(
-        "min-w-0 scroll-mt-40 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5",
-        // Accordion: the open section takes a full row; collapsed ones share a row.
-        open ? "w-full" : "min-w-[280px] flex-1",
-      )}
+      className="w-full min-w-0 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
     >
       {/* Header — click toggles the section body */}
       <div className="flex flex-wrap items-center justify-between gap-3">
