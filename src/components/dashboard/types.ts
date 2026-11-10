@@ -1,5 +1,40 @@
-// Shared dashboard client types (mirrors src/lib/dashboard-summary.ts —
-// duplicated here so client components never import the server module).
+// Shared dashboard types + pure helpers (no "use client" — safe to import
+// from both server and client components).
+
+export type DatePreset = "7d" | "30d" | "90d" | "year" | "custom";
+
+export type DashboardFilterState = {
+  preset: DatePreset;
+  from: string; // yyyy-mm-dd
+  to: string; // yyyy-mm-dd
+  facultyId?: number;
+  departmentId?: number;
+  programId?: number;
+  track?: TrackKey;
+};
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function rangeForPreset(
+  preset: DatePreset,
+  now = new Date(),
+): { from: string; to: string } {
+  const to = isoDate(now);
+  if (preset === "year") {
+    return { from: isoDate(new Date(now.getFullYear(), 0, 1)), to };
+  }
+  const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
+  return { from: isoDate(new Date(now.getTime() - days * 86400000)), to };
+}
+
+export function defaultFilterState(now = new Date()): DashboardFilterState {
+  return { preset: "90d", ...rangeForPreset("90d", now) };
+}
+
+// The types below mirror src/lib/dashboard-summary.ts — duplicated here so
+// client components never import the server module.
 export type TrackKey = "student_thesis" | "student_publication" | "faculty_publication";
 export type StageKey = "hod" | "admin" | "ireb";
 export type TrendGranularity = "day" | "week" | "month";

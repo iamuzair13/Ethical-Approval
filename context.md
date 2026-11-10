@@ -77,6 +77,16 @@ Single unified SSO credentials provider `"student-email"` (`src/lib/auth-options
 - `review_decision` enum includes `recommended` and `marked_sensitive` alongside approve/reject
 - Decisions are append-only in `approval_decisions`; all actions logged to `activity_events` (drives notifications + audit)
 
+## Main Dashboard
+
+`src/app/(home)/page.tsx` renders `DashboardBoard` (`src/components/dashboard/`) — three track sections (Student Thesis, Student Publication, Faculty Publication), not aggregated stats.
+
+- Data: `GET /api/dashboard/summary` → `src/lib/dashboard-summary.ts` → reuses `getScopedSubmissions()` (role visibility, `hod_user_id` / `assigned_ireb_user_id` routing, faculty scope, view-as).
+- Track mapping: `type='thesis' + applicant_role='student'` → Student Thesis; student + publication → Student Publication; any faculty → Faculty Publication.
+- Stage-outcome rule: pending = `submitted|under_hod_review|hod_approved|under_admin_review|under_ireb_review`; rejected includes `hod_rejected`; final statuses attributed to the stage of the LAST `approved`/`rejected` row in `approval_decisions` (admin-stage finalization is real). Invariant `pending+approved+rejected=total` asserted; verify against DB with `scripts/check-dashboard-summary.mjs`.
+- Stage/outcome clicks drill into the All Requests table via `drillFilter` on `LeadsReportTabs` (`Lead.decidingStage` distinguishes admin vs IREB outcomes).
+- Filter options come from the same scope rule as `/api/admin/reports/report-filters` (which also returns programs).
+
 ## Database Notes
 
 - ENUMs constrain statuses/roles; `JSONB` holds flexible ethics payloads (`submission_ethics_payload`, GIN-indexed)

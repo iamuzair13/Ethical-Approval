@@ -9,8 +9,8 @@ import { DashboardBoard } from "@/components/dashboard/dashboard-board";
 import {
   defaultFilterState,
   type DashboardFilterState,
-} from "@/components/dashboard/filter-bar";
-import type { FilterOptions } from "@/components/dashboard/types";
+  type FilterOptions,
+} from "@/components/dashboard/types";
 import { getDashboardLeads } from "./fetch";
 import DashboardApiProbe from "@/components/debug/dashboard-api-probe";
 

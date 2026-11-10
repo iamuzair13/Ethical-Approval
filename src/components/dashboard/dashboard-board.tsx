@@ -8,16 +8,13 @@ import {
   type DrillFilter,
 } from "@/app/(home)/_components/leads-report-tabs";
 import type {
+  DashboardFilterState,
   DashboardSummary,
   FilterOptions,
   TrackKey,
 } from "./types";
-import { TRACK_LABELS, TRACK_ORDER } from "./types";
-import {
-  DashboardFilterBar,
-  defaultFilterState,
-  type DashboardFilterState,
-} from "./filter-bar";
+import { TRACK_ORDER } from "./types";
+import { DashboardFilterBar } from "./filter-bar";
 import { GlanceStrip } from "./glance-strip";
 import { TrackSection } from "./track-section";
 import { NeedsAttention } from "./needs-attention";

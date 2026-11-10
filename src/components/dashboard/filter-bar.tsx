@@ -1,35 +1,15 @@
 "use client";
 
-import type { FilterOptions, TrackKey } from "./types";
+import type { DashboardFilterState, DatePreset, FilterOptions, TrackKey } from "./types";
 import { cn } from "@/lib/utils";
-import { TRACK_LABELS, TRACK_ORDER } from "./types";
+import {
+  TRACK_LABELS,
+  TRACK_ORDER,
+  defaultFilterState,
+  rangeForPreset,
+} from "./types";
 
-export type DatePreset = "7d" | "30d" | "90d" | "year" | "custom";
-
-export type DashboardFilterState = {
-  preset: DatePreset;
-  from: string; // yyyy-mm-dd
-  to: string; // yyyy-mm-dd
-  facultyId?: number;
-  departmentId?: number;
-  programId?: number;
-  track?: TrackKey;
-};
-
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-export function rangeForPreset(preset: DatePreset, now = new Date()): { from: string; to: string } {
-  const to = isoDate(now);
-  if (preset === "year") return { from: isoDate(new Date(now.getFullYear(), 0, 1)), to };
-  const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
-  return { from: isoDate(new Date(now.getTime() - days * 86400000)), to };
-}
-
-export function defaultFilterState(now = new Date()): DashboardFilterState {
-  return { preset: "90d", ...rangeForPreset("90d", now) };
-}
+export type { DashboardFilterState, DatePreset };
 
 const PRESETS: { key: DatePreset; label: string }[] = [
   { key: "7d", label: "7d" },
