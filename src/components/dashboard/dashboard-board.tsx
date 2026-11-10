@@ -17,7 +17,6 @@ import { TRACK_ORDER } from "./types";
 import { DashboardFilterBar } from "./filter-bar";
 import { GlanceStrip } from "./glance-strip";
 import { TrackSection, TrackTabCard } from "./track-section";
-import { NeedsAttention } from "./needs-attention";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -265,14 +264,7 @@ export function DashboardBoard({
         </div>
       )}
 
-      <div className="min-w-0">
-        <NeedsAttention
-          items={summary.needsAttention}
-          thresholdDays={summary.tracks.student_thesis.aging.thresholdDays}
-        />
-      </div>
-
-      {/* All Requests / Sensitive Cases — reacts to drill-down */}
+      {/* All Requests / Sensitive Cases / Needs Attention — reacts to drill-down */}
       <div ref={tableRef} className="min-w-0 scroll-mt-40">
         <LeadsReportTabs
           leads={leads}
@@ -281,6 +273,8 @@ export function DashboardBoard({
           canViewSensitive={canViewSensitive}
           drillFilter={drillFilter}
           onClearDrill={() => setDrillFilter(null)}
+          attentionItems={summary.needsAttention}
+          agingThresholdDays={summary.tracks.student_thesis.aging.thresholdDays}
         />
       </div>
     </div>
