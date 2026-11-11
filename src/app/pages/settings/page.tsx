@@ -414,6 +414,33 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/profile");
+              }
+            }}
+            className="group inline-flex items-center gap-2 rounded-xl border border-stroke bg-white/60 px-3.5 py-2 text-sm font-medium text-dark-6 backdrop-blur-sm transition-colors hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-primary/50 dark:hover:text-primary"
+            aria-label="Go back"
+          >
+            <svg
+              className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+              />
+            </svg>
+            Back
+          </button>
         </motion.div>
 
         <motion.div
