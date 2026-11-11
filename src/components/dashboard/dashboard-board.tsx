@@ -15,7 +15,7 @@ import type {
 } from "./types";
 import { TRACK_ORDER } from "./types";
 import { DashboardFilterBar } from "./filter-bar";
-import { TrackSummaryStrip } from "./glance-strip";
+import { TotalApplicationsStrip, TrackSummaryStrip } from "./glance-strip";
 import { TrackSection } from "./track-section";
 import { cn } from "@/lib/utils";
 import { Download, RefreshCw } from "lucide-react";
@@ -200,6 +200,9 @@ export function DashboardBoard({
       )}
 
       <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
+
+      {/* Aggregate stripe — sum of the track cards below. */}
+      <TotalApplicationsStrip summary={summary} visibleTracks={visibleTracks} />
 
       {/* One card per track — clicking a card expands its detail below. */}
       <TrackSummaryStrip

@@ -175,6 +175,60 @@ function TrackStatCard({
   );
 }
 
+/** Slim stripe: summed totals of the visible track cards below it. */
+export function TotalApplicationsStrip({
+  summary,
+  visibleTracks,
+}: {
+  summary: DashboardSummary;
+  visibleTracks: TrackKey[];
+}) {
+  const totals = visibleTracks.reduce(
+    (acc, t) => {
+      const track = summary.tracks[t];
+      return {
+        total: acc.total + track.total,
+        pending: acc.pending + track.outcomes.pending,
+        approved: acc.approved + track.outcomes.approved,
+        rejected: acc.rejected + track.outcomes.rejected,
+      };
+    },
+    { total: 0, pending: 0, approved: 0, rejected: 0 },
+  );
+  const breakdown = [
+    { value: totals.pending, label: "pending", dot: "bg-amber-500" },
+    { value: totals.approved, label: "approved", dot: "bg-emerald-500" },
+    { value: totals.rejected, label: "rejected", dot: "bg-rose-500" },
+  ];
+
+  return (
+    <section
+      aria-label="Total applications across visible tracks"
+      className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <p className="flex items-baseline gap-2.5">
+        <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+          Total applications
+        </span>
+        <span className="text-xl font-semibold tabular-nums leading-none text-slate-900 dark:text-white">
+          <CountUp value={totals.total} />
+        </span>
+      </p>
+      <span className="ml-auto flex items-center gap-3.5">
+        {breakdown.map((b) => (
+          <span
+            key={b.label}
+            className="flex items-center gap-1.5 text-[13px] tabular-nums text-slate-500 dark:text-slate-400"
+          >
+            <span className={cn("size-1.5 rounded-full", b.dot)} aria-hidden />
+            {b.value} {b.label}
+          </span>
+        ))}
+      </span>
+    </section>
+  );
+}
+
 export function TrackSummaryStrip({
   summary,
   visibleTracks,
