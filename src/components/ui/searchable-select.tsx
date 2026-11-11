@@ -264,7 +264,7 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className="relative">
       {label && (
-        <span className="mb-1.5 block text-xs font-medium text-dark-5 dark:text-dark-6">
+        <span className="mb-1.5 block text-[13px] font-medium text-slate-500 dark:text-slate-400">
           {label}
         </span>
       )}

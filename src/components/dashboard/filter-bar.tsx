@@ -8,6 +8,9 @@ import {
   defaultFilterState,
   rangeForPreset,
 } from "./types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SegmentedControl } from "./primitives";
+import { RotateCcw } from "lucide-react";
 
 export type { DashboardFilterState, DatePreset };
 
@@ -19,11 +22,11 @@ const PRESETS: { key: DatePreset; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
-const selectClass =
-  "h-9 w-full min-w-0 truncate rounded-lg border border-stroke bg-white px-2.5 text-xs font-medium text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-gray-dark dark:text-white sm:max-w-[170px]";
+const selectTrigger =
+  "h-11 border-slate-200 bg-white px-3.5 text-sm font-normal text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600";
 
-const labelClass =
-  "flex min-w-0 flex-col gap-1 text-xs font-medium text-dark-5 dark:text-dark-6 sm:flex-row sm:items-center sm:gap-1.5";
+const dateInputClass =
+  "h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200";
 
 export function DashboardFilterBar({
   filters,
@@ -64,139 +67,108 @@ export function DashboardFilterBar({
     onChange(next);
   };
 
+  const allOption = [{ value: "", label: "All" }];
+
   return (
-    <div className="min-w-0 rounded-[10px] border border-stroke bg-white px-4 py-3 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        {/* Date presets — scroll horizontally on narrow screens; Reset stays put */}
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <div
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-none [&::-webkit-scrollbar]:hidden"
-            role="group"
-            aria-label="Date range"
-          >
-            {PRESETS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPreset(p.key)}
-                className={cn(
-                  "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition",
-                  filters.preset === p.key
-                    ? "bg-primary text-white"
-                    : "text-dark-5 hover:bg-gray-2 dark:text-dark-6 dark:hover:bg-dark-2",
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-            {filters.preset === "custom" && (
-              <span className="ml-1 flex shrink-0 items-center gap-1.5">
-                <input
-                  type="date"
-                  aria-label="From date"
-                  value={filters.from}
-                  max={filters.to}
-                  onChange={(e) => onChange({ ...filters, from: e.target.value })}
-                  className={cn(selectClass, "px-1.5")}
-                />
-                <span className="text-xs text-dark-5 dark:text-dark-6">–</span>
-                <input
-                  type="date"
-                  aria-label="To date"
-                  value={filters.to}
-                  min={filters.from}
-                  onChange={(e) => onChange({ ...filters, to: e.target.value })}
-                  className={cn(selectClass, "px-1.5")}
-                />
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => onChange(defaultFilterState())}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition hover:bg-gray-2 sm:ml-0 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-          >
-            Reset
-          </button>
-        </div>
+    <div className="min-w-0 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      {/* Date range + reset */}
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          ariaLabel="Date range"
+          value={filters.preset}
+          onChange={setPreset}
+          options={PRESETS.map((p) => ({ value: p.key, label: p.label }))}
+        />
 
-        {/* Org selects — 2-col grid on mobile, inline on sm+ */}
-        <div className="grid w-full grid-cols-2 gap-2 sm:contents">
-          <span className="hidden h-5 w-px bg-stroke sm:block dark:bg-dark-3" />
+        {filters.preset === "custom" && (
+          <span className="flex items-center gap-2">
+            <input
+              type="date"
+              aria-label="From date"
+              value={filters.from}
+              max={filters.to}
+              onChange={(e) => onChange({ ...filters, from: e.target.value })}
+              className={dateInputClass}
+            />
+            <span className="text-sm text-slate-400" aria-hidden>
+              –
+            </span>
+            <input
+              type="date"
+              aria-label="To date"
+              value={filters.to}
+              min={filters.from}
+              onChange={(e) => onChange({ ...filters, to: e.target.value })}
+              className={dateInputClass}
+            />
+          </span>
+        )}
 
-          <label className={labelClass}>
-            Faculty
-            <select
-              aria-label="Filter by faculty"
-              value={filters.facultyId ?? ""}
-              onChange={(e) => setNum("facultyId")(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">All</option>
-              {options.faculties.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <button
+          type="button"
+          onClick={() => onChange(defaultFilterState())}
+          className="ml-auto inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <RotateCcw className="size-3.5" aria-hidden />
+          Reset
+        </button>
+      </div>
 
-          <label className={labelClass}>
-            Department
-            <select
-              aria-label="Filter by department"
-              value={filters.departmentId ?? ""}
-              onChange={(e) => setNum("departmentId")(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">All</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className={labelClass}>
-            Program
-            <select
-              aria-label="Filter by program"
-              value={filters.programId ?? ""}
-              onChange={(e) => setNum("programId")(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">All</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className={labelClass}>
-            Track
-            <select
-              aria-label="Filter by track"
-              value={filters.track ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...filters,
-                  track: (e.target.value || undefined) as TrackKey | undefined,
-                })
-              }
-              className={selectClass}
-            >
-              <option value="">All</option>
-              {TRACK_ORDER.map((t) => (
-                <option key={t} value={t}>
-                  {TRACK_LABELS[t]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+      {/* Organization filters */}
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SearchableSelect
+          label="Faculty"
+          placeholder="All"
+          searchPlaceholder="Search faculties…"
+          options={[
+            ...allOption,
+            ...options.faculties.map((f) => ({ value: String(f.id), label: f.name })),
+          ]}
+          value={filters.facultyId ? String(filters.facultyId) : ""}
+          onChange={setNum("facultyId")}
+          triggerClassName={selectTrigger}
+        />
+        <SearchableSelect
+          label="Department"
+          placeholder="All"
+          searchPlaceholder="Search departments…"
+          options={[
+            ...allOption,
+            ...departments.map((d) => ({ value: String(d.id), label: d.name })),
+          ]}
+          value={filters.departmentId ? String(filters.departmentId) : ""}
+          onChange={setNum("departmentId")}
+          triggerClassName={selectTrigger}
+        />
+        <SearchableSelect
+          label="Program"
+          placeholder="All"
+          searchPlaceholder="Search programs…"
+          options={[
+            ...allOption,
+            ...programs.map((p) => ({ value: String(p.id), label: p.name })),
+          ]}
+          value={filters.programId ? String(filters.programId) : ""}
+          onChange={setNum("programId")}
+          triggerClassName={selectTrigger}
+        />
+        <SearchableSelect
+          label="Track"
+          placeholder="All"
+          searchPlaceholder="Search tracks…"
+          options={[
+            ...allOption,
+            ...TRACK_ORDER.map((t) => ({ value: t, label: TRACK_LABELS[t] })),
+          ]}
+          value={filters.track ?? ""}
+          onChange={(v) =>
+            onChange({
+              ...filters,
+              track: (v || undefined) as TrackKey | undefined,
+            })
+          }
+          triggerClassName={selectTrigger}
+        />
       </div>
     </div>
   );
