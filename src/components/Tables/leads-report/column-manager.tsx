@@ -228,8 +228,8 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
         aria-expanded={open}
         aria-haspopup="dialog"
         className={cn(
-          "inline-flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/25 transition-all duration-150 ease-in-out hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 active:scale-[0.98]",
-          open && "bg-indigo-700 ring-2 ring-indigo-500/30",
+          "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+          open && "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white",
         )}
       >
         <Columns3 className="size-4 shrink-0" aria-hidden />
@@ -302,8 +302,8 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
                       className={cn(
                         "rounded-md p-1 transition-colors",
                         pinned
-                          ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
-                          : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-600",
+                          ? "bg-primary/10 text-primary dark:text-indigo-300"
+                          : "text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700",
                       )}
                     >
                       {pinned ? <Pin className="size-3.5" /> : <PinOff className="size-3.5" />}
@@ -319,8 +319,8 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
                       className={cn(
                         "rounded-md p-1 transition-colors",
                         hidden
-                          ? "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-600"
-                          : "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300",
+                          ? "text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+                          : "bg-primary/10 text-primary dark:text-indigo-300",
                       )}
                     >
                       {hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}

@@ -1072,7 +1072,7 @@ export function LeadsReport({
       title="Drag to resize"
       onPointerDown={(e) => startColumnResize(e, id)}
       onClick={(e) => e.stopPropagation()}
-      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:right-0 after:w-0.5 after:rounded-full after:bg-indigo-300/70 after:transition-all hover:after:bg-indigo-500 hover:after:w-1 dark:after:bg-indigo-600/70 dark:hover:after:bg-indigo-400"
+      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:right-0 after:w-0.5 after:rounded-full after:bg-slate-300/80 after:transition-all hover:after:bg-primary hover:after:w-1 dark:after:bg-slate-600 dark:hover:after:bg-indigo-400"
     />
   );
 
@@ -1081,11 +1081,11 @@ export function LeadsReport({
     const left = pinnedLeftOffset(id);
     const pinnedCls =
       left !== null
-        ? "sticky z-20 bg-indigo-50/95 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.10)] backdrop-blur-sm dark:bg-indigo-950/90"
+        ? "sticky z-20 bg-slate-50/95 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.08)] backdrop-blur-sm dark:bg-slate-900/95"
         : "";
     const style = left !== null ? { left } : undefined;
     const headCls =
-      "relative overflow-hidden whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300";
+      "relative overflow-hidden whitespace-nowrap text-[13px] font-medium text-slate-500 dark:text-slate-400";
 
     switch (id) {
       case "currentStatus":
@@ -1122,9 +1122,9 @@ export function LeadsReport({
         return (
           <TableHead
             key={id}
-            className="sticky right-0 z-20 bg-indigo-50/80 shadow-md backdrop-blur-sm dark:bg-indigo-950/40"
+            className="sticky right-0 z-20 bg-slate-50/95 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.10)] backdrop-blur-sm dark:bg-slate-900/95"
           >
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
               Actions
             </span>
           </TableHead>
@@ -1149,12 +1149,7 @@ export function LeadsReport({
     const left = pinnedLeftOffset(id);
     const pinnedCls =
       left !== null
-        ? cn(
-            "sticky z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.10)]",
-            index % 2 === 1
-              ? "bg-gray-50 dark:bg-gray-800"
-              : "bg-white dark:bg-gray-800",
-          )
+        ? "sticky z-10 bg-white shadow-[4px_0_8px_-4px_rgba(0,0,0,0.08)] dark:bg-slate-900"
         : "";
     const style = left !== null ? { left } : undefined;
 
@@ -1168,7 +1163,7 @@ export function LeadsReport({
                 onClick={() => setProfileModalLead(lead)}
                 aria-label={`View profile for ${lead.name}`}
                 title="View applicant profile"
-                className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
+                className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1200,7 +1195,7 @@ export function LeadsReport({
         return (
           <TableCell key={id} className={pinnedCls} style={style}>
             <a
-              className="block max-w-48 truncate text-sm text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+              className="block max-w-48 truncate text-sm text-primary hover:underline dark:text-indigo-300"
               href={`mailto:${lead.email}`}
             >
               {lead.email}
@@ -1230,7 +1225,7 @@ export function LeadsReport({
           <TableCell
             key={id}
             className={cn(
-              "truncate text-sm text-gray-700 dark:text-gray-300",
+              "truncate text-sm text-slate-600 dark:text-slate-300",
               pinnedCls,
             )}
             style={style}
@@ -1241,13 +1236,13 @@ export function LeadsReport({
         );
       case "responseIn":
         return (
-          <TableCell key={id} className={cn("text-sm text-gray-700 dark:text-gray-300", pinnedCls)} style={style}>
+          <TableCell key={id} className={cn("text-sm tabular-nums text-slate-600 dark:text-slate-300", pinnedCls)} style={style}>
             {lead.project}
           </TableCell>
         );
       case "duration":
         return (
-          <TableCell key={id} className={cn("text-sm text-gray-700 dark:text-gray-300", pinnedCls)} style={style}>
+          <TableCell key={id} className={cn("text-sm tabular-nums text-slate-600 dark:text-slate-300", pinnedCls)} style={style}>
             {lead.duration}
           </TableCell>
         );
@@ -1256,9 +1251,8 @@ export function LeadsReport({
           <TableCell
             key={id}
             className={cn(
-              "sticky right-0 min-w-40 bg-white align-top shadow-md dark:bg-gray-800",
+              "sticky right-0 min-w-40 bg-white align-top shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.10)] dark:bg-slate-900",
               actionMenuLeadId === lead.id ? "z-50 overflow-visible" : "z-10",
-              index % 2 === 1 && "bg-gray-50 dark:bg-gray-800",
             )}
           >
             <RowActions
@@ -1316,7 +1310,7 @@ export function LeadsReport({
 
   return (
     <div className={cn("col-span-12", className)}>
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-gray-700 dark:bg-gray-800">
+      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-200 dark:border-slate-800 dark:bg-slate-900">
         <TableToolbar
           title={title}
           totalCount={visibleLeads.length}
@@ -1376,8 +1370,8 @@ export function LeadsReport({
                 <col key={id} style={{ width: widthOf(id) }} />
               ))}
             </colgroup>
-            <TableHeader className="sticky top-0 z-10 bg-indigo-50/80 backdrop-blur-sm dark:bg-indigo-950/40">
-              <TableRow className="border-b border-indigo-100 [&>th]:px-4 [&>th]:py-3 dark:border-indigo-900/50 md:[&>th]:px-6 md:[&>th]:py-4">
+            <TableHeader className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-slate-900/95">
+              <TableRow className="border-b border-slate-200 [&>th]:px-4 [&>th]:py-3.5 dark:border-slate-800 md:[&>th]:px-6">
                 {visibleColumns.map(headerCellFor)}
               </TableRow>
             </TableHeader>
@@ -1391,9 +1385,8 @@ export function LeadsReport({
                   <TableRow
                     key={lead.id}
                     className={cn(
-                      "border-b border-gray-100 transition-colors hover:bg-indigo-50/60 dark:border-gray-700 dark:hover:bg-indigo-950/30",
-                      index % 2 === 1 && "bg-gray-50/30 dark:bg-gray-800/30",
-                      "[&>td]:px-4 [&>td]:py-3 md:[&>td]:px-6 md:[&>td]:py-4",
+                      "border-b border-slate-100 transition-colors duration-150 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40",
+                      "[&>td]:px-4 [&>td]:py-4 md:[&>td]:px-6",
                       busyLeadId === lead.id && "cursor-wait opacity-60",
                     )}
                   >

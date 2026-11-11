@@ -65,15 +65,15 @@ export function RowActions({
     isAdminStage && currentRole === "administrator" && Boolean(onRecommend || onMarkSensitive);
 
   const menuItemClass =
-    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition hover:bg-gray-50 dark:hover:bg-gray-700";
+    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800";
 
   return (
     <Dropdown isOpen={isMenuOpen} setIsOpen={onMenuOpenChange}>
       <DropdownTrigger
         className={cn(
-          "inline-flex w-full min-w-28 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all duration-150 ease-in-out",
-          "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98]",
-          "disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+          "inline-flex h-9 w-full min-w-28 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-600 transition-colors duration-150",
+          "hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          "disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
         )}
         aria-label="Row actions"
         aria-expanded={isMenuOpen}
@@ -85,11 +85,11 @@ export function RowActions({
         portalled
         placement={openUpward ? "top" : "bottom"}
         align="end"
-        className="w-52 min-w-40 max-w-64 overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+        className="w-52 min-w-40 max-w-64 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
       >
         <DropdownClose>
           <button type="button" onClick={onView} className={menuItemClass}>
-            <Eye className="size-3.5 text-blue-600 dark:text-blue-400" aria-hidden />
+            <Eye className="size-3.5 text-primary dark:text-indigo-300" aria-hidden />
             View
           </button>
         </DropdownClose>
@@ -98,7 +98,7 @@ export function RowActions({
             type="button"
             disabled={isBusy}
             onClick={onDownload}
-            className={cn(menuItemClass, "text-gray-700 dark:text-gray-300")}
+            className={menuItemClass}
           >
             <Download className="size-3.5" aria-hidden />
             Download
@@ -115,7 +115,7 @@ export function RowActions({
         {lead.latestFeedbackComment && onViewFeedback && (
           <DropdownClose>
             <button type="button" onClick={onViewFeedback} className={menuItemClass}>
-              <MessageSquare className="size-3.5 text-blue-600 dark:text-blue-400" aria-hidden />
+              <MessageSquare className="size-3.5 text-primary dark:text-indigo-300" aria-hidden />
               View Feedback
             </button>
           </DropdownClose>
@@ -129,7 +129,7 @@ export function RowActions({
           </DropdownClose>
         )}
         {canDecide && (onApprove || onReject) && (
-          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+          <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
         )}
         {canDecide && onApprove && (
           <DropdownClose>
@@ -150,7 +150,7 @@ export function RowActions({
               type="button"
               disabled={isBusy}
               onClick={onReject}
-              className={cn(menuItemClass, "text-red-600 dark:text-red-400")}
+              className={cn(menuItemClass, "text-rose-600 dark:text-rose-400")}
             >
               <XCircle className="size-3.5" aria-hidden />
               Reject
@@ -158,7 +158,7 @@ export function RowActions({
           </DropdownClose>
         )}
         {canAdminRelease && (onRecommend || onMarkSensitive) && (
-          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+          <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
         )}
         {canAdminRelease && onRecommend && (
           <DropdownClose>
@@ -166,7 +166,7 @@ export function RowActions({
               type="button"
               disabled={isBusy}
               onClick={onRecommend}
-              className={cn(menuItemClass, "text-blue-600 dark:text-blue-400")}
+              className={cn(menuItemClass, "text-primary dark:text-indigo-300")}
             >
               <Send className="size-3.5" aria-hidden />
               Recommend

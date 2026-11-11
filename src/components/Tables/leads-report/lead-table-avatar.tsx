@@ -52,7 +52,7 @@ export function LeadTableAvatar({
           onClick={onView}
           aria-label={`View profile for ${name}`}
           title="View applicant profile"
-          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700 dark:hover:text-blue-400"
+          className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -84,8 +84,8 @@ export function LeadTableAvatar({
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-full",
-            "bg-gradient-to-br from-blue-400 to-blue-600",
-            "text-xs font-bold text-white",
+            "bg-slate-200 dark:bg-slate-700",
+            "text-xs font-semibold text-slate-600 dark:text-slate-200",
           )}
           aria-hidden
         >

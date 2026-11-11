@@ -5,7 +5,9 @@ import { LeadsReport } from "@/components/Tables/leads-report";
 import type { Lead } from "@/components/Tables/leads-report/types";
 import { NeedsAttentionList } from "@/components/dashboard/needs-attention";
 import type { NeedsAttentionItem } from "@/components/dashboard/types";
+import { SegmentedControl } from "@/components/dashboard/primitives";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 export type DashboardTrackKey =
   | "student_thesis"
@@ -123,75 +125,33 @@ export function LeadsReportTabs({
   return (
     <div className={cn("col-span-12", className)}>
       {drillFilter && (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2">
           <span
             role="status"
-            className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary dark:bg-primary/20"
+            className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1.5 text-[13px] font-medium text-primary ring-1 ring-inset ring-primary/20 dark:text-indigo-300"
           >
             Filtered: {TRACK_LABELS[drillFilter.track]} · {drillFilter.label}
             <button
               type="button"
               onClick={onClearDrill}
               aria-label="Clear dashboard filter"
-              className="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold hover:bg-primary/40"
+              className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-indigo-300"
             >
-              ✕
+              <X className="size-3" aria-hidden />
             </button>
           </span>
         </div>
       )}
 
       {tabs.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-2 md:mb-6 md:gap-3">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-            const isSensitive = tab.key === "sensitive";
-            const isAttention = tab.key === "attention";
-            const warn = isSensitive || isAttention;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all md:px-5 md:py-3",
-                  isActive
-                    ? warn
-                      ? "bg-amber-500 text-white shadow-sm dark:bg-amber-600"
-                      : "bg-primary text-white shadow-sm"
-                    : warn
-                      ? "border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
-                      : "border border-stroke bg-white text-dark hover:bg-gray-2 dark:border-dark-3 dark:bg-gray-dark dark:text-white dark:hover:bg-white/5",
-                )}
-              >
-                {warn && (
-                  <span className="relative flex shrink-0">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg>
-                    {isAttention && tab.count > 0 && !isActive && (
-                      <span className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-amber-500 motion-reduce:animate-none" />
-                    )}
-                  </span>
-                )}
-                {tab.label}
-                <span
-                  className={cn(
-                    "inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold",
-                    isActive
-                      ? warn
-                        ? "bg-white/25 text-white"
-                        : "bg-white/20 text-white"
-                      : warn
-                        ? "bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
-                        : "bg-gray-200 text-gray-700 dark:bg-white/10 dark:text-gray-300",
-                  )}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          ariaLabel="Request lists"
+          accent="brand"
+          value={activeTab}
+          onChange={setActiveTab}
+          className="mb-5"
+          options={tabs.map((t) => ({ value: t.key, label: t.label, count: t.count }))}
+        />
       )}
 
       {activeTab === "all" && (

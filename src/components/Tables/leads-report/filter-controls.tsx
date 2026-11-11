@@ -76,21 +76,21 @@ export function FilterMenu(props: FilterMenuProps) {
     <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
       <DropdownTrigger
         className={cn(
-          "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98]",
+          "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
           hasSelection
-            ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
-            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+            ? "border-primary/30 bg-primary/5 text-primary dark:border-primary/40 dark:bg-primary/10 dark:text-indigo-300"
+            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
         )}
         aria-label={`Filter by ${label}`}
         aria-expanded={isOpen}
       >
         {hasSelection && (
-          <span className="size-1.5 shrink-0 rounded-full bg-blue-600 dark:bg-blue-400" aria-hidden />
+          <span className="size-1.5 shrink-0 rounded-full bg-primary dark:bg-indigo-400" aria-hidden />
         )}
-        {!hasSelection && <Filter className="size-3.5 shrink-0 text-gray-400" aria-hidden />}
+        {!hasSelection && <Filter className="size-3.5 shrink-0 text-slate-400" aria-hidden />}
         <span className="max-w-48 truncate font-medium">{triggerLabel}</span>
         {hasSelection && (
-          <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-xs font-semibold text-white dark:bg-blue-500">
+          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary dark:text-indigo-300">
             {selectedValues.length}
           </span>
         )}
@@ -98,7 +98,7 @@ export function FilterMenu(props: FilterMenuProps) {
       </DropdownTrigger>
       <DropdownContent
         align="end"
-        className="z-30 mt-1 max-h-72 w-64 overflow-y-auto overflow-x-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+        className="z-30 mt-1 max-h-72 w-64 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
       >
         <button
           type="button"
@@ -107,19 +107,19 @@ export function FilterMenu(props: FilterMenuProps) {
             if (!multiple) setIsOpen(false);
           }}
           className={cn(
-            "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+            "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
             !hasSelection
-              ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
-              : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+              ? "bg-primary/5 text-primary dark:bg-primary/10 dark:text-indigo-300"
+              : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800",
           )}
         >
           <span>All {label}s</span>
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             {totalCount}
           </span>
         </button>
         {options.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+          <div className="px-3 py-2 text-[13px] text-slate-500 dark:text-slate-400">
             No values to filter by.
           </div>
         ) : (
@@ -131,10 +131,10 @@ export function FilterMenu(props: FilterMenuProps) {
                 type="button"
                 onClick={() => toggleOption(entry.value)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-3 rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+                  "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors",
                   isSelected
-                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
-                    : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                    ? "bg-primary/5 text-primary dark:bg-primary/10 dark:text-indigo-300"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800",
                 )}
               >
                 <span className="flex min-w-0 items-center gap-2">
@@ -143,8 +143,8 @@ export function FilterMenu(props: FilterMenuProps) {
                       className={cn(
                         "grid size-4 shrink-0 place-items-center rounded border",
                         isSelected
-                          ? "border-blue-600 bg-blue-600 text-white"
-                          : "border-gray-300 dark:border-gray-600",
+                          ? "border-primary bg-primary text-white"
+                          : "border-slate-300 dark:border-slate-600",
                       )}
                       aria-hidden
                     >
@@ -153,7 +153,7 @@ export function FilterMenu(props: FilterMenuProps) {
                   )}
                   <span className="truncate">{entry.value}</span>
                 </span>
-                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
                   {entry.count}
                 </span>
               </button>
@@ -175,14 +175,14 @@ export function FilterChip({
   onClear: () => void;
 }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
-      <span className="font-semibold uppercase tracking-wide opacity-70">{label}:</span>
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20 dark:text-indigo-300">
+      <span className="font-medium opacity-70">{label}:</span>
       <span className="max-w-48 truncate">{value}</span>
       <button
         type="button"
         onClick={onClear}
         aria-label={`Clear ${label} filter`}
-        className="ml-0.5 -mr-0.5 rounded-full p-0.5 transition hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:hover:bg-blue-900/50"
+        className="ml-0.5 -mr-0.5 grid size-5 place-items-center rounded-full transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         <X className="size-3" aria-hidden />
       </button>
@@ -252,7 +252,7 @@ export function ActiveFiltersBar({
       <button
         type="button"
         onClick={onClearAll}
-        className="shrink-0 text-xs font-medium text-blue-600 underline transition hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:text-blue-400 dark:hover:text-blue-300"
+        className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-indigo-300"
       >
         Clear all
       </button>
