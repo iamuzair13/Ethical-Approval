@@ -175,6 +175,9 @@ function TrackStatCard({
   );
 }
 
+const DECIDER_SHORT_LABELS = { hod: "HOD", admin: "Admin", ireb: "IREB" } as const;
+const DECIDER_ORDER = ["hod", "admin", "ireb"] as const;
+
 /** Compact chip: summed totals of the visible track cards below it. */
 export function TotalApplicationsStrip({
   summary,
@@ -195,11 +198,23 @@ export function TotalApplicationsStrip({
     },
     { total: 0, pending: 0, approved: 0, rejected: 0 },
   );
-  const breakdown = [
-    { value: totals.pending, label: "pending", dot: "bg-amber-500" },
-    { value: totals.approved, label: "approved", dot: "bg-emerald-500" },
-    { value: totals.rejected, label: "rejected", dot: "bg-rose-500" },
-  ];
+
+  // Per-decider divisions summed across the visible tracks.
+  const byDecider = DECIDER_ORDER.map((stage) => ({
+    stage,
+    label: DECIDER_SHORT_LABELS[stage],
+    ...visibleTracks.reduce(
+      (acc, t) => {
+        const d = summary.tracks[t].deciders.find((x) => x.key === stage);
+        return {
+          pending: acc.pending + (d?.pending ?? 0),
+          approved: acc.approved + (d?.approved ?? 0),
+          rejected: acc.rejected + (d?.rejected ?? 0),
+        };
+      },
+      { pending: 0, approved: 0, rejected: 0 },
+    ),
+  }));
 
   return (
     <div
@@ -215,14 +230,23 @@ export function TotalApplicationsStrip({
           <CountUp value={totals.total} />
         </span>
       </span>
-      <span className="hidden items-center gap-3 border-l border-slate-200 pl-3 sm:flex dark:border-slate-700">
-        {breakdown.map((b) => (
+      <span className="hidden items-center gap-3 border-l border-slate-200 pl-3 xl:flex dark:border-slate-700">
+        {byDecider.map((d) => (
           <span
-            key={b.label}
-            className="flex items-center gap-1.5 text-[13px] tabular-nums text-slate-500 dark:text-slate-400"
+            key={d.stage}
+            title={`${d.label} — Pending / Approved / Rejected`}
+            className="flex items-center gap-1.5 whitespace-nowrap text-[13px] tabular-nums"
           >
-            <span className={cn("size-1.5 rounded-full", b.dot)} aria-hidden />
-            {b.value} {b.label}
+            <span className="font-medium text-slate-500 dark:text-slate-400">
+              {d.label}
+            </span>
+            <span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400">{d.pending}</span>
+              <span className="mx-0.5 text-slate-300 dark:text-slate-600">/</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">{d.approved}</span>
+              <span className="mx-0.5 text-slate-300 dark:text-slate-600">/</span>
+              <span className="font-semibold text-rose-600 dark:text-rose-400">{d.rejected}</span>
+            </span>
           </span>
         ))}
       </span>
