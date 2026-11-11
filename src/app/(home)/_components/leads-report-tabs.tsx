@@ -76,6 +76,8 @@ type PropsType = {
   /** Oldest pending items — rendered as an "attention" tab after Sensitive. */
   attentionItems?: NeedsAttentionItem[];
   agingThresholdDays?: number;
+  /** Optional actions row rendered in its own div right after the tab row. */
+  actions?: React.ReactNode;
 };
 
 type TabKey = "all" | "sensitive" | "attention";
@@ -90,6 +92,7 @@ export function LeadsReportTabs({
   onClearDrill,
   attentionItems = [],
   agingThresholdDays = 7,
+  actions,
 }: PropsType) {
   const showSensitiveTab = canViewSensitive && sensitiveLeads.length > 0;
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -153,6 +156,8 @@ export function LeadsReportTabs({
           options={tabs.map((t) => ({ value: t.key, label: t.label, count: t.count }))}
         />
       )}
+
+      {actions && <div className="mb-4 min-w-0">{actions}</div>}
 
       {activeTab === "all" && (
         <LeadsReport leads={filteredLeads} currentRole={currentRole} />

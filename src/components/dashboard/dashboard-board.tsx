@@ -176,33 +176,6 @@ export function DashboardBoard({
 
   return (
     <div className="grid w-full min-w-0 max-w-full gap-5">
-      {/* Refresh / export row — caption sits next to the actions */}
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-        <p className="mr-auto text-[13px] text-slate-500 dark:text-slate-400" aria-live="polite">
-          {loading ? "Refreshing…" : `Updated ${updatedAgo}s ago`}
-        </p>
-        <button
-          type="button"
-          onClick={() => void fetchSummary(filters)}
-          disabled={loading}
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-        >
-          <RefreshCw
-            className={cn("size-4", loading && "animate-spin motion-reduce:animate-none")}
-            aria-hidden
-          />
-          Refresh
-        </button>
-        <button
-          type="button"
-          onClick={exportExcel}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-        >
-          <Download className="size-4" aria-hidden />
-          Export Excel
-        </button>
-      </div>
-
       {error && (
         <div
           role="alert"
@@ -260,6 +233,33 @@ export function DashboardBoard({
           onClearDrill={() => setDrillFilter(null)}
           attentionItems={summary.needsAttention}
           agingThresholdDays={summary.tracks.student_thesis.aging.thresholdDays}
+          actions={
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+              <p className="mr-auto text-[13px] text-slate-500 dark:text-slate-400" aria-live="polite">
+                {loading ? "Refreshing…" : `Updated ${updatedAgo}s ago`}
+              </p>
+              <button
+                type="button"
+                onClick={() => void fetchSummary(filters)}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <RefreshCw
+                  className={cn("size-4", loading && "animate-spin motion-reduce:animate-none")}
+                  aria-hidden
+                />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={exportExcel}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+              >
+                <Download className="size-4" aria-hidden />
+                Export Excel
+              </button>
+            </div>
+          }
         />
       </div>
     </div>
