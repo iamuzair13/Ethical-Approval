@@ -175,7 +175,7 @@ export function DashboardBoard({
   const updatedAgo = secondsAgo(summary.generatedAt, clock);
 
   return (
-    <div className="grid w-full min-w-0 max-w-full gap-8">
+    <div className="grid w-full min-w-0 max-w-full gap-5">
       {/* Refresh / export row — caption sits next to the actions */}
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
         <p className="mr-auto text-[13px] text-slate-500 dark:text-slate-400" aria-live="polite">

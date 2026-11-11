@@ -149,7 +149,7 @@ export function LeadsReportTabs({
           accent="brand"
           value={activeTab}
           onChange={setActiveTab}
-          className="mb-5"
+          className="mb-4"
           options={tabs.map((t) => ({ value: t.key, label: t.label, count: t.count }))}
         />
       )}

@@ -52,7 +52,7 @@ function FlowConnector({ entered }: { entered: number }) {
 }
 
 const NODE_BASE =
-  "flex min-h-[96px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-3 py-3.5 text-center dark:bg-slate-800/50";
+  "flex min-h-[88px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-3 py-3 text-center dark:bg-slate-800/50";
 
 export function PipelineStepper({
   track,

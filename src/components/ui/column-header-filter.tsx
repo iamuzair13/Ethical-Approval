@@ -310,7 +310,7 @@ export function ColumnHeaderFilter({
   return (
     <th
       className={cn(
-        "whitespace-nowrap px-4 py-3.5 text-[13px] font-medium",
+        "whitespace-nowrap px-4 py-3 text-[13px] font-medium",
         "select-none",
         className,
       )}
@@ -627,7 +627,7 @@ export function ColumnHeaderSortFilter({
   return (
     <th
       className={cn(
-        "whitespace-nowrap px-4 py-3.5 text-[13px] font-medium select-none",
+        "whitespace-nowrap px-4 py-3 text-[13px] font-medium select-none",
         className,
       )}
     >

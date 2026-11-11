@@ -1371,7 +1371,7 @@ export function LeadsReport({
               ))}
             </colgroup>
             <TableHeader className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm dark:bg-slate-900/95">
-              <TableRow className="border-b border-slate-200 [&>th]:px-4 [&>th]:py-3.5 dark:border-slate-800 md:[&>th]:px-6">
+              <TableRow className="border-b border-slate-200 [&>th]:px-4 [&>th]:py-3 dark:border-slate-800 md:[&>th]:px-6">
                 {visibleColumns.map(headerCellFor)}
               </TableRow>
             </TableHeader>
@@ -1386,7 +1386,7 @@ export function LeadsReport({
                     key={lead.id}
                     className={cn(
                       "border-b border-slate-100 transition-colors duration-150 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40",
-                      "[&>td]:px-4 [&>td]:py-4 md:[&>td]:px-6",
+                      "[&>td]:px-4 [&>td]:py-3 md:[&>td]:px-6",
                       busyLeadId === lead.id && "cursor-wait opacity-60",
                     )}
                   >

@@ -94,7 +94,7 @@ function DeciderBlock({
 }) {
   const stage = decider.key;
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 px-4 py-4 dark:bg-slate-800/50">
+    <div className="min-w-0 rounded-xl bg-slate-50 px-4 py-3.5 dark:bg-slate-800/50">
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
         <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
           {decider.label}
@@ -216,7 +216,7 @@ export function TrackSection({
     <section
       id={`track-${track.track}-detail`}
       aria-labelledby={`track-${track.track}-title`}
-      className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       {/* Header — click toggles the section body */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -271,7 +271,7 @@ export function TrackSection({
             </p>
           ) : (
             <>
-              <div className="mt-5">
+              <div className="mt-4">
                 <PipelineStepper track={track} onStageClick={(stage: StageKey) =>
                   onDrill({
                     track: track.track,
@@ -283,19 +283,19 @@ export function TrackSection({
               </div>
 
               {/* Outcome blocks per deciding body */}
-              <div className={cn("mt-5", deciderGrid)}>
+              <div className={cn("mt-4", deciderGrid)}>
                 {track.deciders.map((d) => (
                   <DeciderBlock key={d.key} track={track} decider={d} onDrill={onDrill} />
                 ))}
               </div>
 
               {/* Trend */}
-              <div className="mt-6 min-w-0">
+              <div className="mt-5 min-w-0">
                 <TrackTrend trend={track.trend} trackLabel={track.label} />
               </div>
 
               {/* Mini facts */}
-              <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-5 dark:border-slate-800">
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
                 <MiniFact
                   icon={ShieldAlert}
                   value={String(track.sensitiveCount)}

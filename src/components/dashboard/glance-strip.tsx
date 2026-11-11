@@ -90,7 +90,7 @@ function TrackStatCard({
       aria-controls={`track-${track.track}-detail`}
       aria-label={`${track.label}: ${track.total} submitted. ${open ? "Collapse" : "Expand"} details.`}
       className={cn(
-        "group min-w-0 scroll-mt-40 rounded-2xl border bg-white p-6 text-left shadow-sm",
+        "group min-w-0 scroll-mt-40 rounded-2xl border bg-white p-5 text-left shadow-sm",
         "transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         "dark:bg-slate-900",
@@ -127,7 +127,7 @@ function TrackStatCard({
       </div>
 
       {/* Stat columns: count, sentence-case label, muted percentage */}
-      <div className="mt-5 grid grid-cols-3 gap-3">
+      <div className="mt-4 grid grid-cols-3 gap-3">
         {STAT_META.map((meta, i) => (
           <div
             key={meta.key}
@@ -158,7 +158,7 @@ function TrackStatCard({
 
       {/* Segmented proportion bar */}
       <div
-        className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+        className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
         aria-hidden
       >
         {STAT_META.map((meta, i) =>
@@ -190,7 +190,7 @@ export function TrackSummaryStrip({
     <section
       aria-label="Submission tracks summary"
       className={cn(
-        "grid min-w-0 grid-cols-1 gap-4 sm:gap-5",
+        "grid min-w-0 grid-cols-1 gap-3 sm:gap-4",
         visibleTracks.length > 1 && "lg:grid-cols-3",
         visibleTracks.length === 2 && "lg:grid-cols-2",
       )}

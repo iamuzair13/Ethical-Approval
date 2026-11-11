@@ -117,7 +117,7 @@ export function TableToolbar({
   ];
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 p-5 sm:p-6">
+    <div className="flex min-w-0 flex-col gap-4 p-5">
       {/* Section header — title + muted count, outline actions on the right */}
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="min-w-0">
@@ -227,7 +227,7 @@ export function TableToolbar({
 
       {/* Status tabs — underline style, flush against the table below */}
       <div
-        className="-mb-5 flex min-w-0 flex-wrap items-center gap-x-1 border-b border-slate-200 sm:-mb-6 dark:border-slate-800"
+        className="-mb-5 flex min-w-0 flex-wrap items-center gap-x-1 border-b border-slate-200 dark:border-slate-800"
         role="group"
         aria-label="Filter requests by status"
       >

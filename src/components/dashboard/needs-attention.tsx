@@ -35,7 +35,7 @@ export function NeedsAttentionList({
   return (
     <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-5 shadow-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
       {items.map((item) => (
-        <li key={item.id} className="flex items-center gap-3 py-3.5">
+        <li key={item.id} className="flex items-center gap-3 py-3">
           <span
             className={cn(
               "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums",

@@ -72,7 +72,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1440px] p-4 md:p-8 2xl:p-10">
+        <main className="mx-auto w-full max-w-[1440px] p-4 md:p-6 2xl:p-8">
           {children}
         </main>
       </div>
@@ -87,7 +87,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
         <Header />
         <ViewAsBanner />
 
-        <main className="animate-page-load mx-auto w-full max-w-[1440px] overflow-x-hidden p-4 md:p-8 2xl:p-10">
+        <main className="animate-page-load mx-auto w-full max-w-[1440px] overflow-x-hidden p-4 md:p-6 2xl:p-8">
           {children}
         </main>
       </div>
