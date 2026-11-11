@@ -39,8 +39,8 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
 
   if (isUserShellRoute || isAuthenticatedNonAdmin) {
     return (
-      <div className="min-h-screen bg-gray-2 dark:bg-[#020d1a]">
-        <header className="sticky top-0 z-30 border-b border-stroke bg-white px-4 py-4 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-6">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900 md:px-6">
           <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between gap-4">
             <Link href="/profile" className="flex items-center gap-3">
               <span className="relative flex items-center">
@@ -83,7 +83,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <div className="min-w-0 w-full bg-gray-2 dark:bg-[#020d1a]">
+      <div className="min-w-0 w-full bg-slate-50 dark:bg-slate-950">
         <Header />
         <ViewAsBanner />
 

@@ -27,10 +27,10 @@ export function Header() {
   })();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stroke bg-white px-4 py-5 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-5 2xl:px-10">
+    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900 md:px-6 2xl:px-10">
       <button
         onClick={toggleSidebar}
-        className="rounded-lg border px-1.5 py-1 dark:border-stroke-dark dark:bg-[#020D1A] hover:dark:bg-[#FFFFFF1A] lg:hidden"
+        className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
       >
         <MenuIcon />
         <span className="sr-only">Toggle Sidebar</span>
@@ -49,15 +49,15 @@ export function Header() {
       )}
 
       <div className="max-xl:hidden">
-        <h1 className="mb-0.5 text-heading-5 font-bold text-dark dark:text-white">
+        <h1 className="text-[28px] font-semibold leading-[1.25] tracking-tight text-slate-900 dark:text-white">
           Institute Research Ethics Board
         </h1>
-        <p className="font-medium">{dashboardLabel}</p>
+        <p className="mt-1 text-[15px] text-slate-500 dark:text-slate-400">
+          {dashboardLabel}
+        </p>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">
-        
-
+      <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-3">
         <ThemeToggleSwitch />
 
         <ViewAsMenu />

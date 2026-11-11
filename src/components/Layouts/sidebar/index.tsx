@@ -105,7 +105,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "max-w-[290px] overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 ease-linear dark:border-gray-800 dark:bg-gray-dark",
+          "max-w-[272px] overflow-hidden border-r border-slate-200 bg-white transition-[width] duration-200 ease-linear dark:border-slate-800 dark:bg-slate-900",
           isMobile ? "fixed bottom-0 top-0 z-50" : "sticky top-0 h-screen",
           isOpen ? "w-full" : "w-0",
         )}
@@ -155,13 +155,13 @@ export function Sidebar() {
           {/* Navigation */}
           <div className="custom-scrollbar mt-6 flex-1 overflow-y-auto pr-3 min-[850px]:mt-10">
             {visibleNavData.map((section) => (
-              <div key={section.label} className="nav-item-enter mb-6" style={{ animationDelay: `${0.05 + visibleNavData.indexOf(section) * 0.08}s` }}>
-                <h2 className="mb-5 text-sm font-medium text-dark-4 dark:text-dark-6">
+              <div key={section.label} className="nav-item-enter mb-8" style={{ animationDelay: `${0.05 + visibleNavData.indexOf(section) * 0.08}s` }}>
+                <h2 className="mb-3 px-3.5 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   {section.label}
                 </h2>
 
                 <nav role="navigation" aria-label={section.label}>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1">
                     {section.items.map((item) => (
                       <li key={item.title}>
                         {item.items.length ? (
@@ -173,7 +173,7 @@ export function Sidebar() {
                               onClick={() => toggleExpanded(item.title)}
                             >
                               <item.icon
-                                className="size-6 shrink-0"
+                                className="size-5 shrink-0"
                                 aria-hidden="true"
                               />
 
@@ -191,7 +191,7 @@ export function Sidebar() {
 
                             {expandedItems.includes(item.title) && (
                               <ul
-                                className="ml-9 mr-0 space-y-1.5 pb-[15px] pr-0 pt-2"
+                                className="ml-8 mr-0 space-y-1 pb-4 pr-0 pt-1.5"
                                 role="menu"
                               >
                                 {item.items.map((subItem) => (
@@ -218,13 +218,13 @@ export function Sidebar() {
 
                             return (
                               <MenuItem
-                                className="flex items-center gap-3 py-3"
+                                className="flex items-center gap-3"
                                 as="link"
                                 href={href}
                                 isActive={pathname === href}
                               >
                                 <item.icon
-                                  className="size-6 shrink-0"
+                                  className="size-5 shrink-0"
                                   aria-hidden="true"
                                 />
 

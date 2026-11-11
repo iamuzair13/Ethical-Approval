@@ -173,7 +173,7 @@ const UserAvatar = ({
 }) => {
   const sizeClasses = {
     sm: "size-9 text-xs",
-    md: "size-12 text-sm",
+    md: "size-10 text-xs",
     lg: "size-14 text-base",
   };
 

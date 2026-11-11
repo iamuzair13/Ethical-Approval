@@ -111,9 +111,10 @@ export function ViewAsMenu() {
     >
       <DropdownTrigger
         className={cn(
-          "rounded-lg border border-stroke px-3 py-2 text-sm font-medium",
-          "text-dark transition-colors hover:bg-gray-2",
-          "dark:border-dark-3 dark:text-white dark:hover:bg-dark-3",
+          "inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium",
+          "text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          "dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
         )}
       >
         View As
