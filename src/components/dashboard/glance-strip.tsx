@@ -1,8 +1,7 @@
 "use client";
 
-import { Check, Clock, X, type LucideIcon } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { DashboardSummary, TrackKey } from "./types";
-import { TRACK_LABELS, TRACK_ORDER } from "./types";
 import { CountUp } from "./count-up";
 import { cn } from "@/lib/utils";
 
@@ -29,113 +28,180 @@ function toPercents(parts: number[], total: number): number[] {
 const STAT_META: {
   key: "pending" | "approved" | "rejected";
   label: string;
-  icon: LucideIcon;
   numClass: string;
+  dot: string;
+  bar: string;
   definition: string;
 }[] = [
   {
     key: "pending",
     label: "Pending",
-    icon: Clock,
     numClass: "text-amber-600 dark:text-amber-400",
+    dot: "bg-amber-500",
+    bar: "bg-amber-400 dark:bg-amber-500",
     definition: "Waiting for a decision at any stage of this track's workflow.",
   },
   {
     key: "approved",
     label: "Approved",
-    icon: Check,
     numClass: "text-emerald-600 dark:text-emerald-400",
+    dot: "bg-emerald-500",
+    bar: "bg-emerald-400 dark:bg-emerald-500",
     definition: "Reached a final approval decision.",
   },
   {
     key: "rejected",
     label: "Rejected",
-    icon: X,
-    numClass: "text-red-600 dark:text-red-400",
+    numClass: "text-rose-600 dark:text-rose-400",
+    dot: "bg-rose-500",
+    bar: "bg-rose-400 dark:bg-rose-500",
     definition: "Reached a final rejection at any stage (HOD, Administrator, or IREB).",
   },
 ];
 
-function GlanceCard({
+type TrackSummary = DashboardSummary["tracks"][TrackKey];
+
+/**
+ * One card per track — merges the old glance card and the accordion tab card
+ * into a single element. Clicking toggles the expanded detail section below.
+ */
+function TrackStatCard({
   track,
-  summary,
+  open,
+  onToggle,
 }: {
-  track: TrackKey;
-  summary: DashboardSummary["tracks"][TrackKey];
+  track: TrackSummary;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const counts = [
-    summary.outcomes.pending,
-    summary.outcomes.approved,
-    summary.outcomes.rejected,
+    track.outcomes.pending,
+    track.outcomes.approved,
+    track.outcomes.rejected,
   ];
-  const pcts = toPercents(counts, summary.total);
+  const pcts = toPercents(counts, track.total);
 
   return (
-    <a
-      href={`#track-${track}`}
-      className="group block min-w-0 rounded-[10px] border border-stroke bg-white px-4 py-3.5 shadow-1 transition hover:border-primary/50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
-      aria-label={`${TRACK_LABELS[track]}: ${summary.total} submitted. Jump to section.`}
+    <button
+      type="button"
+      id={`track-${track.track}`}
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={`track-${track.track}-detail`}
+      aria-label={`${track.label}: ${track.total} submitted. ${open ? "Collapse" : "Expand"} details.`}
+      className={cn(
+        "group min-w-0 scroll-mt-40 rounded-2xl border bg-white p-6 text-left shadow-sm",
+        "transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        "dark:bg-slate-900",
+        open
+          ? "border-primary/50 ring-1 ring-primary/20 dark:border-primary/50"
+          : "border-slate-200/80 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700",
+      )}
     >
-      {/* Header: name + forms left, total right */}
-      <div className="flex items-start justify-between gap-2">
+      {/* Header: title + forms left, hero total right */}
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-dark group-hover:text-primary dark:text-white">
-            {TRACK_LABELS[track]}
+          <p className="flex items-center gap-1.5 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+            <span className="truncate">{track.label}</span>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 transition-transform duration-200",
+                open ? "text-primary" : "-rotate-90 text-slate-400",
+              )}
+              aria-hidden
+            />
           </p>
-          <p className="text-[11px] text-dark-5 dark:text-dark-6">{summary.forms}</p>
+          <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
+            {track.forms}
+          </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-2xl font-bold leading-none tabular-nums text-dark dark:text-white">
-            <CountUp value={summary.total} />
+          <p className="text-[32px] font-semibold leading-none tabular-nums text-slate-900 dark:text-white">
+            <CountUp value={track.total} />
           </p>
-          <p className="mt-0.5 text-[11px] font-medium text-dark-5 dark:text-dark-6">
+          <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
             Total submitted
           </p>
         </div>
       </div>
 
-      {/* Stat blocks: count + percentage, icon so meaning doesn't rely on color */}
-      <div className="mt-3 grid grid-cols-3 divide-x divide-stroke dark:divide-dark-3">
-        {STAT_META.map((meta, i) => {
-          const Icon = meta.icon;
-          const count = counts[i];
-          return (
-            <div
-              key={meta.key}
-              className="flex flex-col items-center px-2 first:pl-0 last:pr-0"
-              title={`${meta.definition} ${count} of ${summary.total} submitted.`}
+      {/* Stat columns: count, sentence-case label, muted percentage */}
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        {STAT_META.map((meta, i) => (
+          <div
+            key={meta.key}
+            className="min-w-0"
+            title={`${meta.definition} ${counts[i]} of ${track.total} submitted.`}
+          >
+            <p
+              className={cn(
+                "text-[28px] font-semibold leading-none tabular-nums",
+                meta.numClass,
+              )}
             >
+              <CountUp value={counts[i]} />
+            </p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
               <span
-                className={cn(
-                  "flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide",
-                  meta.numClass,
-                )}
-              >
-                <Icon className="size-3.5" aria-hidden="true" />
-                {meta.label}
-              </span>
-              <span className="mt-1 text-xl font-bold leading-none tabular-nums text-dark dark:text-white">
-                <CountUp value={count} />
-              </span>
-              <span className="mt-0.5 text-[11px] font-medium tabular-nums text-dark-5 dark:text-dark-6">
-                {summary.total > 0 ? `${pcts[i]}%` : "—"}
-              </span>
-            </div>
-          );
-        })}
+                className={cn("size-1.5 shrink-0 rounded-full", meta.dot)}
+                aria-hidden
+              />
+              {meta.label}
+            </p>
+            <p className="mt-0.5 text-[13px] tabular-nums text-slate-400 dark:text-slate-500">
+              {track.total > 0 ? `${pcts[i]}%` : "—"}
+            </p>
+          </div>
+        ))}
       </div>
-    </a>
+
+      {/* Segmented proportion bar */}
+      <div
+        className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+        aria-hidden
+      >
+        {STAT_META.map((meta, i) =>
+          pcts[i] > 0 ? (
+            <span
+              key={meta.key}
+              className={cn("h-full", meta.bar)}
+              style={{ width: `${pcts[i]}%` }}
+            />
+          ) : null,
+        )}
+      </div>
+    </button>
   );
 }
 
-export function GlanceStrip({ summary }: { summary: DashboardSummary }) {
+export function TrackSummaryStrip({
+  summary,
+  visibleTracks,
+  openTrack,
+  onToggle,
+}: {
+  summary: DashboardSummary;
+  visibleTracks: TrackKey[];
+  openTrack: TrackKey | null;
+  onToggle: (track: TrackKey) => void;
+}) {
   return (
     <section
-      aria-label="System at a glance"
-      className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      aria-label="Submission tracks summary"
+      className={cn(
+        "grid min-w-0 grid-cols-1 gap-4 sm:gap-5",
+        visibleTracks.length > 1 && "lg:grid-cols-3",
+        visibleTracks.length === 2 && "lg:grid-cols-2",
+      )}
     >
-      {TRACK_ORDER.map((track) => (
-        <GlanceCard key={track} track={track} summary={summary.tracks[track]} />
+      {visibleTracks.map((track) => (
+        <TrackStatCard
+          key={track}
+          track={summary.tracks[track]}
+          open={openTrack === track}
+          onToggle={() => onToggle(track)}
+        />
       ))}
     </section>
   );

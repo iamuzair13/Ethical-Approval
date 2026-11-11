@@ -15,9 +15,10 @@ import type {
 } from "./types";
 import { TRACK_ORDER } from "./types";
 import { DashboardFilterBar } from "./filter-bar";
-import { GlanceStrip } from "./glance-strip";
-import { TrackSection, TrackTabCard } from "./track-section";
+import { TrackSummaryStrip } from "./glance-strip";
+import { TrackSection } from "./track-section";
 import { cn } from "@/lib/utils";
+import { Download, RefreshCw } from "lucide-react";
 
 type Props = {
   initialSummary: DashboardSummary;
@@ -174,84 +175,68 @@ export function DashboardBoard({
   const updatedAgo = secondsAgo(summary.generatedAt, clock);
 
   return (
-    // --dashboard-header-h: sticky offset = Header height (py-5 + size-12
-    // avatar + 1px border ≈ 89px). Update if the Header layout changes.
-    <div
-      className="grid w-full min-w-0 max-w-full gap-4 md:gap-6"
-      style={{ "--dashboard-header-h": "89px" } as React.CSSProperties}
-    >
-      {/* Filter bar — sticky under the header */}
-      <div
-        className="sticky  min-w-0"
-        // style={{ top: "var(--dashboard-header-h)" }}
-      >
-        <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
-      </div>
-
-      {/* Refresh / export row */}
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-dark-5 dark:text-dark-6" aria-live="polite">
+    <div className="grid w-full min-w-0 max-w-full gap-8">
+      {/* Refresh / export row — caption sits next to the actions */}
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+        <p className="mr-auto text-[13px] text-slate-500 dark:text-slate-400" aria-live="polite">
           {loading ? "Refreshing…" : `Updated ${updatedAgo}s ago`}
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void fetchSummary(filters)}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition hover:bg-gray-2 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={exportExcel}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-opacity-90"
-          >
-            Export Excel
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void fetchSummary(filters)}
+          disabled={loading}
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <RefreshCw
+            className={cn("size-4", loading && "animate-spin motion-reduce:animate-none")}
+            aria-hidden
+          />
+          Refresh
+        </button>
+        <button
+          type="button"
+          onClick={exportExcel}
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+        >
+          <Download className="size-4" aria-hidden />
+          Export Excel
+        </button>
       </div>
 
       {error && (
         <div
           role="alert"
-          className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+          className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
         >
           <span>{error}</span>
           <button
             type="button"
             onClick={() => void fetchSummary(filters)}
-            className="rounded-lg border border-red-300 px-3 py-1 text-xs font-semibold hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+            className="inline-flex h-9 shrink-0 items-center rounded-lg border border-rose-300 px-3 text-[13px] font-medium hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 dark:border-rose-800 dark:hover:bg-rose-900/40"
           >
             Retry
           </button>
         </div>
       )}
 
-      <GlanceStrip summary={summary} />
-
       {!summary.invariantOk && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
           Data consistency check failed — pending + approved + rejected does not equal total for
           at least one track. Numbers may be incomplete.
         </p>
       )}
 
-      {/* Track tabs — always in one strip on top; detail renders below. */}
-      <div
-        className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3"
-        role="group"
-        aria-label="Submission tracks"
-      >
-        {visibleTracks.map((track) => (
-          <TrackTabCard
-            key={track}
-            track={summary.tracks[track]}
-            open={openTrack === track}
-            onToggle={() => setOpenTrack((prev) => (prev === track ? null : track))}
-          />
-        ))}
-      </div>
+      <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
+
+      {/* One card per track — clicking a card expands its detail below. */}
+      <TrackSummaryStrip
+        summary={summary}
+        visibleTracks={visibleTracks}
+        openTrack={openTrack}
+        onToggle={(track) =>
+          setOpenTrack((prev) => (prev === track ? null : track))
+        }
+      />
 
       {openTrack && visibleTracks.includes(openTrack) && (
         <div className={cn("min-w-0 transition-opacity", loading && "opacity-60")}>
