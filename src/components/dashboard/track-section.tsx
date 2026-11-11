@@ -20,17 +20,17 @@ import {
 function CollapsedSummary({ track }: { track: TrackSummary }) {
   const { pending, approved, rejected } = track.outcomes;
   return (
-    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium">
-      <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-medium">
+      <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
         <span className="size-1.5 rounded-full bg-amber-500" />
         {pending} pending
       </span>
-      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
         <span className="size-1.5 rounded-full bg-emerald-500" />
         {approved} approved
       </span>
-      <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-        <span className="size-1.5 rounded-full bg-red-500" />
+      <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+        <span className="size-1.5 rounded-full bg-rose-500" />
         {rejected} rejected
       </span>
     </span>
@@ -64,15 +64,15 @@ function OutcomeNumber({
       type="button"
       onClick={onClick}
       title={`${tooltip}${onClick ? " Click to filter the requests table." : ""}`}
-      className="flex min-w-0 flex-col items-center rounded-lg px-1 py-1.5 transition hover:bg-gray-1 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:hover:bg-dark-2"
+      className="flex min-w-0 flex-col items-center rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-slate-800"
     >
-      <span className={cn("text-xl font-bold leading-none tabular-nums", colorClass)}>
+      <span className={cn("text-2xl font-semibold leading-none tabular-nums", colorClass)}>
         <CountUp value={value} />
       </span>
-      <span className="mt-1 text-[11px] font-medium text-dark-5 dark:text-dark-6">
+      <span className="mt-1.5 text-[13px] font-medium text-slate-500 dark:text-slate-400">
         {label}
       </span>
-      <span className="text-[11px] font-semibold tabular-nums text-dark-6 dark:text-dark-6">
+      <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">
         {pct}
       </span>
     </button>
@@ -94,14 +94,14 @@ function DeciderBlock({
 }) {
   const stage = decider.key;
   return (
-    <div className="min-w-0 rounded-xl border border-stroke px-4 py-3 dark:border-dark-3">
+    <div className="min-w-0 rounded-xl bg-slate-50 px-4 py-4 dark:bg-slate-800/50">
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+        <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
           {decider.label}
         </p>
         {decider.decided > 0 && (
           <p
-            className="text-[11px] font-medium tabular-nums text-dark-6"
+            className="text-xs font-medium tabular-nums text-slate-400 dark:text-slate-500"
             title={`${decider.approved} approved of ${decider.decided} decided at this stage`}
           >
             {decider.approvalRate}% approved · {decider.decided} decided
@@ -143,7 +143,7 @@ function DeciderBlock({
           value={decider.rejected}
           label="Rejected"
           pct={pctOf(decider.rejected, decider.decided)}
-          colorClass="text-red-600 dark:text-red-400"
+          colorClass="text-rose-600 dark:text-rose-400"
           tooltip={`${OUTCOME_TOOLTIPS.rejected} ${decider.rejected} of ${decider.decided} decided by ${decider.label}.`}
           onClick={() =>
             onDrill({
@@ -156,7 +156,7 @@ function DeciderBlock({
         />
       </div>
       {decider.forwarded > 0 && (
-        <p className="mt-1.5 border-t border-stroke pt-1.5 text-[11px] text-dark-5 dark:border-dark-3 dark:text-dark-6">
+        <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
           {decider.forwarded} forwarded to IREB (recommended / marked sensitive)
         </p>
       )}
@@ -179,15 +179,15 @@ function MiniFact({
 }) {
   const tones = {
     amber: "text-amber-600 dark:text-amber-400",
-    red: "text-red-600 dark:text-red-400",
-    neutral: "text-dark dark:text-white",
+    red: "text-rose-600 dark:text-rose-400",
+    neutral: "text-slate-900 dark:text-white",
   };
   return (
     <div className="flex min-w-0 items-center gap-2" title={tooltip}>
       <Icon className={cn("size-4 shrink-0", tones[tone])} aria-hidden="true" />
       <span className="text-sm">
-        <span className={cn("font-bold tabular-nums", tones[tone])}>{value}</span>{" "}
-        <span className="text-dark-5 dark:text-dark-6">{label}</span>
+        <span className={cn("font-semibold tabular-nums", tones[tone])}>{value}</span>{" "}
+        <span className="text-slate-500 dark:text-slate-400">{label}</span>
       </span>
     </div>
   );
@@ -216,7 +216,7 @@ export function TrackSection({
     <section
       id={`track-${track.track}-detail`}
       aria-labelledby={`track-${track.track}-title`}
-      className="w-full min-w-0 rounded-[10px] border border-stroke bg-white px-4 py-5 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:px-7.5"
+      className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       {/* Header — click toggles the section body */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,11 +225,11 @@ export function TrackSection({
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={bodyId}
-          className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <ChevronDown
             className={cn(
-              "size-5 shrink-0 text-dark-5 transition-transform duration-300 dark:text-dark-6",
+              "size-5 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
               !open && "-rotate-90",
             )}
             aria-hidden="true"
@@ -237,11 +237,11 @@ export function TrackSection({
           <span className="min-w-0">
             <h3
               id={`track-${track.track}-title`}
-              className="truncate text-body-2xlg font-bold text-dark group-hover:text-primary dark:text-white"
+              className="truncate text-lg font-semibold tracking-tight text-slate-900 group-hover:text-primary dark:text-white"
             >
               {track.label}
             </h3>
-            <span className="block text-xs text-dark-5 dark:text-dark-6">
+            <span className="block text-[13px] text-slate-500 dark:text-slate-400">
               {track.forms} ·{" "}
               <span className="font-semibold tabular-nums">{track.total}</span>{" "}
               submitted in range
@@ -266,12 +266,12 @@ export function TrackSection({
       >
         <div className="min-h-0 overflow-hidden">
           {empty ? (
-            <p className="mt-4 rounded-lg border border-dashed border-stroke px-4 py-8 text-center text-sm text-dark-5 dark:border-dark-3 dark:text-dark-6">
+            <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
               No {track.label.toLowerCase()} submissions in this range.
             </p>
           ) : (
             <>
-              <div className="mt-4">
+              <div className="mt-5">
                 <PipelineStepper track={track} onStageClick={(stage: StageKey) =>
                   onDrill({
                     track: track.track,
@@ -283,19 +283,19 @@ export function TrackSection({
               </div>
 
               {/* Outcome blocks per deciding body */}
-              <div className={cn("mt-4", deciderGrid)}>
+              <div className={cn("mt-5", deciderGrid)}>
                 {track.deciders.map((d) => (
                   <DeciderBlock key={d.key} track={track} decider={d} onDrill={onDrill} />
                 ))}
               </div>
 
               {/* Trend */}
-              <div className="mt-5 min-w-0">
+              <div className="mt-6 min-w-0">
                 <TrackTrend trend={track.trend} trackLabel={track.label} />
               </div>
 
               {/* Mini facts */}
-              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-stroke pt-4 dark:border-dark-3">
+              <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-5 dark:border-slate-800">
                 <MiniFact
                   icon={ShieldAlert}
                   value={String(track.sensitiveCount)}

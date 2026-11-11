@@ -22,7 +22,7 @@ function agingTone(avgDays: number | null, overThreshold: number): "green" | "am
 const TONE_CLASSES = {
   green: "bg-emerald-500",
   amber: "bg-amber-500",
-  red: "bg-red-500",
+  red: "bg-rose-500",
 } as const;
 
 /** Connector between pipeline nodes — horizontal on lg+, vertical below. */
@@ -34,25 +34,25 @@ function FlowConnector({ entered }: { entered: number }) {
         aria-hidden="true"
         title={`${entered} reached this stage`}
       >
-        <span className="whitespace-nowrap text-[10px] font-bold tabular-nums text-dark-6">
+        <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500">
           {entered}
         </span>
-        <ChevronRight className="size-3.5 text-stroke dark:text-dark-3" />
+        <ChevronRight className="size-3.5 text-slate-300 dark:text-slate-600" />
       </div>
       <div
         className="flex items-center justify-center gap-1 py-1 lg:hidden"
         aria-hidden="true"
         title={`${entered} reached this stage`}
       >
-        <ChevronDown className="size-3.5 text-stroke dark:text-dark-3" />
-        <span className="text-[10px] font-bold tabular-nums text-dark-6">{entered}</span>
+        <ChevronDown className="size-3.5 text-slate-300 dark:text-slate-600" />
+        <span className="text-xs font-semibold tabular-nums text-slate-400 dark:text-slate-500">{entered}</span>
       </div>
     </>
   );
 }
 
 const NODE_BASE =
-  "flex min-h-[92px] w-full min-w-0 flex-col items-center justify-center rounded-xl border border-stroke bg-gray-1 px-3 py-3 text-center dark:border-dark-3 dark:bg-dark-2";
+  "flex min-h-[96px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-3 py-3.5 text-center dark:bg-slate-800/50";
 
 export function PipelineStepper({
   track,
@@ -84,25 +84,25 @@ export function PipelineStepper({
                 title={`${STAGE_TOOLTIPS[stage]} Click to filter the requests table.`}
                 className={cn(
                   NODE_BASE,
-                  "transition hover:border-primary/50 hover:shadow-sm",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/40",
+                  "transition-colors duration-150 hover:bg-slate-100 dark:hover:bg-slate-800",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                 )}
               >
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+                <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
                   {STAGE_LABELS[stage]}
                 </span>
-                <span className="mt-1 text-2xl font-bold leading-none tabular-nums text-dark dark:text-white">
+                <span className="mt-1.5 text-2xl font-semibold leading-none tabular-nums text-slate-900 dark:text-white">
                   <CountUp value={waiting} />
                 </span>
-                <span className="mt-1.5 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] font-medium">
+                <span className="mt-1.5 flex flex-wrap items-center justify-center gap-x-1.5 text-xs font-medium">
                   <span
-                    className={cn("inline-block size-2 rounded-full", TONE_CLASSES[tone])}
+                    className={cn("inline-block size-1.5 rounded-full", TONE_CLASSES[tone])}
                     aria-hidden="true"
                   />
-                  <span className="text-dark-6 dark:text-dark-6">
+                  <span className="text-slate-400 dark:text-slate-500">
                     {aging?.avgDays != null ? `avg ${aging.avgDays}d` : "—"}
                     {(aging?.overThreshold ?? 0) > 0 && (
-                      <span className="text-red-600 dark:text-red-400">
+                      <span className="text-rose-600 dark:text-rose-400">
                         {" "}· {aging!.overThreshold} &gt;7d
                       </span>
                     )}
@@ -118,19 +118,19 @@ export function PipelineStepper({
       <FlowConnector entered={decided} />
       <div className="lg:flex-1 lg:min-w-0" role="listitem">
         <div className={NODE_BASE}>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+          <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
             Decision
           </span>
-          <span className="mt-1 text-2xl font-bold leading-none tabular-nums text-dark dark:text-white">
+          <span className="mt-1.5 text-2xl font-semibold leading-none tabular-nums text-slate-900 dark:text-white">
             <CountUp value={decided} />
           </span>
-          <span className="mt-1.5 flex items-center gap-2 text-[11px] font-medium">
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+          <span className="mt-1.5 flex items-center gap-3 text-xs font-medium">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <span className="size-1.5 rounded-full bg-emerald-500" />
               {track.outcomes.approved}
             </span>
-            <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-              <span className="size-1.5 rounded-full bg-red-500" />
+            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+              <span className="size-1.5 rounded-full bg-rose-500" />
               {track.outcomes.rejected}
             </span>
           </span>

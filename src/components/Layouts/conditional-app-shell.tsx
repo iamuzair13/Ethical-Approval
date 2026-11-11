@@ -41,7 +41,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900 md:px-6">
-          <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between gap-4">
+          <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4">
             <Link href="/profile" className="flex items-center gap-3">
               <span className="relative flex items-center">
                 <Image
@@ -72,7 +72,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+        <main className="mx-auto w-full max-w-[1440px] p-4 md:p-8 2xl:p-10">
           {children}
         </main>
       </div>
@@ -87,7 +87,7 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
         <Header />
         <ViewAsBanner />
 
-        <main className="animate-page-load mx-auto w-full max-w-screen-2xl overflow-x-hidden p-4 md:p-6 2xl:p-10">
+        <main className="animate-page-load mx-auto w-full max-w-[1440px] overflow-x-hidden p-4 md:p-8 2xl:p-10">
           {children}
         </main>
       </div>

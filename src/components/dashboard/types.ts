@@ -134,5 +134,5 @@ export const STAGE_LABELS: Record<StageKey, string> = {
 // Consistent color semantics: amber=pending, green=approved, red=rejected, indigo=total.
 export const COLOR_PENDING = "#f59e0b";
 export const COLOR_APPROVED = "#10b981";
-export const COLOR_REJECTED = "#ef4444";
-export const COLOR_TOTAL = "#6366f1";
+export const COLOR_REJECTED = "#f43f5e";
+export const COLOR_TOTAL = "#5750f1";

@@ -93,20 +93,20 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
   return (
     <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-dark-5 dark:text-dark-6">
+        <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
           Trend
         </p>
         <button
           type="button"
           onClick={() => setMode((m) => (m === "graph" ? "table" : "graph"))}
-          className="inline-flex items-center gap-2 rounded-lg border border-stroke px-3 py-1.5 text-xs font-medium text-dark transition hover:bg-gray-1 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+          className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
         >
           {mode === "graph" ? "Table View" : "Graph View"}
         </button>
       </div>
 
       {!hasData && (
-        <p className="rounded-lg border border-dashed border-stroke px-4 py-8 text-center text-sm text-dark-5 dark:border-dark-3 dark:text-dark-6">
+        <p className="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
           No submissions in this range for {trackLabel}.
         </p>
       )}
@@ -132,12 +132,12 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
       )}
 
       {hasData && mode === "table" && (
-        <div className="max-h-64 overflow-auto rounded-lg border border-stroke dark:border-dark-3">
-          <table className="w-full min-w-[320px] text-left text-xs">
-            <thead className="sticky top-0 bg-gray-1 dark:bg-dark-2">
+        <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table className="w-full min-w-[320px] text-left text-[13px]">
+            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/80">
               <tr>
                 {["Period", "Submitted", "Approved", "Rejected"].map((h) => (
-                  <th key={h} className="px-3 py-2 font-semibold text-dark dark:text-white">
+                  <th key={h} className="px-3 py-2.5 font-medium text-slate-500 dark:text-slate-400">
                     {h}
                   </th>
                 ))}
@@ -145,11 +145,11 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
             </thead>
             <tbody>
               {trend.map((p) => (
-                <tr key={p.label} className="border-t border-stroke dark:border-dark-3">
-                  <td className="whitespace-nowrap px-3 py-1.5 text-dark-5 dark:text-dark-6">{p.label}</td>
-                  <td className="px-3 py-1.5 font-medium tabular-nums text-dark dark:text-white">{p.submitted}</td>
-                  <td className="px-3 py-1.5 font-medium tabular-nums text-emerald-600 dark:text-emerald-400">{p.approved}</td>
-                  <td className="px-3 py-1.5 font-medium tabular-nums text-red-600 dark:text-red-400">{p.rejected}</td>
+                <tr key={p.label} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-500 dark:text-slate-400">{p.label}</td>
+                  <td className="px-3 py-2 font-medium tabular-nums text-slate-700 dark:text-slate-200">{p.submitted}</td>
+                  <td className="px-3 py-2 font-medium tabular-nums text-emerald-600 dark:text-emerald-400">{p.approved}</td>
+                  <td className="px-3 py-2 font-medium tabular-nums text-rose-600 dark:text-rose-400">{p.rejected}</td>
                 </tr>
               ))}
             </tbody>
