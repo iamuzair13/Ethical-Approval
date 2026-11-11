@@ -72,6 +72,8 @@ export function ConditionalAppShell({ children }: PropsWithChildren) {
           </div>
         </header>
 
+        <ViewAsBanner stickyTop="top-16" />
+
         <main className="mx-auto w-full max-w-[1440px] p-4 md:p-6 2xl:p-8">
           {children}
         </main>
