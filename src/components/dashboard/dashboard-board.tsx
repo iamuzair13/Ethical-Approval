@@ -199,10 +199,14 @@ export function DashboardBoard({
         </p>
       )}
 
-      <DashboardFilterBar filters={filters} options={filterOptions} onChange={setFilters} />
-
-      {/* Aggregate stripe — sum of the track cards below. */}
-      <TotalApplicationsStrip summary={summary} visibleTracks={visibleTracks} />
+      <DashboardFilterBar
+        filters={filters}
+        options={filterOptions}
+        onChange={setFilters}
+        aside={
+          <TotalApplicationsStrip summary={summary} visibleTracks={visibleTracks} />
+        }
+      />
 
       {/* One card per track — clicking a card expands its detail below. */}
       <TrackSummaryStrip

@@ -175,7 +175,7 @@ function TrackStatCard({
   );
 }
 
-/** Slim stripe: summed totals of the visible track cards below it. */
+/** Compact chip: summed totals of the visible track cards below it. */
 export function TotalApplicationsStrip({
   summary,
   visibleTracks,
@@ -202,19 +202,20 @@ export function TotalApplicationsStrip({
   ];
 
   return (
-    <section
-      aria-label="Total applications across visible tracks"
-      className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    <div
+      role="status"
+      aria-label={`Total applications: ${totals.total}. ${totals.pending} pending, ${totals.approved} approved, ${totals.rejected} rejected.`}
+      className="inline-flex h-10 min-w-0 items-center gap-3 rounded-lg border border-slate-200/80 bg-white px-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
-      <p className="flex items-baseline gap-2.5">
+      <span className="flex items-baseline gap-2">
         <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
           Total applications
         </span>
-        <span className="text-xl font-semibold tabular-nums leading-none text-slate-900 dark:text-white">
+        <span className="text-base font-semibold tabular-nums text-slate-900 dark:text-white">
           <CountUp value={totals.total} />
         </span>
-      </p>
-      <span className="ml-auto flex items-center gap-3.5">
+      </span>
+      <span className="hidden items-center gap-3 border-l border-slate-200 pl-3 sm:flex dark:border-slate-700">
         {breakdown.map((b) => (
           <span
             key={b.label}
@@ -225,7 +226,7 @@ export function TotalApplicationsStrip({
           </span>
         ))}
       </span>
-    </section>
+    </div>
   );
 }
 

@@ -33,10 +33,13 @@ export function DashboardFilterBar({
   filters,
   options,
   onChange,
+  aside,
 }: {
   filters: DashboardFilterState;
   options: FilterOptions;
   onChange: (next: DashboardFilterState) => void;
+  /** Optional content rendered at the end of the button row. */
+  aside?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -88,7 +91,7 @@ export function DashboardFilterBar({
 
   return (
     <div className="min-w-0">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -116,6 +119,7 @@ export function DashboardFilterBar({
             {collapsedSummary}
           </p>
         )}
+        {aside && <div className="ml-auto min-w-0">{aside}</div>}
       </div>
 
       {open && (
