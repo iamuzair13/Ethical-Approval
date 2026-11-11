@@ -14,7 +14,9 @@ import {
 } from "@/lib/admin-repository";
 import {
   buildAdministratorRestoreTokenFields,
+  buildViewAsStudentTokenFields,
   buildViewAsTokenFields,
+  validateViewAsStudentTarget,
   validateViewAsTarget,
   type ViewAsSessionUpdate,
 } from "@/lib/view-as";
@@ -290,6 +292,14 @@ export const authOptions: NextAuthOptions = {
           if (targetResult.ok) {
             const patch = await buildViewAsTokenFields(targetResult.target);
             if (patch) Object.assign(token, patch);
+          }
+        } else if (update.action === "startViewAsStudent" && update.targetSapId) {
+          const studentResult = await validateViewAsStudentTarget(
+            actingAdminId,
+            update.targetSapId,
+          );
+          if (studentResult.ok) {
+            Object.assign(token, buildViewAsStudentTokenFields(studentResult.student));
           }
         } else if (update.action === "stopViewAs") {
           const patch = await buildAdministratorRestoreTokenFields(actingAdminId);

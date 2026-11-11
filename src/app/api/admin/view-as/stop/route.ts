@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assertActiveAdmin, isActingAdministrator } from "@/lib/admin-auth";
-import { getToken } from "next-auth/jwt";
-import { getAuthSecret } from "@/lib/auth-secret";
+import { assertActingAdministrator } from "@/lib/admin-auth";
 import { logActivityFromRequest } from "@/lib/activity-log";
 
 export async function POST(request: NextRequest) {
-  const actor = await assertActiveAdmin(request);
+  // Auth check targets the *acting* administrator, not the effective
+  // identity — the effective user can be a student during view-as.
+  const actor = await assertActingAdministrator(request);
   if (!actor) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-
-  const token = await getToken({ req: request, secret: getAuthSecret() });
-  if (!isActingAdministrator(token)) {
-    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
   void logActivityFromRequest(request, {

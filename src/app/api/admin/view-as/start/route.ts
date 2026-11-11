@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertActiveAdmin, isActingAdministrator } from "@/lib/admin-auth";
-import { validateViewAsTarget } from "@/lib/view-as";
+import {
+  validateViewAsStudentTarget,
+  validateViewAsTarget,
+} from "@/lib/view-as";
 import { getToken } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { logActivityFromRequest } from "@/lib/activity-log";
@@ -8,7 +11,9 @@ import { actorFromAdminUser } from "@/lib/activity-log/descriptions";
 
 type StartBody = {
   targetAdminId?: string;
-  role?: "hod" | "ireb";
+  role?: "hod" | "ireb" | "student";
+  /** SAP ID of the student, when role === "student". */
+  sapId?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -23,8 +28,45 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as StartBody;
-  const targetAdminId = body.targetAdminId?.trim();
   const role = body.role;
+  const actingAdminId = String(token?.actingAdminId ?? token?.adminId ?? "");
+
+  // Student view-as: administrator enters the student's SAP ID.
+  if (role === "student") {
+    const sapId = body.sapId?.trim();
+    if (!sapId) {
+      return NextResponse.json(
+        { ok: false, error: "Enter the student's SAP ID." },
+        { status: 400 },
+      );
+    }
+
+    const validation = await validateViewAsStudentTarget(actingAdminId, sapId);
+    if (!validation.ok) {
+      return NextResponse.json({ ok: false, error: validation.error }, { status: 400 });
+    }
+
+    void logActivityFromRequest(request, {
+      actionCode: "admin.view_as.start",
+      targetType: "student",
+      targetId: validation.student.sapId,
+      targetLabel: validation.student.name,
+      impersonationMode: "view_as",
+      description: `Administrator started viewing as student ${validation.student.name} (${validation.student.sapId}).`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      target: {
+        id: validation.student.sapId,
+        name: validation.student.name,
+        email: validation.student.email,
+        role: "student",
+      },
+    });
+  }
+
+  const targetAdminId = body.targetAdminId?.trim();
 
   if (!targetAdminId) {
     return NextResponse.json(
@@ -34,12 +76,11 @@ export async function POST(request: NextRequest) {
   }
   if (role !== "hod" && role !== "ireb") {
     return NextResponse.json(
-      { ok: false, error: "Invalid role. Use hod or ireb." },
+      { ok: false, error: "Invalid role. Use hod, ireb, or student." },
       { status: 400 },
     );
   }
 
-  const actingAdminId = String(token?.actingAdminId ?? token?.adminId ?? "");
   const validation = await validateViewAsTarget(actingAdminId, targetAdminId, role);
   if (!validation.ok) {
     return NextResponse.json({ ok: false, error: validation.error }, { status: 400 });
