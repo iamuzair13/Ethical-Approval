@@ -4,8 +4,15 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { ADMIN_LANDING_PAGE } from "@/lib/post-login-redirect";
 
-export function ViewAsBanner() {
+export function ViewAsBanner({
+  stickyTop = "top-[4.75rem]",
+}: {
+  /** Tailwind top-* class for sticky placement under the current shell's header. */
+  stickyTop?: string;
+}) {
   const { data: session, update } = useSession();
   const router = useRouter();
   const [stopping, setStopping] = useState(false);
@@ -25,6 +32,7 @@ export function ViewAsBanner() {
       }
 
       await update({ action: "stopViewAs" });
+      router.push(ADMIN_LANDING_PAGE);
       router.refresh();
       toast.success("Returned to Administrator mode.");
     } catch {
@@ -39,7 +47,12 @@ export function ViewAsBanner() {
   }
 
   return (
-    <div className="sticky top-[4.75rem] z-20 border-b border-amber-300 bg-amber-50 px-4 py-2.5 dark:border-amber-700/60 dark:bg-amber-950/40 md:px-5 2xl:px-10">
+    <div
+      className={cn(
+        "sticky z-20 border-b border-amber-300 bg-amber-50 px-4 py-2.5 dark:border-amber-700/60 dark:bg-amber-950/40 md:px-5 2xl:px-10",
+        stickyTop,
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
           Viewing As: <span className="font-semibold">{viewAsUserName}</span>

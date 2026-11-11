@@ -10,10 +10,12 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { LogOutIcon, SettingsIcon, UserIcon } from "./icons";
 import { toast } from "sonner";
+import { ADMIN_LANDING_PAGE } from "@/lib/post-login-redirect";
 
 /* ──────────────────────────── Utilities ──────────────────────────── */
 
@@ -173,7 +175,7 @@ const UserAvatar = ({
 }) => {
   const sizeClasses = {
     sm: "size-9 text-xs",
-    md: "size-12 text-sm",
+    md: "size-10 text-xs",
     lg: "size-14 text-base",
   };
 
@@ -268,8 +270,10 @@ export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string>("");
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
+  const router = useRouter();
   const viewAsActive = Boolean(session?.user?.viewAsActive);
+  const [stoppingViewAs, setStoppingViewAs] = useState(false);
 
   const sessionImage =
     typeof session?.user?.image === "string" ? session.user.image.trim() : "";
@@ -326,6 +330,27 @@ export function UserInfo() {
     return () =>
       window.removeEventListener(PROFILE_AVATAR_CHANGED_EVENT, handler);
   }, []);
+
+  const handleExitViewAs = useCallback(async () => {
+    if (stoppingViewAs) return;
+    setStoppingViewAs(true);
+    try {
+      const response = await fetch("/api/admin/view-as/stop", { method: "POST" });
+      const payload = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !payload.ok) {
+        toast.error(payload.error ?? "Could not exit View As mode.");
+        return;
+      }
+      await update({ action: "stopViewAs" });
+      router.push(ADMIN_LANDING_PAGE);
+      router.refresh();
+      toast.success("Returned to Administrator mode.");
+    } catch {
+      toast.error("Could not exit View As mode.");
+    } finally {
+      setStoppingViewAs(false);
+    }
+  }, [stoppingViewAs, update, router]);
 
   const roleLabel = (() => {
     const adminRole = session?.user?.adminRole;
@@ -492,6 +517,26 @@ export function UserInfo() {
                     variants={itemVariants}
                     className="my-2 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent dark:via-white/10"
                   />
+
+                  {/* Exit view-as */}
+                  {viewAsActive && (
+                    <motion.div variants={itemVariants} className="p-1">
+                      <MagneticMenuItem
+                        onClick={() => {
+                          setIsOpen(false);
+                          void handleExitViewAs();
+                        }}
+                        className="text-amber-600 hover:bg-amber-500/5 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200/60 bg-amber-50 text-amber-500 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+                          <UserIcon className="size-4" />
+                        </div>
+                        <span className="mr-auto">
+                          {stoppingViewAs ? "Exiting…" : "Exit View Mode"}
+                        </span>
+                      </MagneticMenuItem>
+                    </motion.div>
+                  )}
 
                   {/* Sign Out */}
                   <motion.div variants={itemVariants} className="p-1">

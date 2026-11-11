@@ -15,7 +15,7 @@ function StatusDot({ className }: { className: string }) {
 
 export function ApplicationIdBadge({ id }: { id: string }) {
   return (
-    <span className="inline-block rounded bg-gray-100 px-2 py-1 font-mono text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+    <span className="inline-block rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
       {id}
     </span>
   );
@@ -45,8 +45,8 @@ export function StatusBadge({ status, hodName }: { status: LeadStatus; hodName?:
 
   if (isRejected) {
     return (
-      <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
-        <StatusDot className="bg-red-600 dark:bg-red-400" />
+      <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">
+        <StatusDot className="bg-rose-600 dark:bg-rose-400" />
         {displayText}
       </span>
     );
@@ -61,24 +61,8 @@ export function StatusBadge({ status, hodName }: { status: LeadStatus; hodName?:
 }
 
 export function ApplicationTypeBadge({ type }: { type: string }) {
-  if (type === "Type A") {
-    return (
-      <span className="inline-block rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
-        {type}
-      </span>
-    );
-  }
-
-  if (type === "Type B") {
-    return (
-      <span className="inline-block rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
-        {type}
-      </span>
-    );
-  }
-
   return (
-    <span className="inline-block rounded-md border border-gray-200 bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-300">
+    <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
       {type}
     </span>
   );

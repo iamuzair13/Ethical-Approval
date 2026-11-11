@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import type { JWT } from "next-auth/jwt";
 import type { Session } from "next-auth";
 import { getAdminUserById } from "@/lib/admin-repository";
+import type { AdminUserRecord } from "@/lib/admin-rbac";
 import { isViewAsActive } from "@/lib/view-as";
 
 export type AuthenticatedAdmin = {
@@ -169,6 +170,42 @@ export async function assertActiveAdmin(request: NextRequest | Request) {
   }
 
   return effective;
+}
+
+/**
+ * Validates that the request's acting (original) identity is an active
+ * administrator — without requiring the effective identity to be an admin.
+ * Needed by the view-as stop flow, where the effective identity can be a
+ * student (no admin claims at all).
+ */
+export async function assertActingAdministrator(
+  request: NextRequest | Request,
+): Promise<AdminUserRecord | null> {
+  const token = await getTokenFromRequest(request);
+  if (!token) return null;
+
+  const actingAdminId = String(token.actingAdminId ?? token.adminId ?? "");
+  const actingRole = token.actingAdminRole ?? token.adminRole;
+  if (!actingAdminId || actingRole !== "administrator") return null;
+
+  const actingTokenVersion =
+    typeof token.actingAdminTokenVersion === "number"
+      ? token.actingAdminTokenVersion
+      : typeof token.adminTokenVersion === "number"
+        ? token.adminTokenVersion
+        : 0;
+
+  const latest = await getAdminUserById(actingAdminId);
+  if (
+    !latest ||
+    latest.status !== "active" ||
+    latest.role !== "administrator" ||
+    latest.tokenVersion !== actingTokenVersion
+  ) {
+    return null;
+  }
+
+  return latest;
 }
 
 /**

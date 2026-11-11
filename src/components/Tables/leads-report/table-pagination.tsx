@@ -24,8 +24,8 @@ export function TablePagination({
   const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:px-6 dark:border-gray-700">
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:px-6 dark:border-slate-800">
+      <p className="text-sm tabular-nums text-slate-500 dark:text-slate-400">
         Showing {start}–{end} of {totalItems} results
       </p>
       <div className="flex items-center gap-2">
@@ -34,12 +34,12 @@ export function TablePagination({
           disabled={currentPage === 1}
           onClick={onPrevious}
           aria-label="Previous page"
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition-all duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <ChevronLeft className="size-4" aria-hidden />
           Previous
         </button>
-        <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+        <span className="inline-flex h-10 items-center rounded-lg bg-slate-100 px-3.5 text-sm font-medium tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
           Page {currentPage} of {totalPages}
         </span>
         <button
@@ -47,7 +47,7 @@ export function TablePagination({
           disabled={currentPage >= totalPages}
           onClick={onNext}
           aria-label="Next page"
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition-all duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Next
           <ChevronRight className="size-4" aria-hidden />

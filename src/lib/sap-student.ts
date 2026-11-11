@@ -121,20 +121,21 @@ function extractStudentName(d: Record<string, unknown>): string | null {
   return null;
 }
 
-/**
- * Validates the student against SAP using SAP ID derived from email (local part before @).
- * SAP response is the source of truth; email is only used to derive SAP ID.
- */
-export async function verifyStudentByEmail(
-  email: string,
-): Promise<SapVerifyResult> {
-  const sapId = extractSapIdFromEmail(email);
-  if (!sapId) {
-    return { ok: false, errorCode: "INVALID_EMAIL" };
-  }
+type SapStudentFetchResult =
+  | {
+      ok: true;
+      sapId: string;
+      studentRecord: Record<string, unknown>;
+      studentName: string | null;
+    }
+  | SapVerifyFailure;
 
+/**
+ * Fetches a student record from the SAP OData service by SAP ID.
+ * SAP response is the source of truth.
+ */
+async function fetchSapStudent(sapId: string): Promise<SapStudentFetchResult> {
   const url = `${SAP_BASE}('${encodeURIComponent(sapId)}')?$format=json`;
-  
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -142,7 +143,6 @@ export async function verifyStudentByEmail(
     const authHeader = buildSapAuthHeader();
     const headers: HeadersInit = {
       Accept: "application/json",
-
     };
     if (authHeader) {
       headers.Authorization = authHeader;
@@ -191,7 +191,6 @@ export async function verifyStudentByEmail(
     return {
       ok: true,
       sapId,
-      email: email.trim().toLowerCase(),
       studentRecord: enrichStudentRecordWithFaculty(rest),
       studentName,
     };
@@ -200,4 +199,64 @@ export async function verifyStudentByEmail(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Validates the student against SAP using SAP ID derived from email (local part before @).
+ * SAP response is the source of truth; email is only used to derive SAP ID.
+ */
+export async function verifyStudentByEmail(
+  email: string,
+): Promise<SapVerifyResult> {
+  const sapId = extractSapIdFromEmail(email);
+  if (!sapId) {
+    return { ok: false, errorCode: "INVALID_EMAIL" };
+  }
+
+  const result = await fetchSapStudent(sapId);
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    sapId: result.sapId,
+    email: email.trim().toLowerCase(),
+    studentRecord: result.studentRecord,
+    studentName: result.studentName,
+  };
+}
+
+/**
+ * Validates the student against SAP using the SAP ID directly.
+ * Used by the admin "View As student" flow, where no email is known upfront.
+ * The email is read from the SAP record when present, otherwise derived
+ * from the standard student mailbox convention.
+ */
+export async function verifyStudentBySapId(
+  sapId: string,
+): Promise<SapVerifyResult> {
+  const normalized = sapId.trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(normalized)) {
+    return { ok: false, errorCode: "INVALID_EMAIL" };
+  }
+
+  const result = await fetchSapStudent(normalized);
+  if (!result.ok) return result;
+
+  const email =
+    getStringField(result.studentRecord, [
+      "Email",
+      "StEmail",
+      "EmailAddr",
+      "SmtpAddr",
+      "Zemail",
+      "MailId",
+    ]) ?? `${normalized}@student.uol.edu.pk`;
+
+  return {
+    ok: true,
+    sapId: result.sapId,
+    email: email.toLowerCase(),
+    studentRecord: result.studentRecord,
+    studentName: result.studentName,
+  };
 }

@@ -310,7 +310,7 @@ export function ColumnHeaderFilter({
   return (
     <th
       className={cn(
-        "whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider",
+        "whitespace-nowrap px-4 py-3 text-[13px] font-medium",
         "select-none",
         className,
       )}
@@ -324,9 +324,9 @@ export function ColumnHeaderFilter({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition-colors",
-          "hover:text-primary",
-          hasActiveFilters ? "text-primary" : "text-gray-500 dark:text-gray-400",
+          "inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors",
+          "hover:text-slate-900 dark:hover:text-white",
+          hasActiveFilters ? "text-primary" : "text-slate-500 dark:text-slate-400",
           disabled && "cursor-not-allowed opacity-60",
         )}
       >
@@ -627,7 +627,7 @@ export function ColumnHeaderSortFilter({
   return (
     <th
       className={cn(
-        "whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider select-none",
+        "whitespace-nowrap px-4 py-3 text-[13px] font-medium select-none",
         className,
       )}
     >
@@ -638,8 +638,8 @@ export function ColumnHeaderSortFilter({
           type="button"
           onClick={onSortToggle}
           className={cn(
-            "inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition-colors hover:text-primary",
-            sortDirection ? "text-primary" : "text-gray-500 dark:text-gray-400",
+            "inline-flex items-center gap-1 text-[13px] font-medium transition-colors hover:text-slate-900 dark:hover:text-white",
+            sortDirection ? "text-primary" : "text-slate-500 dark:text-slate-400",
           )}
           aria-label={`Sort by ${label}`}
         >

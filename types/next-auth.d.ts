@@ -68,6 +68,13 @@ declare module "next-auth/jwt" {
     actingAdminTokenVersion?: number;
     viewAsActive?: boolean;
     viewAsUserName?: string;
+    /** "admin" when impersonating an admin user (hod/ireb), "student" for a student. */
+    viewAsTargetType?: "admin" | "student";
+    /** Target student's identity — admin token stays intact, session overlays these. */
+    viewAsStudentSapId?: string;
+    viewAsStudentName?: string;
+    viewAsStudentEmail?: string;
+    viewAsStudentRecord?: Record<string, unknown>;
     name?: string | null;
     email?: string | null;
   }

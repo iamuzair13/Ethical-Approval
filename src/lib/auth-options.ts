@@ -14,7 +14,9 @@ import {
 } from "@/lib/admin-repository";
 import {
   buildAdministratorRestoreTokenFields,
+  buildViewAsStudentTokenFields,
   buildViewAsTokenFields,
+  validateViewAsStudentTarget,
   validateViewAsTarget,
   type ViewAsSessionUpdate,
 } from "@/lib/view-as";
@@ -291,10 +293,31 @@ export const authOptions: NextAuthOptions = {
             const patch = await buildViewAsTokenFields(targetResult.target);
             if (patch) Object.assign(token, patch);
           }
+        } else if (update.action === "startViewAsStudent" && update.targetSapId) {
+          const studentResult = await validateViewAsStudentTarget(
+            actingAdminId,
+            update.targetSapId,
+          );
+          if (studentResult.ok) {
+            Object.assign(token, buildViewAsStudentTokenFields(studentResult.student));
+          }
         } else if (update.action === "stopViewAs") {
           const patch = await buildAdministratorRestoreTokenFields(actingAdminId);
           if (patch) {
             Object.assign(token, patch);
+          } else {
+            // The admin record couldn't be rebuilt (missing/inactive).
+            // Still drop the view-as markers so the session is never stuck
+            // impersonating someone it can't exit.
+            Object.assign(token, {
+              viewAsActive: false,
+              viewAsUserName: undefined,
+              viewAsTargetType: undefined,
+              viewAsStudentSapId: undefined,
+              viewAsStudentName: undefined,
+              viewAsStudentEmail: undefined,
+              viewAsStudentRecord: undefined,
+            });
           }
         }
       }
@@ -329,6 +352,23 @@ export const authOptions: NextAuthOptions = {
         }
         if (typeof token.email === "string") {
           session.user.email = token.email;
+        }
+
+        // Student view-as overlay: the token keeps the administrator's own
+        // identity (adminId/adminRole stay intact), while the applicant-facing
+        // fields resolve to the target student — profile pages and
+        // /api/profile/* render exactly what that student sees.
+        if (
+          token.viewAsActive &&
+          token.viewAsTargetType === "student" &&
+          token.viewAsStudentSapId
+        ) {
+          session.user.sapId = token.viewAsStudentSapId;
+          session.user.studentRecord = token.viewAsStudentRecord;
+          session.user.userType = "student";
+          session.user.applicantRole = "student";
+          if (token.viewAsStudentName) session.user.name = token.viewAsStudentName;
+          if (token.viewAsStudentEmail) session.user.email = token.viewAsStudentEmail;
         }
       }
       return session;
