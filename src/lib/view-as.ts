@@ -80,37 +80,24 @@ export type StudentViewAsTarget = {
 };
 
 /**
- * Token fields for a student view-as session. The effective identity becomes
- * a real student session (same shape as a student login): sapId is the user
- * id, admin/faculty claims are cleared, and the acting administrator's
- * claims (actingAdminId/actingAdminRole/actingAdminTokenVersion) are kept
- * untouched so the session can be restored and audited.
+ * Token fields for a student view-as session. Unlike the admin path, the
+ * administrator's own identity stays fully intact on the token — only the
+ * view-as markers and the target student's fields are recorded. The session
+ * layer overlays the applicant-facing fields (sapId, studentRecord,
+ * userType) so profile views render the student's data while every admin
+ * claim keeps working.
  */
 export function buildViewAsStudentTokenFields(
   student: StudentViewAsTarget,
 ): Partial<JWT> {
   return {
-    sub: student.sapId,
-    sapId: student.sapId,
-    studentRecord: student.studentRecord,
-    name: student.name,
-    email: student.email,
-    userType: "student",
-    applicantRole: "student",
-    adminId: undefined,
-    adminRole: undefined,
-    adminStatus: undefined,
-    adminScopeMode: undefined,
-    adminFacultyIds: undefined,
-    adminTokenVersion: undefined,
-    facultyMemberId: undefined,
-    facultyId: undefined,
-    departmentId: undefined,
-    facultyDepartment: undefined,
-    facultyDesignation: undefined,
     viewAsActive: true,
     viewAsUserName: student.name,
     viewAsTargetType: "student",
+    viewAsStudentSapId: student.sapId,
+    viewAsStudentName: student.name,
+    viewAsStudentEmail: student.email,
+    viewAsStudentRecord: student.studentRecord,
   };
 }
 
@@ -158,6 +145,10 @@ export async function buildAdministratorRestoreTokenFields(
     viewAsActive: false,
     viewAsUserName: undefined,
     viewAsTargetType: undefined,
+    viewAsStudentSapId: undefined,
+    viewAsStudentName: undefined,
+    viewAsStudentEmail: undefined,
+    viewAsStudentRecord: undefined,
   };
 }
 

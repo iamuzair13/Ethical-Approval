@@ -340,6 +340,23 @@ export const authOptions: NextAuthOptions = {
         if (typeof token.email === "string") {
           session.user.email = token.email;
         }
+
+        // Student view-as overlay: the token keeps the administrator's own
+        // identity (adminId/adminRole stay intact), while the applicant-facing
+        // fields resolve to the target student — profile pages and
+        // /api/profile/* render exactly what that student sees.
+        if (
+          token.viewAsActive &&
+          token.viewAsTargetType === "student" &&
+          token.viewAsStudentSapId
+        ) {
+          session.user.sapId = token.viewAsStudentSapId;
+          session.user.studentRecord = token.viewAsStudentRecord;
+          session.user.userType = "student";
+          session.user.applicantRole = "student";
+          if (token.viewAsStudentName) session.user.name = token.viewAsStudentName;
+          if (token.viewAsStudentEmail) session.user.email = token.viewAsStudentEmail;
+        }
       }
       return session;
     },
