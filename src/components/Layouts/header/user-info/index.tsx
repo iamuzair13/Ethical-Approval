@@ -15,6 +15,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { LogOutIcon, SettingsIcon, UserIcon } from "./icons";
 import { toast } from "sonner";
+import { ADMIN_LANDING_PAGE } from "@/lib/post-login-redirect";
 
 /* ──────────────────────────── Utilities ──────────────────────────── */
 
@@ -341,6 +342,7 @@ export function UserInfo() {
         return;
       }
       await update({ action: "stopViewAs" });
+      router.push(ADMIN_LANDING_PAGE);
       router.refresh();
       toast.success("Returned to Administrator mode.");
     } catch {

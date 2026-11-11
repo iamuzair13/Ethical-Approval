@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ADMIN_LANDING_PAGE } from "@/lib/post-login-redirect";
 
 export function ViewAsBanner({
   stickyTop = "top-[4.75rem]",
@@ -31,6 +32,7 @@ export function ViewAsBanner({
       }
 
       await update({ action: "stopViewAs" });
+      router.push(ADMIN_LANDING_PAGE);
       router.refresh();
       toast.success("Returned to Administrator mode.");
     } catch {

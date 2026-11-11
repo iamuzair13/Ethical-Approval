@@ -305,6 +305,19 @@ export const authOptions: NextAuthOptions = {
           const patch = await buildAdministratorRestoreTokenFields(actingAdminId);
           if (patch) {
             Object.assign(token, patch);
+          } else {
+            // The admin record couldn't be rebuilt (missing/inactive).
+            // Still drop the view-as markers so the session is never stuck
+            // impersonating someone it can't exit.
+            Object.assign(token, {
+              viewAsActive: false,
+              viewAsUserName: undefined,
+              viewAsTargetType: undefined,
+              viewAsStudentSapId: undefined,
+              viewAsStudentName: undefined,
+              viewAsStudentEmail: undefined,
+              viewAsStudentRecord: undefined,
+            });
           }
         }
       }

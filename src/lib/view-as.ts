@@ -4,7 +4,10 @@ import {
   buildAdminClaims,
   getAdminUserById,
 } from "@/lib/admin-repository";
-import { getFacultyMemberByEmail } from "@/lib/faculty-members";
+import {
+  getFacultyMemberByEmail,
+  type FacultyMemberRecord,
+} from "@/lib/faculty-members";
 import { verifyStudentBySapId } from "@/lib/sap-student";
 import type { AuthenticatedAdmin } from "@/lib/admin-auth";
 import { getToken } from "next-auth/jwt";
@@ -117,11 +120,18 @@ export async function buildAdministratorRestoreTokenFields(
   const claims = await buildAdminClaims(admin);
   if (!claims) return null;
 
-  const faculty = admin.email
-    ? await getFacultyMemberByEmail(admin.email, { includeInactive: true })
-    : null;
-  const activeFaculty =
-    faculty && faculty.status === "active" && faculty.isActive ? faculty : null;
+  // Faculty fields are nice-to-have; a lookup failure must not block the
+  // restore or the session stays stuck in view-as.
+  let activeFaculty: FacultyMemberRecord | null = null;
+  try {
+    const faculty = admin.email
+      ? await getFacultyMemberByEmail(admin.email, { includeInactive: true })
+      : null;
+    activeFaculty =
+      faculty && faculty.status === "active" && faculty.isActive ? faculty : null;
+  } catch {
+    activeFaculty = null;
+  }
 
   return {
     sub: admin.id,
