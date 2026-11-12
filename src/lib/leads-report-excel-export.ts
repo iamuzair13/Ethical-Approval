@@ -14,6 +14,7 @@ export type LeadsReportExcelLead = {
   duration: string;
   currentStatus: string;
   stage: string;
+  submittedAt: string;
   avatar: string | null;
   latestFeedbackComment?: string | null;
   latestAuditNote?: string | null;
@@ -81,6 +82,21 @@ export const LEADS_EXCEL_COLUMNS: readonly {
     getValue: (l) => l.project,
   },
   { id: "duration", header: "Duration", defaultSelected: true, getValue: (l) => l.duration },
+  {
+    id: "submittedAt",
+    header: "Submitted",
+    defaultSelected: true,
+    getValue: (l) => {
+      const d = new Date(l.submittedAt);
+      return Number.isNaN(d.getTime())
+        ? ""
+        : d.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+    },
+  },
   { id: "stage", header: "Stage", defaultSelected: true, getValue: (l) => l.stage },
   {
     id: "latestFeedbackComment",

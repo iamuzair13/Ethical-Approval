@@ -23,6 +23,7 @@ export type ColumnId =
   | "title"
   | "responseIn"
   | "duration"
+  | "submittedAt"
   | "actions";
 
 export type ColumnDef = {
@@ -43,6 +44,7 @@ export const COLUMN_DEFS: readonly ColumnDef[] = [
   { id: "title", label: "Title", defaultWidth: 230, minWidth: 120, canHide: true, canPin: true },
   { id: "responseIn", label: "Response In", defaultWidth: 130, minWidth: 100, canHide: true, canPin: true },
   { id: "duration", label: "Duration", defaultWidth: 115, minWidth: 90, canHide: true, canPin: true },
+  { id: "submittedAt", label: "Submitted", defaultWidth: 135, minWidth: 110, canHide: true, canPin: true },
   { id: "actions", label: "Actions", defaultWidth: 170, minWidth: 140, canHide: false, canPin: false },
 ];
 
@@ -75,9 +77,13 @@ function sanitizeLayout(raw: unknown): ColumnLayout {
   const order = Array.isArray(o.order)
     ? (o.order.filter((id): id is ColumnId => KNOWN_IDS.has(id as ColumnId)) as ColumnId[])
     : [];
-  // Always append any columns missing from a stored order (new columns added later).
+  // Always insert columns missing from a stored order (new columns added
+  // later) before the locked actions tail so it stays last.
   for (const def of COLUMN_DEFS) {
-    if (!order.includes(def.id)) order.push(def.id);
+    if (order.includes(def.id)) continue;
+    const tail = order.indexOf(LOCKED_ORDER_TAIL);
+    if (tail >= 0) order.splice(tail, 0, def.id);
+    else order.push(def.id);
   }
   const hidden = (Array.isArray(o.hidden) ? o.hidden : []).filter(
     (id): id is ColumnId =>

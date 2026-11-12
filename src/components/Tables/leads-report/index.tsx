@@ -107,6 +107,28 @@ function buildCountsList<T>(
 const mockDaysAgoIso = (days: number) =>
   new Date(Date.now() - days * 86400000).toISOString();
 
+function formatSubmittedAt(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatSubmittedAtTitle(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const LEADS: Lead[] = [
   {
     id: 1,
@@ -1244,6 +1266,20 @@ export function LeadsReport({
         return (
           <TableCell key={id} className={cn("text-sm tabular-nums text-slate-600 dark:text-slate-300", pinnedCls)} style={style}>
             {lead.duration}
+          </TableCell>
+        );
+      case "submittedAt":
+        return (
+          <TableCell
+            key={id}
+            className={cn(
+              "whitespace-nowrap text-sm tabular-nums text-slate-600 dark:text-slate-300",
+              pinnedCls,
+            )}
+            style={style}
+            title={formatSubmittedAtTitle(lead.submittedAt)}
+          >
+            {formatSubmittedAt(lead.submittedAt)}
           </TableCell>
         );
       case "actions":
