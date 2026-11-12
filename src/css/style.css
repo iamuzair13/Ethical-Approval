@@ -13,6 +13,73 @@
   --auth-glow-teal: rgba(45, 212, 191, 0.12);
 }
 
+@layer utilities {
+  /* Deep navy base with a soft directional wash */
+  .auth-bg {
+    background-color: var(--auth-navy-950);
+    background-image:
+      radial-gradient(1100px 700px at 85% 115%, rgba(47, 79, 216, 0.5), transparent 65%),
+      radial-gradient(900px 620px at 10% -10%, rgba(30, 58, 138, 0.7), transparent 60%),
+      linear-gradient(158deg, var(--auth-navy-950) 0%, var(--auth-navy-900) 45%, var(--auth-navy-700) 85%);
+  }
+
+  /* Drifting ambient glow blobs (transform-only, GPU-friendly) */
+  .auth-glow {
+    animation: auth-glow-drift 26s ease-in-out infinite;
+    will-change: transform;
+  }
+  .auth-glow-slow {
+    animation-duration: 34s;
+  }
+  .auth-glow-rev {
+    animation-direction: reverse;
+  }
+  @keyframes auth-glow-drift {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    33% { transform: translate3d(4%, -4%, 0) scale(1.06); }
+    66% { transform: translate3d(-4%, 3%, 0) scale(0.96); }
+  }
+
+  /* Faint dot grid that fades toward the edges */
+  .auth-dotgrid {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1.4px);
+    background-size: 28px 28px;
+    opacity: 0.055;
+    -webkit-mask-image: radial-gradient(ellipse 85% 80% at 35% 40%, black 25%, transparent 72%);
+    mask-image: radial-gradient(ellipse 85% 80% at 35% 40%, black 25%, transparent 72%);
+  }
+
+  /* Subtle grain to prevent gradient banding */
+  .auth-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+  }
+
+  /* Staggered fade-up entrance */
+  .auth-reveal {
+    opacity: 0;
+    animation: auth-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+  @keyframes auth-fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-reveal {
+      animation: none;
+      opacity: 1;
+    }
+    .auth-glow,
+    .auth-glow-slow,
+    .auth-glow-rev {
+      animation: none;
+    }
+  }
+}
+
 @layer base {
   body {
     @apply bg-slate-50 font-sans text-slate-600 antialiased dark:bg-slate-950 dark:text-slate-400;
