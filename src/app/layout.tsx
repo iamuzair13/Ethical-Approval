@@ -4,7 +4,7 @@ import "flatpickr/dist/flatpickr.min.css";
 import "jsvectormap/dist/jsvectormap.css";
 
 import { ConditionalAppShell } from "@/components/Layouts/conditional-app-shell";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import type { Metadata } from "next";
 import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
@@ -14,6 +14,12 @@ import { Providers } from "./providers";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -29,7 +35,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.variable}>
+      <body className={`${inter.variable} ${fraunces.variable}`}>
         <Providers>
           <NextTopLoader color="#5750F1" showSpinner={false} />
           <Toaster richColors position="top-center" />

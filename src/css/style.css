@@ -2,9 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Auth (sign-in) surface tokens ───────────────────────────── */
+:root {
+  --auth-navy-950: #081533;
+  --auth-navy-900: #0b1b4d;
+  --auth-navy-700: #1e3a8a;
+  --auth-indigo-500: #2f4fd8;
+  --auth-glow-indigo: rgba(99, 102, 241, 0.26);
+  --auth-glow-sky: rgba(56, 189, 248, 0.15);
+  --auth-glow-teal: rgba(45, 212, 191, 0.12);
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-600 antialiased dark:bg-slate-950 dark:text-slate-400;
+    @apply bg-slate-50 font-sans text-slate-600 antialiased dark:bg-slate-950 dark:text-slate-400;
   }
 
   /* Native selects: dark popup + field (avoids white-on-white in dark mode) */

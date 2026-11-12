@@ -8,6 +8,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif', ...defaultTheme.fontFamily.sans],
+        display: ['var(--font-fraunces)', 'Georgia', 'serif'],
       },
       screens: {
         "2xsm": "375px",
