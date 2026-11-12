@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 function SigninFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#3b5bdb] to-[#364fc7] px-4">
+    <div className="auth-bg flex min-h-dvh items-center justify-center px-4">
       <div className="flex items-center gap-3 rounded-xl bg-white/10 px-6 py-4 text-white backdrop-blur">
         <span className="inline-block size-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
         <span className="text-sm font-medium">Loading sign-in…</span>
