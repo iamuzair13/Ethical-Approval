@@ -26,7 +26,7 @@ function actionLabel(actionCode: string): string {
     "admin.department.delete": "Delete Department",
     "application.review.approve": "Approve Application",
     "application.review.reject": "Reject Application",
-    "application.review.recommend": "Recommend Application",
+    "application.review.recommend": "Forward Application",
     "application.review.mark_sensitive": "Mark Application Sensitive",
     "profile.update": "Update Profile",
     "profile.avatar.update": "Update Profile Photo",
@@ -144,7 +144,7 @@ export function buildActivityDescription(input: {
     return buildSelfActionDescription(
       input.effective,
       input.actionCode,
-      `recommended application ${input.targetLabel} for IREB review`,
+      `forwarded application ${input.targetLabel} for IREB review`,
     );
   }
   if (input.actionCode === "application.review.mark_sensitive" && input.targetLabel) {

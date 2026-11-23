@@ -736,7 +736,7 @@ export function LeadsReport({
   const handleAdminReleaseSubmit = async () => {
     if (!adminReleaseLead || !adminReleaseAction) return;
     if (adminReleaseAction === "recommend" && !adminReleaseIrebUserId) {
-      setActionError("Please select an IREB member to recommend to.");
+      setActionError("Please select an IREB member to forward to.");
       return;
     }
     setBusyLeadId(adminReleaseLead.id);
@@ -764,7 +764,7 @@ export function LeadsReport({
       toast.success(
         adminReleaseAction === "mark_sensitive"
           ? `Application ${adminReleaseLead.applicationId} marked as sensitive.`
-          : `Application ${adminReleaseLead.applicationId} recommended for IREB review.`,
+          : `Application ${adminReleaseLead.applicationId} forwarded for IREB review.`,
       );
       resetAdminReleaseModal();
       router.refresh();

@@ -74,7 +74,7 @@ export function AdminReleaseModal({
 
   if (!lead || !action) return null;
 
-  const title = isSensitive ? "Mark as Sensitive Case" : "Recommend for IREB Review";
+  const title = isSensitive ? "Mark as Sensitive Case" : "Forward for IREB Review";
   const description = isSensitive
     ? "This will release the application to IREB members as a sensitive case. It will appear in the Sensitive Cases section."
     : "Select an IREB member to review this application. Only the selected member and administrators will be able to see it.";
@@ -106,7 +106,7 @@ export function AdminReleaseModal({
             onClick={onSubmit}
             className="w-full sm:w-auto"
           >
-            {isSensitive ? "Mark as Sensitive" : "Recommend"}
+            {isSensitive ? "Mark as Sensitive" : "Forward"}
           </ModalButton>
         </>
       }
@@ -151,7 +151,7 @@ export function AdminReleaseModal({
           )}
           {irebUserId === "" && !irebUsersLoading && irebUsers.length > 0 && (
             <p className="mt-1.5 text-xs text-red">
-              Please select an IREB member to recommend this application to.
+              Please select an IREB member to forward this application to.
             </p>
           )}
         </div>

@@ -157,7 +157,7 @@ function DeciderBlock({
       </div>
       {decider.forwarded > 0 && (
         <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          {decider.forwarded} forwarded to IREB (recommended / marked sensitive)
+          {decider.forwarded} forwarded to IREB (forward / marked sensitive)
         </p>
       )}
     </div>

@@ -60,7 +60,7 @@ export async function POST(
   const irebUserId = body.irebUserId?.trim();
   if (body.action === "recommend" && !irebUserId) {
     return NextResponse.json(
-      { ok: false, error: "Please select an IREB member to recommend to." },
+      { ok: false, error: "Please select an IREB member to forward to." },
       { status: 400 },
     );
   }

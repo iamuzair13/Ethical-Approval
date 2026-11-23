@@ -169,7 +169,7 @@ export function RowActions({
               className={cn(menuItemClass, "text-primary dark:text-indigo-300")}
             >
               <Send className="size-3.5" aria-hidden />
-              Recommend
+              Forward
             </button>
           </DropdownClose>
         )}

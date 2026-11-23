@@ -10,7 +10,7 @@ export function buildAdminReleaseIrebEmail(input: AdminReleaseIrebInput): MailPa
 
   const intro = input.isSensitive
     ? "The Administrator (IREB Chairman) has reviewed an Ethical Approval application and released it as a <strong>sensitive case</strong> for IREB review."
-    : "The Administrator (IREB Chairman) has recommended an Ethical Approval application and it is now ready for IREB review.";
+    : "The Administrator (IREB Chairman) has forwarded an Ethical Approval application and it is now ready for IREB review.";
 
   const html = `
 <!DOCTYPE html>
@@ -37,7 +37,7 @@ The University of Lahore</p>
     "",
     input.isSensitive
       ? "The Administrator (IREB Chairman) has reviewed an Ethical Approval application and released it as a sensitive case for IREB review."
-      : "The Administrator (IREB Chairman) has recommended an Ethical Approval application and it is now ready for IREB review.",
+      : "The Administrator (IREB Chairman) has forwarded an Ethical Approval application and it is now ready for IREB review.",
     "",
     `Application ID: ${input.applicationId}`,
     `Applicant: ${input.applicantName}`,

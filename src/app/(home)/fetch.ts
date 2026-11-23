@@ -172,7 +172,7 @@ function buildActionTrace(input: {
         ? "rejected"
         : input.latestDecision === "marked_sensitive"
           ? "marked as sensitive"
-          : "recommended to IREB";
+          : "forwarded to IREB";
   return `${stageLabel} ${decisionLabel} by ${input.latestDecidedByName}.`;
 }
 

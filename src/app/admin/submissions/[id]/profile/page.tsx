@@ -68,7 +68,7 @@ function decisionStageLabel(stage: string): string {
 }
 
 function decisionLabel(decision: string): string {
-  if (decision === "recommended") return "Recommended to IREB";
+  if (decision === "recommended") return "Forwarded to IREB";
   if (decision === "marked_sensitive") return "Marked as sensitive";
   return decision;
 }
