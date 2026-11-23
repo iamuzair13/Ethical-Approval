@@ -43,3 +43,4 @@ temp_interactive_push.bat
 
 .playwright-mcp/
 sign-in-*.png
+config.bat
