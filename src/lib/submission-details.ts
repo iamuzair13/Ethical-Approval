@@ -3,8 +3,8 @@ import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 
 export type ApprovalDecisionRow = {
   id: number;
-  stage: "hod" | "ireb";
-  decision: "approved" | "rejected";
+  stage: "hod" | "admin" | "ireb";
+  decision: "approved" | "rejected" | "recommended" | "marked_sensitive";
   comment: string | null;
   decided_by_name: string | null;
   decided_at: Date;

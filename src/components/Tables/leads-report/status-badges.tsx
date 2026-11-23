@@ -23,9 +23,13 @@ export function ApplicationIdBadge({ id }: { id: string }) {
 
 export function StatusBadge({ status, hodName }: { status: LeadStatus; hodName?: string | null }) {
   const isApproved =
-    status === "Approved by HOD" || status === "Approved by IREB";
+    status === "Approved by HOD" ||
+    status === "Approved by Administrator" ||
+    status === "Approved by IREB";
   const isRejected =
-    status === "Rejected by HOD" || status === "Rejected by IREB";
+    status === "Rejected by HOD" ||
+    status === "Rejected by Administrator" ||
+    status === "Rejected by IREB";
   const isHodReview = status === "Under Review by HOD";
 
   const displayText = isHodReview

@@ -84,6 +84,8 @@ const STATUS_ORDER: LeadStatus[] = [
   "Approved by HOD",
   "Rejected by HOD",
   "Under Review by IREB",
+  "Approved by Administrator",
+  "Rejected by Administrator",
   "Approved by IREB",
   "Rejected by IREB",
 ];
@@ -537,7 +539,7 @@ export function LeadsReport({
     () =>
       currentRole === "hod"
         ? leads.filter((lead) => lead.stage === "ireb" || lead.stage === "completed")
-        : leads.filter((lead) => lead.currentStatus === "Approved by IREB"),
+        : leads.filter((lead) => lead.currentStatus.startsWith("Approved")),
     [leads, currentRole],
   );
 
@@ -557,11 +559,8 @@ export function LeadsReport({
   );
 
   const rejectedLeads = useMemo(
-    () =>
-      currentRole === "hod"
-        ? leads.filter((lead) => lead.currentStatus === "Rejected by HOD" || lead.currentStatus === "Rejected by IREB")
-        : leads.filter((lead) => lead.currentStatus === "Rejected by IREB"),
-    [leads, currentRole],
+    () => leads.filter((lead) => lead.currentStatus.startsWith("Rejected")),
+    [leads],
   );
 
   const showApprovedTab = currentRole !== null;

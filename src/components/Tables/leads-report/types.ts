@@ -5,6 +5,8 @@ export type LeadStatus =
   | "Rejected by HOD"
   | "Under Review by Administrator"
   | "Under Review by IREB"
+  | "Approved by Administrator"
+  | "Rejected by Administrator"
   | "Approved by IREB"
   | "Rejected by IREB";
 

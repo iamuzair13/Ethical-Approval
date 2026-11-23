@@ -40,6 +40,8 @@ type LeadStatus =
   | "Rejected by HOD"
   | "Under Review by Administrator"
   | "Under Review by IREB"
+  | "Approved by Administrator"
+  | "Rejected by Administrator"
   | "Approved by IREB"
   | "Rejected by IREB";
 
@@ -873,11 +875,17 @@ export async function getDashboardLeads(session: Session): Promise<DashboardLead
         stage = "completed";
         break;
       case "approved":
-        currentStatus = "Approved by IREB";
+        currentStatus =
+          row.latest_decision_stage === "admin"
+            ? "Approved by Administrator"
+            : "Approved by IREB";
         stage = "completed";
         break;
       case "rejected":
-        currentStatus = "Rejected by IREB";
+        currentStatus =
+          row.latest_decision_stage === "admin"
+            ? "Rejected by Administrator"
+            : "Rejected by IREB";
         stage = "completed";
         break;
     }

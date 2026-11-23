@@ -53,13 +53,13 @@ function matchesDrill(lead: Lead, filter: DrillFilter): boolean {
       // Approved by HOD = moved past the HOD stage without a HOD rejection.
       return lead.stage !== "hod" && lead.currentStatus !== "Rejected by HOD";
     }
-    return lead.currentStatus === "Approved by IREB" && lead.decidingStage === filter.decidedBy;
+    return lead.decidingStage === filter.decidedBy && lead.currentStatus.startsWith("Approved");
   }
   if (filter.decidedBy && filter.outcome === "rejected") {
     if (filter.decidedBy === "hod") {
       return lead.currentStatus === "Rejected by HOD";
     }
-    return lead.currentStatus === "Rejected by IREB" && lead.decidingStage === filter.decidedBy;
+    return lead.decidingStage === filter.decidedBy && lead.currentStatus.startsWith("Rejected");
   }
   return true;
 }

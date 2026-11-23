@@ -35,7 +35,11 @@ type SubmissionStatus =
   | "approved"
   | "rejected";
 
-function formatSubmissionStatus(status: SubmissionStatus, hodName?: string | null): string {
+function formatSubmissionStatus(
+  status: SubmissionStatus,
+  hodName?: string | null,
+  decidingStage?: string | null,
+): string {
   switch (status) {
     case "submitted":
     case "under_hod_review":
@@ -47,9 +51,9 @@ function formatSubmissionStatus(status: SubmissionStatus, hodName?: string | nul
     case "hod_rejected":
       return "Rejected by HOD";
     case "approved":
-      return "Approved by IREB";
+      return decidingStage === "admin" ? "Approved by Administrator" : "Approved by IREB";
     case "rejected":
-      return "Rejected by IREB";
+      return decidingStage === "admin" ? "Rejected by Administrator" : "Rejected by IREB";
     default:
       return status;
   }
@@ -203,9 +207,18 @@ export default async function AdminSubmissionProfilePage({
     "—";
 
   const hodName = submission.hod_name_snapshot ?? null;
-  const statusLabel = formatSubmissionStatus(submission.current_status, hodName);
-  const documents = listSubmissionDocuments(submissionId, ethics);
   const decisions = await getApprovalDecisionsBySubmissionId(submissionId);
+  const finalDecidingStage =
+    submission.current_status === "approved" || submission.current_status === "rejected"
+      ? decisions.filter((d) => d.decision === "approved" || d.decision === "rejected").at(0)
+          ?.stage ?? null
+      : null;
+  const statusLabel = formatSubmissionStatus(
+    submission.current_status,
+    hodName,
+    finalDecidingStage,
+  );
+  const documents = listSubmissionDocuments(submissionId, ethics);
 
   const isAcceptedValue = (v: unknown) =>
     typeof v === "string" && ["yes", "true", "on", "accepted"].includes(v.trim().toLowerCase());
