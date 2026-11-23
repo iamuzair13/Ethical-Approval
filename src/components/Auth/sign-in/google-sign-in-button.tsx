@@ -41,7 +41,7 @@ export function GoogleSignInButton({
       onClick={onClick}
       disabled={loading}
       aria-busy={loading}
-      className="group mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 text-base font-semibold text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 active:translate-y-0 active:shadow-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:hover:border-indigo-400/50 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-900"
+      className="group mt-8 flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 text-base font-semibold text-slate-800 shadow-sm transition duration-200 hover:-translate-y-px hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 active:translate-y-0 active:shadow-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:hover:border-indigo-400/50 dark:hover:bg-white/10 dark:focus-visible:ring-offset-slate-900"
     >
       {loading ? (
         <span

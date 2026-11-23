@@ -65,7 +65,7 @@ export function RowActions({
     isAdminStage && currentRole === "administrator" && Boolean(onRecommend || onMarkSensitive);
 
   const menuItemClass =
-    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800";
+    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-slate-300 dark:hover:bg-slate-800";
 
   return (
     <Dropdown isOpen={isMenuOpen} setIsOpen={onMenuOpenChange}>

@@ -124,7 +124,10 @@ export function AdminReleaseModal({
 
       {isRecommend && (
         <div className="mb-5">
-          <label className="mb-2 block text-sm font-semibold text-gray-900 dark:text-white">
+          <label
+            htmlFor="ireb-member-select"
+            className="mb-2 block text-sm font-semibold text-gray-900 dark:text-white"
+          >
             IREB Member <span className="text-red-500">*</span>
           </label>
           {irebUsersLoading ? (
@@ -133,6 +136,7 @@ export function AdminReleaseModal({
             <p className="text-sm text-red">{irebUsersError}</p>
           ) : (
             <select
+              id="ireb-member-select"
               value={irebUserId}
               onChange={(e) => onIrebUserIdChange(e.target.value)}
               className={cn(
@@ -158,10 +162,14 @@ export function AdminReleaseModal({
       )}
 
       <div>
-        <label className="mb-2 block text-sm font-semibold text-gray-900 dark:text-white">
+        <label
+          htmlFor="admin-release-comment"
+          className="mb-2 block text-sm font-semibold text-gray-900 dark:text-white"
+        >
           Comment (optional)
         </label>
         <textarea
+          id="admin-release-comment"
           value={comment}
           onChange={(e) => onCommentChange(e.target.value)}
           rows={4}

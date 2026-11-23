@@ -22,15 +22,15 @@ function CollapsedSummary({ track }: { track: TrackSummary }) {
   return (
     <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-medium">
       <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-        <span className="size-1.5 rounded-full bg-amber-500" />
+        <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
         {pending} pending
       </span>
       <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
         {approved} approved
       </span>
       <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-        <span className="size-1.5 rounded-full bg-rose-500" />
+        <span className="size-1.5 rounded-full bg-rose-500" aria-hidden="true" />
         {rejected} rejected
       </span>
     </span>
@@ -220,35 +220,34 @@ export function TrackSection({
     >
       {/* Header — click toggles the section body */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        >
-          <ChevronDown
-            className={cn(
-              "size-5 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
-              !open && "-rotate-90",
-            )}
-            aria-hidden="true"
-          />
-          <span className="min-w-0">
-            <h3
-              id={`track-${track.track}-title`}
-              className="truncate text-lg font-semibold tracking-tight text-slate-900 group-hover:text-primary dark:text-white"
-            >
-              {track.label}
-            </h3>
-            <span className="block text-[13px] text-slate-500 dark:text-slate-400">
-              {track.forms} ·{" "}
-              <span className="font-semibold tabular-nums">{track.total}</span>{" "}
-              submitted in range
+        <h3 id={`track-${track.track}-title`} className="min-w-0">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={bodyId}
+            className="group flex min-w-0 items-center gap-2 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <ChevronDown
+              className={cn(
+                "size-5 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
+                !open && "-rotate-90",
+              )}
+              aria-hidden="true"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-lg font-semibold tracking-tight text-slate-900 group-hover:text-primary dark:text-white">
+                {track.label}
+              </span>
+              <span className="block text-[13px] text-slate-500 dark:text-slate-400">
+                {track.forms} ·{" "}
+                <span className="font-semibold tabular-nums">{track.total}</span>{" "}
+                submitted in range
+              </span>
+              {!open && <CollapsedSummary track={track} />}
             </span>
-            {!open && <CollapsedSummary track={track} />}
-          </span>
-        </button>
+          </button>
+        </h3>
         {open && (
           <div className="shrink-0">
             <TrackSparkline trend={track.trend} />

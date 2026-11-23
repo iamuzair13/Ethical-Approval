@@ -91,6 +91,7 @@ export function PipelineStepper({
                 <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
                   {STAGE_LABELS[stage]}
                 </span>
+                <span className="sr-only">{entered} reached this stage.</span>
                 <span className="mt-1.5 text-2xl font-semibold leading-none tabular-nums text-slate-900 dark:text-white">
                   <CountUp value={waiting} />
                 </span>

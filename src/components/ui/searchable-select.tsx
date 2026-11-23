@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -64,6 +65,10 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
+  const uid = useId();
+  const listboxId = `${uid}-listbox`;
+  const labelId = `${uid}-label`;
+  const optionId = (idx: number) => `${uid}-opt-${idx}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -206,13 +211,18 @@ export function SearchableSelect({
             placeholder={searchPlaceholder}
             className="w-full rounded-md border border-stroke bg-transparent py-2 pl-8 pr-3 text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:text-white"
             role="combobox"
+            aria-label={label ?? searchPlaceholder}
             aria-expanded="true"
+            aria-controls={listboxId}
+            aria-activedescendant={
+              activeIndex >= 0 ? optionId(activeIndex) : undefined
+            }
           />
         </div>
       </div>
 
       {/* Options list */}
-      <div className="max-h-56 overflow-y-auto p-1">
+      <div id={listboxId} className="max-h-56 overflow-y-auto p-1">
         {loading ? (
           <p className="px-3 py-4 text-center text-sm text-dark-5 dark:text-dark-6">
             Loading…
@@ -228,6 +238,7 @@ export function SearchableSelect({
             return (
               <button
                 key={opt.value}
+                id={optionId(idx)}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
@@ -264,7 +275,10 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className="relative">
       {label && (
-        <span className="mb-1.5 block text-[13px] font-medium text-slate-500 dark:text-slate-400">
+        <span
+          id={labelId}
+          className="mb-1.5 block text-[13px] font-medium text-slate-500 dark:text-slate-400"
+        >
           {label}
         </span>
       )}
@@ -275,6 +289,8 @@ export function SearchableSelect({
         onClick={() => !disabled && setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-labelledby={label ? `${labelId} ${uid}-trigger` : undefined}
+        id={`${uid}-trigger`}
         className={triggerClass}
       >
         <span className="truncate">

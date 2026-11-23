@@ -110,7 +110,7 @@ export function TableToolbar({
     ...(showApprovedTab
       ? [{ key: "approved" as LeadsTab, label: "Approved Requests", count: approvedCount ?? 0 }]
       : []),
-    { key: "overdue", label: "Over Due Approval", count: overdueCount },
+    { key: "overdue", label: "Overdue Approvals", count: overdueCount },
     ...(showApprovedTab
       ? [{ key: "rejected" as LeadsTab, label: "Rejected Requests", count: rejectedCount ?? 0 }]
       : []),
@@ -202,7 +202,11 @@ export function TableToolbar({
 
       {/* Overdue banner — slim, soft, no heavy border */}
       {overdueCount > 0 && !overdueBannerDismissed && (
-        <div className="flex min-w-0 items-center gap-2.5 rounded-lg bg-amber-50 px-3.5 py-2.5 dark:bg-amber-950/30">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg bg-amber-50 px-3.5 py-2.5 dark:bg-amber-950/30"
+        >
           <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
           <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
             {overdueCount} approval request
@@ -220,7 +224,10 @@ export function TableToolbar({
       )}
 
       {actionError && (
-        <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 dark:bg-rose-950/30 dark:text-rose-300">
+        <div
+          role="alert"
+          className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
+        >
           {actionError}
         </div>
       )}

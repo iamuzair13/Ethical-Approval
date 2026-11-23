@@ -220,8 +220,17 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
     const onDocDown = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
     document.addEventListener("mousedown", onDocDown);
-    return () => document.removeEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   const rows = layout.order.map((id) => COLUMN_DEF_MAP.get(id)!);
@@ -243,7 +252,11 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+        <div
+          role="dialog"
+          aria-label="Manage columns"
+          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        >
           <div className="flex items-center justify-between px-2 pb-2 pt-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               Manage columns
@@ -251,7 +264,7 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
             <button
               type="button"
               onClick={api.reset}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-gray-400 dark:hover:bg-gray-700"
             >
               <RotateCcw className="size-3" aria-hidden />
               Reset
@@ -280,9 +293,20 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
                     if (from && !isTail) api.reorder(from, def.id);
                     dragIdRef.current = null;
                   }}
+                  tabIndex={isTail ? undefined : 0}
+                  onKeyDown={(e) => {
+                    if (isTail || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+                    e.preventDefault();
+                    const idx = layout.order.indexOf(def.id);
+                    const neighbor =
+                      e.key === "ArrowUp"
+                        ? layout.order[idx - 1]
+                        : layout.order[idx + 1];
+                    if (neighbor && neighbor !== LOCKED_ORDER_TAIL) api.reorder(def.id, neighbor);
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm",
-                    !isTail && "cursor-grab hover:bg-gray-50 dark:hover:bg-gray-700/60",
+                    !isTail && "cursor-grab hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-gray-700/60",
                     hidden && "opacity-50",
                   )}
                 >
@@ -306,7 +330,7 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
                       aria-label={pinned ? `Unpin ${def.label}` : `Pin ${def.label} to left`}
                       title={pinned ? "Unpin" : "Pin to left"}
                       className={cn(
-                        "rounded-md p-1 transition-colors",
+                        "rounded-md p-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         pinned
                           ? "bg-primary/10 text-primary dark:text-indigo-300"
                           : "text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700",
@@ -323,7 +347,7 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
                       aria-label={hidden ? `Show ${def.label}` : `Hide ${def.label}`}
                       title={hidden ? "Show" : "Hide"}
                       className={cn(
-                        "rounded-md p-1 transition-colors",
+                        "rounded-md p-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         hidden
                           ? "text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
                           : "bg-primary/10 text-primary dark:text-indigo-300",
@@ -342,7 +366,7 @@ export function ColumnManagerButton({ layoutApi }: { layoutApi: ReturnType<typeo
           </ul>
 
           <p className="border-t border-gray-100 px-2 pb-1 pt-2 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
-            Drag rows to reorder · resize by dragging a column header&apos;s right edge.
+            Drag rows or use arrow keys to reorder · resize by dragging a column header&apos;s right edge.
           </p>
         </div>
       )}

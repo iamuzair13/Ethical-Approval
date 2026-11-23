@@ -132,7 +132,10 @@ export function TrackTrend({ trend, trackLabel }: { trend: TrendPoint[]; trackLa
       )}
 
       {hasData && mode === "table" && (
-        <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <div
+          tabIndex={0}
+          className="max-h-64 overflow-auto rounded-lg border border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-800"
+        >
           <table className="w-full min-w-[320px] text-left text-[13px]">
             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/80">
               <tr>

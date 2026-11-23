@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 type ModalShellProps = {
   open: boolean;
@@ -52,6 +52,9 @@ export function ModalShell({
   return <ModalShellInner {...{ open, onClose, title, titleId, description, children, footer, maxWidth, zIndex, accentBorder, className }} />;
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function ModalShellInner({
   onClose,
   title,
@@ -64,6 +67,8 @@ function ModalShellInner({
   accentBorder = "none",
   className,
 }: Omit<ModalShellProps, "open">) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -72,10 +77,44 @@ function ModalShellInner({
     };
   }, []);
 
+  // Focus the dialog on open; restore focus to the trigger on close.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => previous?.focus();
+  }, []);
+
+  // Escape to close + keep Tab cycling inside the dialog.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const items = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [onClose]);
+
   return (
     <div
       className={cn(
-        "fixed inset-0 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-6 backdrop-blur-sm",
+        "fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-4 py-6 backdrop-blur-sm",
         zIndexClasses[zIndex],
       )}
       onClick={(e) => {
@@ -83,8 +122,10 @@ function ModalShellInner({
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cn(
-          "my-auto flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800",
+          "my-auto flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl outline-none dark:border-gray-700 dark:bg-gray-800",
           maxWidthClasses[maxWidth],
           accentBorder === "approve" && "border-l-4 border-l-emerald-500",
           accentBorder === "reject" && "border-l-4 border-l-red-500",
@@ -110,13 +151,13 @@ function ModalShellInner({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-150 ease-in-out hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] dark:hover:bg-gray-700"
+            className="shrink-0 rounded-lg p-2 text-gray-500 transition duration-150 ease-in-out hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 active:scale-[0.98] dark:hover:bg-gray-700"
           >
             <X className="size-5" aria-hidden />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
 
         {footer && (
           <div className="flex flex-wrap justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
@@ -139,7 +180,7 @@ export function ModalButton({
     <button
       type="button"
       className={cn(
-        "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+        "rounded-lg px-4 py-2 text-sm font-medium transition duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
         variant === "secondary" &&
           "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700",
         variant === "primary" &&

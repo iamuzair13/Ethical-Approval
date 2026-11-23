@@ -21,12 +21,12 @@ const STEPS = [
 export function HowItWorksStepper() {
   return (
     <section aria-labelledby="how-it-works" className="max-w-xl">
-      <p
+      <h2
         id="how-it-works"
         className="text-[13px] font-semibold tracking-[0.16em] text-blue-200/75"
       >
         How it works
-      </p>
+      </h2>
       <ol className="mt-6 space-y-6">
         {STEPS.map((step, i) => (
           <li key={step.title} className="relative flex gap-5">

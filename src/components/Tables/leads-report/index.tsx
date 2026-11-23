@@ -1090,10 +1090,21 @@ export function LeadsReport({
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize ${COLUMN_DEF_MAP.get(id)?.label ?? "column"} column`}
-      title="Drag to resize"
+      aria-valuenow={widthOf(id)}
+      aria-valuemin={COLUMN_DEF_MAP.get(id)?.minWidth ?? 60}
+      aria-valuemax={600}
+      title="Drag to resize, or use arrow keys"
+      tabIndex={0}
       onPointerDown={(e) => startColumnResize(e, id)}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        e.stopPropagation();
+        const step = (e.shiftKey ? 24 : 8) * (e.key === "ArrowLeft" ? -1 : 1);
+        columnApi.setWidth(id, widthOf(id) + step);
+      }}
       onClick={(e) => e.stopPropagation()}
-      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:right-0 after:w-0.5 after:rounded-full after:bg-slate-300/80 after:transition-all hover:after:bg-primary hover:after:w-1 dark:after:bg-slate-600 dark:hover:after:bg-indigo-400"
+      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:right-0 after:w-0.5 after:rounded-full after:bg-slate-300/80 after:transition-[width,background-color] hover:after:bg-primary hover:after:w-1 focus:outline-none focus-visible:after:bg-primary focus-visible:after:w-1 dark:after:bg-slate-600 dark:hover:after:bg-indigo-400"
     />
   );
 
@@ -1400,6 +1411,7 @@ export function LeadsReport({
             className="table-fixed min-w-full"
             style={{ width: visibleColumns.reduce((sum, id) => sum + widthOf(id), 0) }}
           >
+            <caption className="sr-only">{title} — approval requests</caption>
             <colgroup>
               {visibleColumns.map((id) => (
                 <col key={id} style={{ width: widthOf(id) }} />
