@@ -198,6 +198,47 @@ export function StatusTimeline({
 }
 
 /**
+ * Micro gate-track for dense surfaces (ledger rows). Renders the same
+ * three-gate model as StatusTimeline — Submitted → HOD → IREB — as
+ * connected dots so a row can show pipeline position, not a text blob.
+ */
+export function GateTrack({ currentStage }: { currentStage: string }) {
+  const steps = buildSteps(currentStage);
+  const dotCls = (state: StepState) =>
+    state === "done"
+      ? "bg-emerald-500"
+      : state === "rejected"
+        ? "bg-red-500"
+        : state === "active"
+          ? "bg-indigo-500"
+          : "bg-gray-300 dark:bg-gray-600";
+  const connCls = (prev: StepState) =>
+    prev === "done"
+      ? "bg-emerald-500/40"
+      : prev === "rejected"
+        ? "bg-red-500/40"
+        : "bg-gray-300 dark:bg-gray-600";
+  return (
+    <span className="flex items-center" aria-hidden>
+      {steps.map((step, i) => (
+        <span key={step.label} className="flex items-center">
+          {i > 0 && (
+            <span className={cn("h-px w-4", connCls(steps[i - 1].state))} />
+          )}
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              dotCls(step.state),
+              step.state === "active" && "animate-pulse",
+            )}
+          />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
  * Compact status chip for card headers — shows where the application
  * stands without opening the timeline.
  */

@@ -43,25 +43,25 @@ function formatSubmissionStatus(
   switch (status) {
     case "submitted":
     case "under_hod_review":
-      return hodName ? `Under Review by ${hodName}` : "HOD not Assigned";
+      return hodName ? `Under review — ${hodName}` : "HOD not assigned";
     case "hod_approved":
     case "under_admin_review":
     case "under_ireb_review":
-      return "Under Review by IREB";
+      return "Under review — IREB";
     case "hod_rejected":
       return "Rejected by HOD";
     case "approved":
-      return decidingStage === "admin" ? "Approved by Administrator" : "Approved by IREB";
+      return decidingStage === "admin" ? "Approved by administrator" : "Approved by IREB";
     case "rejected":
-      return decidingStage === "admin" ? "Rejected by Administrator" : "Rejected by IREB";
+      return decidingStage === "admin" ? "Rejected by administrator" : "Rejected by IREB";
     default:
       return status;
   }
 }
 
 function statusTone(status: string): "success" | "danger" | "pending" {
-  if (status.includes("Approved")) return "success";
-  if (status.includes("Rejected")) return "danger";
+  if (status.toLowerCase().includes("approved")) return "success";
+  if (status.toLowerCase().includes("rejected")) return "danger";
   return "pending";
 }
 
@@ -77,59 +77,50 @@ function decisionLabel(decision: string): string {
   return decision;
 }
 
-// ─── Small presentational helpers ───
+// ─── Verdict stamp ───
 
-function Pill({ tone, children }: { tone: "success" | "danger" | "pending" | "info"; children: React.ReactNode }) {
+function VerdictStamp({ label, tone }: { label: string; tone: "success" | "danger" | "pending" }) {
   const cls =
     tone === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+      ? "border-emerald-600 text-emerald-700 dark:border-emerald-500 dark:text-emerald-400"
       : tone === "danger"
-        ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
-        : tone === "info"
-          ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300"
-          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400";
+        ? "border-red-600 text-red-700 dark:border-red-500 dark:text-red-400"
+        : "border-amber-600 text-amber-700 dark:border-amber-500 dark:text-amber-400";
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold", cls)}>
-      {children}
-    </span>
-  );
-}
-
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <section className={cn("rounded-xl border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card", className)}>
-      {children}
-    </section>
-  );
-}
-
-function CardTitle({ eyebrow, title }: { eyebrow?: string; title: string }) {
-  return (
-    <div className="border-b border-stroke px-5 py-4 dark:border-dark-3">
-      {eyebrow && (
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{eyebrow}</p>
+    <div
+      className={cn(
+        "shrink-0 rotate-[-1.5deg] rounded border-2 px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.18em]",
+        "outline outline-1 outline-offset-2",
+        cls,
       )}
-      <h2 className="mt-0.5 text-base font-bold text-dark dark:text-white">{title}</h2>
+    >
+      {label}
     </div>
   );
 }
 
-function FieldLabel({ children, as: Tag = "dt" }: { children: React.ReactNode; as?: "dt" | "p" }) {
-  return (
-    <Tag className="text-xs font-bold uppercase tracking-wider text-dark dark:text-white">
-      {children}
-    </Tag>
-  );
+// ─── Small presentational helpers ───
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <dt className="text-xs font-semibold text-body">{children}</dt>;
 }
 
 function MetaItem({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) {
   return (
     <div className="min-w-0">
       <FieldLabel>{label}</FieldLabel>
-      <dd className={cn("mt-1 truncate text-sm font-medium text-dark dark:text-white", mono && "font-mono")}>
+      <dd className={cn("mt-0.5 truncate text-sm font-medium text-dark dark:text-white", mono && "font-mono")}>
         {children}
       </dd>
     </div>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="border-b border-stroke px-6 py-3 text-sm font-semibold text-dark dark:border-dark-3 dark:text-white">
+      {children}
+    </h2>
   );
 }
 
@@ -227,11 +218,13 @@ export default async function AdminSubmissionProfilePage({
     isAcceptedValue(formData?.form3DeclarationAccepted) ||
     isAcceptedValue(formData?.publicationDeclarationAccepted);
 
+  const formName = requiredForm?.label?.replace(/\.docx$/i, "");
+
   return (
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
         href="/"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-body transition hover:text-primary"
+        className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-body transition hover:text-primary"
       >
         <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -239,71 +232,55 @@ export default async function AdminSubmissionProfilePage({
         All applications
       </Link>
 
-      {/* ─── Hero card: identity + meta + title ─── */}
-      <Card className="mb-6 overflow-hidden">
-        <div className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="text-2xl font-bold tracking-tight text-dark dark:text-white">
-                {submission.applicant_name}
-              </h1>
-              <Pill tone={statusTone(statusLabel)}>{statusLabel}</Pill>
-              {submission.is_sensitive && <Pill tone="danger">Sensitive</Pill>}
-            </div>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-body">
-              <span className="font-mono font-semibold text-primary">{submission.application_id}</span>
-              <span aria-hidden>·</span>
-              <span>{applicationType}</span>
-              <span aria-hidden>·</span>
-              <span>{submission.domain === "medical" ? "Medical" : "Non-medical"}</span>
-              {requiredForm?.label && (
-                <>
-                  <span aria-hidden>·</span>
-                  <span>{requiredForm.label.replace(/\.docx$/i, "")}</span>
-                </>
+      {/* ─── Dossier head: docket number, title, verdict stamp ─── */}
+      <header className="border-b-2 border-dark pb-6 dark:border-white">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <p className="font-mono text-sm font-semibold tracking-tight text-primary">
+            {submission.application_id}
+          </p>
+          <p className="text-sm text-body">
+            {applicationType}
+            {formName ? ` · ${formName}` : ""}
+          </p>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <h1 className="text-2xl font-bold leading-tight tracking-tight text-dark dark:text-white sm:text-3xl">
+              {researchTitle}
+            </h1>
+            <p className="mt-3 text-sm text-body">
+              Submitted by{" "}
+              <span className="font-semibold text-dark dark:text-white">{submission.applicant_name}</span>
+              {" "}({submission.applicant_sap_id}) ·{" "}
+              {submission.domain === "medical" ? "Medical" : "Non-medical"} ·{" "}
+              {new Date(submission.submitted_at).toLocaleString()} ·{" "}
+              Attempt {submission.applicant_attempt_number} of {submission.applicant_total_submissions}
+              {submission.is_sensitive && (
+                <span className="ml-2 inline-flex items-center rounded border border-red-300 bg-red-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+                  Sensitive
+                </span>
               )}
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+
+          <div className="flex shrink-0 flex-col items-start gap-4 sm:items-end">
+            <VerdictStamp label={statusLabel} tone={statusTone(statusLabel)} />
             <ViewDocumentsButton
               applicationId={submission.application_id}
               documents={documents}
             />
-            {submission.submission_attachment_count > 0 && (
-              <p className="text-center text-xs text-body sm:text-right">
-                {submission.submission_attachment_count} file
-                {submission.submission_attachment_count === 1 ? "" : "s"} on record
-              </p>
-            )}
           </div>
         </div>
+      </header>
 
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-stroke bg-gray-1/50 px-6 py-4 dark:border-dark-3 dark:bg-dark-2/40 sm:grid-cols-4">
-          <MetaItem label="Application type">{applicationType}</MetaItem>
-          <MetaItem label="Domain">
-            {submission.domain === "medical" ? "Medical" : "Non-medical"}
-          </MetaItem>
-          <MetaItem label="Submission attempt">
-            {submission.applicant_attempt_number} of {submission.applicant_total_submissions}
-          </MetaItem>
-          <MetaItem label="Submitted">
-            {new Date(submission.submitted_at).toLocaleString()}
-          </MetaItem>
-        </dl>
-        <div className="border-t border-stroke px-6 py-4 dark:border-dark-3">
-          <FieldLabel as="p">Title</FieldLabel>
-          <p className="mt-1 text-base font-semibold leading-snug text-dark dark:text-white">
-            {researchTitle}
-          </p>
-        </div>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        {/* ─── Left rail: people + review timeline ─── */}
-        <aside className="flex flex-col gap-6 self-start lg:sticky lg:top-6">
-          <Card>
-            <CardTitle eyebrow="Applicant" title={submission.applicant_name} />
-            <dl className="grid gap-4 px-5 py-4">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
+        {/* ─── Left rail: people + review record ─── */}
+        <aside className="flex flex-col gap-8 self-start lg:sticky lg:top-6">
+          <section className="overflow-hidden rounded-lg border border-stroke bg-white dark:border-dark-3 dark:bg-gray-dark">
+            <SectionHeading>Applicant</SectionHeading>
+            <dl className="grid gap-4 px-6 py-5">
+              <MetaItem label="Name">{submission.applicant_name}</MetaItem>
               <MetaItem label="SAP ID" mono>{submission.applicant_sap_id}</MetaItem>
               <MetaItem label="Email">
                 <a className="hover:underline" href={`mailto:${submission.applicant_email}`}>
@@ -314,12 +291,13 @@ export default async function AdminSubmissionProfilePage({
               <MetaItem label="Department">{submission.applicant_department || "—"}</MetaItem>
               <MetaItem label="Program">{submission.applicant_program || "—"}</MetaItem>
             </dl>
-          </Card>
+          </section>
 
           {hodName && (
-            <Card>
-              <CardTitle eyebrow="Reviewing HOD" title={hodName} />
-              <dl className="grid gap-4 px-5 py-4">
+            <section className="overflow-hidden rounded-lg border border-stroke bg-white dark:border-dark-3 dark:bg-gray-dark">
+              <SectionHeading>Reviewing HOD</SectionHeading>
+              <dl className="grid gap-4 px-6 py-5">
+                <MetaItem label="Name">{hodName}</MetaItem>
                 {submission.hod_sap_id_snapshot && (
                   <MetaItem label="SAP ID" mono>{submission.hod_sap_id_snapshot}</MetaItem>
                 )}
@@ -337,48 +315,55 @@ export default async function AdminSubmissionProfilePage({
                   <MetaItem label="Faculty">{submission.hod_faculty_snapshot}</MetaItem>
                 )}
               </dl>
-            </Card>
+            </section>
           )}
 
-          <Card>
-            <CardTitle eyebrow="Workflow" title="Review timeline" />
-            <ol className="relative ml-5 mr-4 my-4 space-y-5 border-l border-stroke pl-5 dark:border-dark-3">
-              <TimelineItem
+          <section className="overflow-hidden rounded-lg border border-stroke bg-white dark:border-dark-3 dark:bg-gray-dark">
+            <SectionHeading>Review record</SectionHeading>
+            <ol>
+              <RecordRow
                 tone="neutral"
-                title="Submitted"
-                by={submission.applicant_name}
+                action="Submitted"
+                actor={submission.applicant_name}
                 at={submission.submitted_at}
+                last={!submission.assigned_ireb_name && decisions.length === 0}
               />
               {submission.assigned_ireb_name && (
-                <TimelineItem
+                <RecordRow
                   tone="info"
-                  title="Recommended to IREB"
-                  by={submission.assigned_ireb_name}
+                  action="Recommended to IREB"
+                  actor={submission.assigned_ireb_name}
+                  last={decisions.length === 0}
                 />
               )}
-              {[...decisions].reverse().map((d: ApprovalDecisionRow) => (
-                <TimelineItem
+              {[...decisions].reverse().map((d: ApprovalDecisionRow, i, arr) => (
+                <RecordRow
                   key={d.id}
                   tone={d.decision === "approved" ? "success" : d.decision === "rejected" ? "danger" : "info"}
-                  title={`${decisionStageLabel(d.stage as string)} ${decisionLabel(d.decision)}`}
-                  by={d.decided_by_name}
+                  action={`${decisionStageLabel(d.stage as string)} — ${decisionLabel(d.decision)}`}
+                  actor={d.decided_by_name}
                   at={d.decided_at}
                   comment={d.comment}
+                  last={
+                    i === arr.length - 1 &&
+                    submission.current_status !== "approved" &&
+                    submission.current_status !== "rejected"
+                  }
                 />
               ))}
               {(submission.current_status === "approved" || submission.current_status === "rejected") && (
-                <TimelineItem
+                <RecordRow
                   tone={submission.current_status === "approved" ? "success" : "danger"}
-                  title={submission.current_status === "approved" ? "Approved" : "Rejected"}
+                  action={submission.current_status === "approved" ? "Final — approved" : "Final — rejected"}
+                  last
                 />
               )}
             </ol>
-          </Card>
+          </section>
         </aside>
 
         {/* ─── Main column: application content as steps ─── */}
         <main className="flex min-w-0 flex-col gap-6">
-          {/* Step sections — same order the applicant filled them */}
           {steps ? (
             steps.map((step, index) => {
               const isAttachments = step.keys.includes("requiredAttachments");
@@ -392,13 +377,13 @@ export default async function AdminSubmissionProfilePage({
 
               if (isAttachments) {
                 return (
-                  <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                  <StepSection key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
                     {documents.length > 0 ? (
                       <ul className="grid gap-2 sm:grid-cols-2">
                         {documents.map((doc) => (
                           <li
                             key={doc.id}
-                            className="flex items-center gap-2.5 rounded-lg border border-stroke px-3 py-2.5 dark:border-dark-3"
+                            className="flex items-center gap-2.5 rounded-md border border-stroke px-3 py-2.5 dark:border-dark-3"
                           >
                             <svg className="size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" />
@@ -422,45 +407,50 @@ export default async function AdminSubmissionProfilePage({
                         Open files via the <span className="font-semibold">View documents</span> button above.
                       </p>
                     )}
-                  </StepCard>
+                  </StepSection>
                 );
               }
 
               if (isDeclaration) {
                 return (
-                  <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
-                    <div className="flex items-center gap-2.5">
-                      <Pill tone={hasDeclaration ? "success" : "pending"}>
+                  <StepSection key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                    <p className="flex items-center gap-2 text-sm">
+                      <span
+                        className={cn(
+                          "inline-block size-2 rounded-full",
+                          hasDeclaration ? "bg-emerald-500" : "bg-amber-500",
+                        )}
+                        aria-hidden
+                      />
+                      <span className="font-medium text-dark dark:text-white">
                         {hasDeclaration ? "Declaration accepted" : "Declaration status not recorded"}
-                      </Pill>
-                    </div>
-                  </StepCard>
+                      </span>
+                    </p>
+                  </StepSection>
                 );
               }
 
               return (
-                <StepCard key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
+                <StepSection key={step.title} index={index + 1} title={step.title} anchor={`step-${index + 1}`}>
                   <FieldRows pairs={pairs} />
-                </StepCard>
+                </StepSection>
               );
             })
           ) : formData ? (
-            <StepCard index={1} title="Application responses" anchor="step-1">
+            <StepSection index={1} title="Application responses" anchor="step-1">
               <FieldRows
                 pairs={Object.entries(formData).filter(([k]) => !isSkippedKey(k))}
               />
-            </StepCard>
+            </StepSection>
           ) : (
-            <Card>
-              <p className="px-5 py-6 text-sm text-body">No application form data recorded.</p>
-            </Card>
+            <p className="text-sm text-body">No application form data recorded.</p>
           )}
 
           {/* Leftover fields — never silently drop submitted data */}
           {steps && leftoverEntries.length > 0 && (
-            <StepCard index={steps.length + 1} title="Additional responses" anchor={`step-${steps.length + 1}`}>
+            <StepSection index={steps.length + 1} title="Additional responses" anchor={`step-${steps.length + 1}`}>
               <FieldRows pairs={leftoverEntries} />
-            </StepCard>
+            </StepSection>
           )}
         </main>
       </div>
@@ -468,9 +458,9 @@ export default async function AdminSubmissionProfilePage({
   );
 }
 
-// ─── Step card ───
+// ─── Step section ───
 
-function StepCard({
+function StepSection({
   index,
   title,
   anchor,
@@ -482,37 +472,36 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      id={anchor}
-      className="scroll-mt-6 overflow-hidden rounded-xl border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
-    >
-      <div className="flex items-center gap-3 border-b border-stroke bg-gray-1/50 px-5 py-3.5 dark:border-dark-3 dark:bg-dark-2/40">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-white">
-          {index}
+    <section id={anchor} className="scroll-mt-6">
+      <h2 className="flex items-baseline gap-3 border-b border-stroke pb-2 dark:border-dark-3">
+        <span className="font-mono text-xs font-semibold text-body">
+          {String(index).padStart(2, "0")}
         </span>
-        <h2 className="text-sm font-bold uppercase tracking-wide text-dark dark:text-white">{title}</h2>
-      </div>
-      <div className="px-6 py-5">{children}</div>
+        <span className="text-sm font-semibold text-dark dark:text-white">{title}</span>
+      </h2>
+      <div className="py-5">{children}</div>
     </section>
   );
 }
 
-// ─── Timeline item ───
+// ─── Review record row ───
 
-function TimelineItem({
+function RecordRow({
   tone,
-  title,
-  by,
+  action,
+  actor,
   at,
   comment,
+  last,
 }: {
   tone: "success" | "danger" | "info" | "neutral";
-  title: string;
-  by?: string | null;
+  action: string;
+  actor?: string | null;
   at?: Date | null;
   comment?: string | null;
+  last?: boolean;
 }) {
-  const dot =
+  const bar =
     tone === "success"
       ? "bg-emerald-500"
       : tone === "danger"
@@ -521,16 +510,23 @@ function TimelineItem({
           ? "bg-indigo-500"
           : "bg-gray-300 dark:bg-gray-600";
   return (
-    <li className="relative">
-      <span className={cn("absolute -left-[26.5px] top-1.5 size-2.5 rounded-full ring-4 ring-white dark:ring-gray-dark", dot)} />
-      <p className="text-sm font-semibold leading-snug text-dark dark:text-white">{title}</p>
-      <p className="mt-0.5 text-xs text-body">
-        {[by, at ? new Date(at).toLocaleString() : null].filter(Boolean).join(" · ")}
-      </p>
-      {comment && (
-        <p className="mt-1.5 whitespace-pre-wrap rounded-md bg-gray-1 px-2.5 py-2 text-xs leading-relaxed text-dark dark:bg-dark-2 dark:text-white">
-          {comment}
+    <li className={cn("px-6 py-3.5", !last && "border-b border-stroke dark:border-dark-3")}>
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="flex items-center gap-2.5 text-sm font-semibold text-dark dark:text-white">
+          <span className={cn("inline-block size-2 shrink-0 rounded-sm", bar)} aria-hidden />
+          {action}
         </p>
+        {at && (
+          <time className="shrink-0 text-xs tabular-nums text-body">
+            {new Date(at).toLocaleString()}
+          </time>
+        )}
+      </div>
+      {actor && <p className="mt-0.5 pl-[18px] text-xs text-body">{actor}</p>}
+      {comment && (
+        <blockquote className="mt-2 border-l-2 border-stroke pl-3 text-xs leading-relaxed text-body dark:border-dark-3">
+          {comment}
+        </blockquote>
       )}
     </li>
   );

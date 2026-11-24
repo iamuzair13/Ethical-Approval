@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import {
-  Table, TableHeader, TableRow, TableHead, TableBody, TableCell
-} from "@/components/ui/table";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import ConfirmDialogBase from "@/components/ui/confirm-dialog";
@@ -25,6 +22,7 @@ import {
   getDepartmentDomain,
 } from "@/lib/department-domain";
 import {
+  GateTrack,
   StageChip,
   StatusTimeline,
 } from "@/app/profile/_components/status-timeline";
@@ -46,6 +44,7 @@ interface RequestItem {
   title: string;
   description: string;
   submittedOn: string;
+  submittedAt: string;
   currentStage: string;
   isDraft: boolean;
   submissionType: "thesis" | "publication";
@@ -113,6 +112,7 @@ function mapSubmissionsToRequests(rows: ProfileSubmissionApiRow[]): RequestItem[
     title: row.title?.trim() || "Untitled submission",
     description: row.objectives?.trim() || "No objectives provided.",
     submittedOn: new Date(row.submitted_at).toLocaleDateString(),
+    submittedAt: row.submitted_at,
     currentStage: mapStatusToStage(row.current_status, row.hod_name),
     isDraft: row.current_status === "draft",
     submissionType: (row.type === "publication" ? "publication" : "thesis") as "thesis" | "publication",
@@ -205,34 +205,126 @@ const SkeletonCard = ({ className }: { className?: string }) => (
   />
 );
 
-// --- Status Badge ---
-const StatusBadge = ({ stage, isDraft }: { stage: string; isDraft?: boolean }) => {
-  if (isDraft) {
-    return (
-      <span className="inline-block rounded px-2.5 py-1 text-xs font-semibold capitalize bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-        Draft
-      </span>
-    );
-  }
+/** Whole days a submission has been sitting in the pipeline. */
+function daysInReview(submittedAt: string): number {
+  const ms = Date.now() - new Date(submittedAt).getTime();
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 86400000)) : 0;
+}
 
-  const configs: Record<string, string> = {
-    "Rejected": "bg-[#FB5454]/[0.08] text-red",
-    "Approved": "bg-[#10B981]/[0.08] text-green",
-    "Under Review": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
-    "Pending": "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-slate-400",
-  };
+const TERMINAL_STAGES = new Set(["Approved by IREB", "Rejected by IREB"]);
 
-  const cls = configs[stage] || configs["Pending"];
+// --- Ledger row ---
+const rowActionCls =
+  "inline-flex items-center rounded-md border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5";
+
+function LedgerRow({
+  request,
+  discardingDraftId,
+  onContinueDraft,
+  onDiscardDraft,
+  onOpenRevision,
+  onOpenView,
+  onShowFeedback,
+}: {
+  request: RequestItem;
+  discardingDraftId: number | null;
+  onContinueDraft: (r: RequestItem) => void;
+  onDiscardDraft: (r: RequestItem) => void;
+  onOpenRevision: (r: RequestItem) => void;
+  onOpenView: (id: number) => Promise<void> | void;
+  onShowFeedback: (r: RequestItem) => void;
+}) {
+  const terminal = TERMINAL_STAGES.has(request.currentStage);
+  const elapsed = daysInReview(request.submittedAt);
 
   return (
-    <span className={cn(
-      "inline-block rounded px-2.5 py-1 text-xs font-semibold capitalize",
-      cls
-    )}>
-      {stage}
-    </span>
+    <li className="border-b border-stroke transition-colors last:border-b-0 hover:bg-gray-1/60 dark:border-dark-3 dark:hover:bg-white/[0.02]">
+      <div className="grid gap-3 px-6 py-4 sm:grid-cols-[130px_minmax(0,1fr)_130px_190px_auto] sm:items-center sm:gap-4">
+        {/* Docket ref + type */}
+        <div className="min-w-0">
+          <p className="font-mono text-sm font-semibold text-dark dark:text-white">
+            {request.applicationId}
+          </p>
+          <p className="mt-0.5 text-xs text-body">
+            {request.submissionType === "thesis" ? "Thesis" : "Research publication"}
+          </p>
+        </div>
+
+        {/* Title */}
+        <p className="min-w-0 text-sm font-semibold leading-snug text-dark line-clamp-2 dark:text-white">
+          {request.title}
+        </p>
+
+        {/* Submitted + elapsed */}
+        <div className="text-sm">
+          <p className="text-body">{request.isDraft ? "—" : request.submittedOn}</p>
+          {!request.isDraft && !terminal && (
+            <p className="mt-0.5 text-xs text-body">
+              {elapsed === 0 ? "today" : `${elapsed} day${elapsed === 1 ? "" : "s"} in review`}
+            </p>
+          )}
+          {request.isDraft && (
+            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">Not submitted</p>
+          )}
+        </div>
+
+        {/* Gate position */}
+        <div className="flex items-center gap-3">
+          {request.isDraft ? (
+            <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+              Draft
+            </span>
+          ) : (
+            <>
+              <GateTrack currentStage={request.currentStage} />
+              <StageChip currentStage={request.currentStage} />
+            </>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 sm:justify-end">
+          {request.isDraft ? (
+            <>
+              <button onClick={() => onContinueDraft(request)} className={rowActionCls}>
+                Continue
+              </button>
+              <button
+                onClick={() => onDiscardDraft(request)}
+                disabled={discardingDraftId === request.numericId}
+                className="inline-flex items-center rounded-md border border-[#FB5454]/30 bg-[#FB5454]/[0.08] px-3 py-1.5 text-xs font-semibold text-red transition-colors hover:bg-[#FB5454]/[0.15] disabled:opacity-50"
+              >
+                {discardingDraftId === request.numericId ? "..." : "Discard"}
+              </button>
+            </>
+          ) : request.currentStage.includes("Rejected") ? (
+            <>
+              <button onClick={() => onOpenRevision(request)} className={rowActionCls}>
+                Revise
+              </button>
+              {request.latestFeedbackComment && (
+                <button onClick={() => onShowFeedback(request)} className={rowActionCls}>
+                  Feedback
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => void onOpenView(request.numericId)} className={rowActionCls}>
+                View
+              </button>
+              {request.latestFeedbackComment && (
+                <button onClick={() => onShowFeedback(request)} className={rowActionCls}>
+                  Feedback
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </li>
   );
-};
+}
 
 // --- Accordion Timeline Item ---
 const TimelineAccordion = ({ request }: { request: RequestItem }) => {
@@ -479,6 +571,9 @@ export default function ProfileDashboard() {
       setLocalSubmissionError(null);
       try {
         const response = await fetch("/api/profile/submissions", { cache: "no-store" });
+        if (response.status === 401) {
+          throw new Error("Your session has expired. Please sign out and sign in again.");
+        }
         const payload = (await response.json()) as {
           ok?: boolean;
           error?: string;
@@ -906,130 +1001,38 @@ export default function ProfileDashboard() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-stroke hover:bg-transparent dark:border-dark-3">
-                  <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-body">Application ID</TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-body">Type</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-body">Request</TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-body">Submitted</TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-body">Expected</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-body">Stage</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-body">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {localRequests.map((request) => (
-                  <TableRow
-                    key={request.id}
-                    className="border-b border-stroke transition-colors hover:bg-gray-2 dark:border-dark-3 dark:hover:bg-white/[0.02]"
-                  >
-                    <TableCell className="whitespace-nowrap py-4">
-                      <span className="font-mono text-sm font-semibold text-dark dark:text-white">
-                        {request.applicationId}
-                      </span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap py-4">
-                      <span
-                        className={cn(
-                          "inline-block rounded px-2.5 py-1 text-xs font-semibold",
-                          request.submissionType === "thesis"
-                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200"
-                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
-                        )}
-                      >
-                        {request.submissionType === "thesis" ? "Thesis" : "Research"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <p className="font-semibold leading-tight text-dark dark:text-white">{request.title}</p>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap py-4 text-sm text-body">{request.submittedOn}</TableCell>
-                    <TableCell className="whitespace-nowrap py-4 text-sm text-body">
-                      {request.isDraft ? (
-                        <span className="font-medium text-amber-600 dark:text-amber-400">Draft</span>
-                      ) : (
-                        <span>2 days</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <StatusBadge stage={request.currentStage} isDraft={request.isDraft} />
-                    </TableCell>
-                    <TableCell className="py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {request.isDraft ? (
-                          <>
-                            <button
-                              onClick={() => handleContinueDraft(request)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5"
-                            >
-                              Continue
-                            </button>
-                            <button
-                              onClick={() => handleDiscardDraft(request)}
-                              disabled={discardingDraftId === request.numericId}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#FB5454]/30 bg-[#FB5454]/[0.08] px-3 py-1.5 text-xs font-semibold text-red transition-colors hover:bg-[#FB5454]/[0.15] disabled:opacity-50"
-                            >
-                              {discardingDraftId === request.numericId ? "..." : "Discard"}
-                            </button>
-                          </>
-                        ) : request.currentStage.includes("Rejected") ? (
-                          <>
-                            <button
-                              onClick={() => handleOpenRevision(request)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5"
-                            >
-                              Revise
-                            </button>
-                            {request.latestFeedbackComment && (
-                              <button
-                                onClick={() => setFeedbackModalRequest(request)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5"
-                              >
-                                Feedback
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => void openSubmissionView(request.numericId)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5"
-                            >
-                              View
-                            </button>
-                            {request.latestFeedbackComment && (
-                              <button
-                                onClick={() => setFeedbackModalRequest(request)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-stroke px-3 py-1.5 text-xs font-semibold text-dark transition-colors hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-white/5"
-                              >
-                                Feedback
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {localRequests.length === 0 && !localIsLoadingRequests && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-12 text-center">
-                      <div className="flex flex-col items-center justify-center text-body">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[10px] border border-stroke bg-gray-2 dark:border-dark-3 dark:bg-white/5">
-                          <svg className="h-7 w-7 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <p className="text-sm font-medium text-body">No submissions found yet.</p>
-                        <p className="mt-1 text-xs text-body">Create a new approval request to get started.</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <div className="-mx-6 border-t border-stroke dark:border-dark-3">
+            {/* Ledger column heads — desktop only */}
+            <div className="hidden grid-cols-[130px_minmax(0,1fr)_130px_190px_auto] gap-4 border-b border-stroke px-6 py-2.5 dark:border-dark-3 sm:grid">
+              <span className="text-xs font-medium text-body">Ref</span>
+              <span className="text-xs font-medium text-body">Application</span>
+              <span className="text-xs font-medium text-body">Submitted</span>
+              <span className="text-xs font-medium text-body">Review stage</span>
+              <span className="sr-only">Actions</span>
+            </div>
+
+            <ul>
+              {localRequests.map((request) => (
+                <LedgerRow
+                  key={request.id}
+                  request={request}
+                  discardingDraftId={discardingDraftId}
+                  onContinueDraft={handleContinueDraft}
+                  onDiscardDraft={handleDiscardDraft}
+                  onOpenRevision={handleOpenRevision}
+                  onOpenView={openSubmissionView}
+                  onShowFeedback={setFeedbackModalRequest}
+                />
+              ))}
+              {localRequests.length === 0 && !localIsLoadingRequests && (
+                <li className="px-6 py-12 text-center">
+                  <p className="text-sm font-medium text-dark dark:text-white">No submissions yet.</p>
+                  <p className="mt-1 text-sm text-body">
+                    Initiate your first approval request — it will appear here as a tracked docket.
+                  </p>
+                </li>
+              )}
+            </ul>
           </div>
 
           {localSubmissionError && (

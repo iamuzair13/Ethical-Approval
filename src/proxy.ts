@@ -27,6 +27,15 @@ export async function proxy(request: NextRequest) {
   });
 
   if (!token) {
+    // API routes must never be redirected to an HTML page — a fetch()
+    // following the redirect receives the sign-in markup and fails with a
+    // cryptic JSON.parse error. Return a 401 the client can handle instead.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized." },
+        { status: 401 },
+      );
+    }
     const signIn = new URL("/auth/sign-in", request.url);
     signIn.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search || ""}`);
     return NextResponse.redirect(signIn);

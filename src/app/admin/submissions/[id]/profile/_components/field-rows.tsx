@@ -100,12 +100,12 @@ function FieldRow({ k, v }: { k: string; v: unknown }) {
           type="button"
           onClick={() => setExpanded((e) => !e)}
           aria-expanded={expanded}
-          className="flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-wider text-dark transition-colors hover:text-primary dark:text-white"
+          className="flex items-center gap-1.5 text-left text-xs font-semibold text-body transition-colors hover:text-primary"
         >
           {label}
         </button>
       ) : (
-        <dt className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-dark dark:text-white">
+        <dt className="flex items-center gap-1.5 text-xs font-semibold text-body">
           {label}
         </dt>
       )}

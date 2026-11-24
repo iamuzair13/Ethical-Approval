@@ -377,6 +377,9 @@ export default function MyApplicationsPage() {
       setLocalSubmissionError(null);
       try {
         const response = await fetch("/api/profile/submissions", { cache: "no-store" });
+        if (response.status === 401) {
+          throw new Error("Your session has expired. Please sign out and sign in again.");
+        }
         const payload = (await response.json()) as {
           ok?: boolean;
           error?: string;
