@@ -42,6 +42,7 @@ export const FORM_3_REQUIRED_ATTACHMENTS = [
 export const FORM_3_MANDATORY_ATTACHMENTS = [
   "Complete Research Proposal/Protocol",
   "Research Questionnaire/Interview Guide (i.e., focus group guide)",
+  "Participant Consent Form",
   "Approval from Board of Study (BOS) and Board of Faculty (BOF)",
 ] as const;
 const FORM_3_MANDATORY_ATTACHMENT_SET = new Set<string>(

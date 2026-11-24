@@ -731,7 +731,10 @@ export function Form7ResearchPublicationFacultyStaffMedicalSciencesForm({
             <AttachmentCard
               key={item}
               label={item}
-              isMandatory={item === "Questionnaire/Interview Guide"}
+              isMandatory={
+                item === "Questionnaire/Interview Guide" ||
+                item === "Participant Consent Form"
+              }
               isChecked={hasCsvOption("requiredAttachments", item)}
               onToggle={() => toggleCsvOption("requiredAttachments", item)}
               fileName={attachmentFiles[item]}

@@ -44,17 +44,9 @@ export function InformedConsentDocumentSection({
 }: {
   answer: string;
 }) {
-  if (answer === "No") {
-    return (
-      <ConditionalCallout className="mt-4">
-        <p className="text-sm leading-relaxed text-body dark:text-dark-6">
-          <strong>Note:</strong> Make sure to obtain informed consent from the participants.
-        </p>
-      </ConditionalCallout>
-    );
-  }
-
-  if (answer !== "Yes") return null;
+  // The consent form is compulsory for every application — always expose the
+  // download once the question is answered, even when "No" is selected.
+  if (answer !== "Yes" && answer !== "No") return null;
 
   return (
     <ConditionalCallout className="mt-4">
@@ -83,8 +75,8 @@ export function InformedConsentDocumentSection({
         }
       >
         <p className="text-sm leading-relaxed text-body dark:text-dark-6">
-          <strong>Note:</strong> Download the standard UOL informed consent form, complete it, and
-          attach it in the &quot;Required Documents&quot; section.
+          <strong>Note:</strong> Please attach the consent form, fill the title and conducted by
+          section.
         </p>
       </FormSection>
     </ConditionalCallout>

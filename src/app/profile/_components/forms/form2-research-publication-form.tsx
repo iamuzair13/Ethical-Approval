@@ -37,8 +37,11 @@ const FORM_2_REQUIRED_ATTACHMENTS = [
   "Other Instituittional Approval Letter(s) (if applicable)",
 ];
 
-/** Only questionnaire is mandatory; consent and other-institutional rows are optional. */
-const FORM_2_MANDATORY_ATTACHMENTS = [FORM_2_REQUIRED_ATTACHMENTS[0]] as const;
+/** Questionnaire and consent are mandatory; other-institutional row is optional. */
+const FORM_2_MANDATORY_ATTACHMENTS = [
+  FORM_2_REQUIRED_ATTACHMENTS[0],
+  FORM_2_REQUIRED_ATTACHMENTS[1],
+] as const;
 
 const RECRUITMENT_CHANNELS = [
   "Emails",
