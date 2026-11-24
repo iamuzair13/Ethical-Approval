@@ -12,14 +12,18 @@ import ApprovalRequestStepperBase, {
   type SubmissionFileBundle,
 } from "@/app/profile/_components/approval-request-stepper";
 import {
-  FACULTY_FORM_CATALOG,
-  STUDENT_FORM_CATALOG,
   getFacultyFormById,
   getStudentFormById,
-  resolveRequiredFormByFaculty,
+  getFacultyFormsForDomain,
+  getStudentFormsForDomain,
+  resolveRequiredForm,
   type ApplicationType,
   type RequiredForm,
 } from "@/app/profile/_components/forms/form-registry";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  getDepartmentDomain,
+} from "@/lib/department-domain";
 
 // --- Types & Interfaces (preserve your existing types) ---
 interface Profile {
@@ -420,6 +424,10 @@ export default function ProfileDashboard() {
   const normalizedEmail = resolvedProfile.email.toLowerCase();
   const isStudentEmail =
     normalizedEmail.endsWith("@student.uol.edu.pk") || normalizedEmail.includes("student");
+  const departmentDomain =
+    getDepartmentDomain(resolvedProfile.department) ?? DEFAULT_DEPARTMENT_DOMAIN;
+  const studentFormOptions = getStudentFormsForDomain(departmentDomain);
+  const facultyFormOptions = getFacultyFormsForDomain(departmentDomain);
   const [localIsStepperOpen, setLocalIsStepperOpen] = useState(false);
   const [localIsApplicationPickerOpen, setLocalIsApplicationPickerOpen] = useState(false);
   const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");
@@ -488,6 +496,12 @@ export default function ProfileDashboard() {
     handleOpenApplicationFlow();
     if (!localIsApplicationPickerOpen && !localIsStepperOpen) {
       setApprovalDraftSessionId(newDraftSessionId());
+      // Faculty members skip the picker — their SAP department domain
+      // determines the single publication form they can submit.
+      if (!isStudentEmail && facultyFormOptions.length === 1) {
+        openStepperWithForm(getFacultyFormById(facultyFormOptions[0].id));
+        return;
+      }
       setLocalIsApplicationPickerOpen(true);
     }
   };
@@ -785,10 +799,7 @@ export default function ProfileDashboard() {
           const appType: ApplicationType =
             sub.type === "publication" ? "research-publication" : "thesis";
           setLocalRequiredForm(
-            resolveRequiredFormByFaculty(
-              appType,
-              resolvedProfile.faculty || resolvedProfile.department || "",
-            ),
+            resolveRequiredForm(appType, departmentDomain === "medical"),
           );
         }
         const sid = parsePositiveSubmissionId(sub.id);
@@ -805,7 +816,7 @@ export default function ProfileDashboard() {
         );
       }
     },
-    [sessionUser?.sapId, resolvedProfile.faculty, resolvedProfile.department],
+    [sessionUser?.sapId, departmentDomain],
   );
 
   const handleOpenRevision = useCallback(
@@ -834,10 +845,7 @@ export default function ProfileDashboard() {
           const appType: ApplicationType =
             sub.type === "publication" ? "research-publication" : "thesis";
           setLocalRequiredForm(
-            resolveRequiredFormByFaculty(
-              appType,
-              resolvedProfile.faculty || resolvedProfile.department || "",
-            ),
+            resolveRequiredForm(appType, departmentDomain === "medical"),
           );
         }
         // Increment revision number if this submission was already revised before.
@@ -858,7 +866,7 @@ export default function ProfileDashboard() {
         );
       }
     },
-    [sessionUser?.sapId, resolvedProfile.faculty, resolvedProfile.department],
+    [sessionUser?.sapId, departmentDomain],
   );
 
   return (
@@ -1203,45 +1211,122 @@ export default function ProfileDashboard() {
           onClick={() => setLocalIsApplicationPickerOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-[10px] border border-stroke bg-white p-8 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card"
+            className="w-full max-w-xl overflow-hidden rounded-[14px] border border-stroke bg-white shadow-2xl dark:border-dark-3 dark:bg-gray-dark"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-dark dark:text-white">
-              Select Application Form
-            </h3>
-            <p className="mt-2 text-sm text-body">
-              {isStudentEmail
-                ? "Choose which form to submit. The form will open in the application workflow."
-                : "Choose which faculty form to submit. The form will open in the application workflow."}
-            </p>
+            {/* Review-track banner — explains why only these forms appear */}
+            <div
+              className={cn(
+                "flex items-center gap-3 border-b px-6 py-4",
+                departmentDomain === "medical"
+                  ? "border-teal-500/20 bg-teal-500/[0.07] dark:bg-teal-500/[0.08]"
+                  : "border-primary/20 bg-primary/[0.06] dark:bg-primary/[0.08]",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-2.5 shrink-0 rounded-full",
+                  departmentDomain === "medical" ? "bg-teal-500" : "bg-primary",
+                )}
+                aria-hidden
+              />
+              <div>
+                <p className="text-sm font-semibold text-dark dark:text-white">
+                  {departmentDomain === "medical" ? "Medical Sciences" : "Non-Medical Sciences"}{" "}
+                  review track
+                </p>
+                <p className="text-xs text-dark-5">
+                  Set by your department — only matching forms are shown.
+                </p>
+              </div>
+            </div>
 
-            <div className="mt-6 grid gap-3">
-              {(isStudentEmail ? STUDENT_FORM_CATALOG : FACULTY_FORM_CATALOG).map(
-                (form) => (
-                  <button
-                    key={form.id}
-                    onClick={() =>
-                      isStudentEmail
-                        ? selectStudentForm(form.id)
-                        : selectFacultyForm(form.id)
-                    }
-                    className="flex items-center gap-3 rounded-[10px] border border-dashed border-stroke px-4 py-4 text-left text-sm font-semibold text-dark transition-colors hover:border-primary hover:bg-primary/[0.03] dark:border-dark-3 dark:text-white"
-                  >
-                    <svg className="h-5 w-5 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {form.navTitle}
-                  </button>
-                ))}
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-dark dark:text-white">
+                Select Application Form
+              </h3>
+              <p className="mt-1 text-sm text-body">
+                Choose the type of submission you want to start.
+              </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {(isStudentEmail ? studentFormOptions : facultyFormOptions).map(
+                  (form) => {
+                    const formNumber = form.id.match(/^form(\d+)/)?.[1] ?? "·";
+                    const typeTitle =
+                      form.applicationType === "thesis" ? "Thesis" : "Publication";
+                    const description =
+                      form.applicationType === "thesis"
+                        ? "Ethical approval for a thesis or research project."
+                        : "Ethical approval for a research publication.";
+                    return (
+                      <button
+                        key={form.id}
+                        onClick={() =>
+                          isStudentEmail
+                            ? selectStudentForm(form.id)
+                            : selectFacultyForm(form.id)
+                        }
+                        className={cn(
+                          "group relative flex flex-col overflow-hidden rounded-xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-dark",
+                          departmentDomain === "medical"
+                            ? "border-stroke hover:border-teal-500/60 hover:shadow-[0_10px_30px_-10px_rgba(20,184,166,0.45)] focus-visible:ring-teal-500 dark:border-dark-3 dark:hover:border-teal-500/50"
+                            : "border-stroke hover:border-primary/60 hover:shadow-[0_10px_30px_-10px_rgba(87,80,241,0.45)] focus-visible:ring-primary dark:border-dark-3 dark:hover:border-primary/50",
+                        )}
+                      >
+                        {/* Ghost form numeral — the card's anchor */}
+                        <span
+                          className={cn(
+                            "pointer-events-none absolute -bottom-4 -right-1 select-none text-[5.5rem] font-bold leading-none tracking-tighter transition-opacity duration-200",
+                            departmentDomain === "medical"
+                              ? "text-teal-500/10 group-hover:text-teal-500/20"
+                              : "text-primary/10 group-hover:text-primary/20",
+                          )}
+                          aria-hidden
+                        >
+                          {formNumber}
+                        </span>
+
+                        <span
+                          className={cn(
+                            "font-mono text-[11px] font-semibold tracking-[0.18em]",
+                            departmentDomain === "medical"
+                              ? "text-teal-600 dark:text-teal-400"
+                              : "text-primary",
+                          )}
+                        >
+                          FORM {formNumber}
+                        </span>
+                        <span className="mt-4 text-2xl font-bold tracking-tight text-dark dark:text-white">
+                          {typeTitle}
+                        </span>
+                        <span className="mt-2 text-xs leading-relaxed text-body">
+                          {description}
+                        </span>
+                        <span
+                          className={cn(
+                            "mt-5 text-xs font-semibold text-dark-5 transition-colors",
+                            departmentDomain === "medical"
+                              ? "group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                              : "group-hover:text-primary",
+                          )}
+                        >
+                          Start this form
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
 
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setLocalIsApplicationPickerOpen(false)}
-                className="rounded-lg border border-stroke px-4 py-2 text-sm font-semibold text-body transition-colors hover:bg-gray-2 dark:border-dark-3 dark:hover:bg-white/5"
-              >
-                Cancel
-              </button>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setLocalIsApplicationPickerOpen(false)}
+                  className="rounded-lg border border-stroke px-4 py-2 text-sm font-semibold text-body transition-colors hover:bg-gray-2 dark:border-dark-3 dark:hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

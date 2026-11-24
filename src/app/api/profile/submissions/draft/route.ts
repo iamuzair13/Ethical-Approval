@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth-options";
 import { allocateUniqueApplicationId } from "@/lib/application-id";
 import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
 import { isFormAllowedForApplicant } from "@/lib/form-eligibility";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  resolveSessionDepartmentDomain,
+} from "@/lib/department-domain";
 import { db } from "@/lib/db";
 
 type DraftBody = {
@@ -85,8 +89,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate that the selected form is available to this applicant role.
-  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole)) {
+  // Validate that the selected form is available to this applicant role and
+  // department domain.
+  const departmentDomain =
+    resolveSessionDepartmentDomain(session?.user) ?? DEFAULT_DEPARTMENT_DOMAIN;
+  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole, departmentDomain)) {
     return NextResponse.json(
       { ok: false, error: "The selected form is not available for your account type." },
       { status: 403 },

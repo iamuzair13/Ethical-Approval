@@ -23,8 +23,15 @@ import {
 import {
   FACULTY_FORM_CATALOG,
   getFacultyFormById,
+  getStudentFormById,
+  getFacultyFormsForDomain,
+  getStudentFormsForDomain,
   type RequiredForm,
 } from "@/app/profile/_components/forms/form-registry";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  getDepartmentDomain,
+} from "@/lib/department-domain";
 
 // ─── Types ───
 
@@ -350,6 +357,12 @@ export default function MyApplicationsPage() {
     facultyDepartment?: string;
     facultyDesignation?: string;
     facultyMemberId?: string;
+    applicantRole?: "student" | "faculty";
+    studentRecord?: {
+      DeptName?: string;
+      Dept?: string;
+      Department?: string;
+    };
   } | null;
 
   const sessionEmail = (sessionUser?.email ?? "").trim();
@@ -357,6 +370,22 @@ export default function MyApplicationsPage() {
   const sessionSapId = (sessionUser?.sapId ?? "").trim();
   const facultyDepartment = (sessionUser?.facultyDepartment ?? "").trim();
   const userStorageId = sessionSapId;
+  const normalizedSessionEmail = sessionEmail.toLowerCase();
+  const isStudentSession =
+    sessionUser?.applicantRole === "student" ||
+    normalizedSessionEmail.endsWith("@student.uol.edu.pk") ||
+    normalizedSessionEmail.includes("student");
+  const studentDepartment = (
+    sessionUser?.studentRecord?.DeptName ??
+    sessionUser?.studentRecord?.Dept ??
+    sessionUser?.studentRecord?.Department ??
+    ""
+  ).trim();
+  const departmentDomain =
+    getDepartmentDomain(isStudentSession ? studentDepartment : facultyDepartment) ??
+    DEFAULT_DEPARTMENT_DOMAIN;
+  const facultyFormOptions = getFacultyFormsForDomain(departmentDomain);
+  const studentFormOptions = getStudentFormsForDomain(departmentDomain);
 
   // ─── State ───
   const [localRequests, setLocalRequests] = useState<RequestItem[]>([]);
@@ -498,11 +527,19 @@ export default function MyApplicationsPage() {
   // ─── Form selection & stepper launch ───
 
   const openFormPicker = () => {
+    // Faculty members skip the picker — their SAP department domain
+    // determines the single publication form they can submit.
+    if (!isStudentSession && facultyFormOptions.length === 1) {
+      selectForm(facultyFormOptions[0].id);
+      return;
+    }
     setLocalIsFormPickerOpen(true);
   };
 
   const selectForm = (formId: string) => {
-    const form = getFacultyFormById(formId);
+    const form = isStudentSession
+      ? getStudentFormById(formId)
+      : getFacultyFormById(formId);
     if (!form) return;
     setLocalRequiredForm(form);
     setLocalIsFormPickerOpen(false);
@@ -703,8 +740,10 @@ export default function MyApplicationsPage() {
         if (reqForm && typeof reqForm === "object" && !Array.isArray(reqForm)) {
           setLocalRequiredForm(reqForm as RequiredForm);
         } else {
-          // Fallback: use the first faculty form
-          const fallback = getFacultyFormById(FACULTY_FORM_CATALOG[0].id);
+          // Fallback: use the first form available to this department domain
+          const fallback = getFacultyFormById(
+            (getFacultyFormsForDomain(departmentDomain)[0] ?? FACULTY_FORM_CATALOG[0]).id,
+          );
           if (fallback) setLocalRequiredForm(fallback);
         }
         const sid = parsePositiveSubmissionId(sub.id);
@@ -721,7 +760,7 @@ export default function MyApplicationsPage() {
         );
       }
     },
-    [sessionSapId],
+    [sessionSapId, departmentDomain],
   );
 
   // ─── View submission ───
@@ -784,7 +823,9 @@ export default function MyApplicationsPage() {
         if (reqForm && typeof reqForm === "object" && !Array.isArray(reqForm)) {
           setLocalRequiredForm(reqForm as RequiredForm);
         } else {
-          const fallback = getFacultyFormById(FACULTY_FORM_CATALOG[0].id);
+          const fallback = getFacultyFormById(
+            (getFacultyFormsForDomain(departmentDomain)[0] ?? FACULTY_FORM_CATALOG[0]).id,
+          );
           if (fallback) setLocalRequiredForm(fallback);
         }
         // Increment revision number if this submission was already revised before.
@@ -805,7 +846,7 @@ export default function MyApplicationsPage() {
         );
       }
     },
-    [sessionSapId],
+    [sessionSapId, departmentDomain],
   );
 
   // ─── Animation variants ───
@@ -1226,35 +1267,112 @@ export default function MyApplicationsPage() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="w-full max-w-lg rounded-2xl border border-stroke bg-white/95 backdrop-blur-xl p-8 shadow-2xl dark:border-white/10 dark:bg-slate-900/90 dark:shadow-black/50"
+                className="w-full max-w-xl overflow-hidden rounded-2xl border border-stroke bg-white/95 backdrop-blur-xl shadow-2xl dark:border-white/10 dark:bg-slate-900/90 dark:shadow-black/50"
               >
-                <h3 className="text-xl font-bold text-dark tracking-tight dark:text-white">
-                  Select Application Form
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-dark-6 dark:text-slate-400">
-                  Choose which form to submit. The form will open in the application workflow.
-                </p>
-
-                <div className="mt-6 grid gap-3">
-                  {FACULTY_FORM_CATALOG.map((form) => (
-                    <MagneticButton
-                      key={form.id}
-                      variant="secondary"
-                      onClick={() => selectForm(form.id)}
-                      className="py-4 justify-start border-dashed hover:border-indigo-500/50 hover:bg-indigo-500/5"
-                    >
-                      <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      {form.navTitle}
-                    </MagneticButton>
-                  ))}
+                {/* Review-track banner — explains why only these forms appear */}
+                <div
+                  className={cn(
+                    "flex items-center gap-3 border-b px-6 py-4",
+                    departmentDomain === "medical"
+                      ? "border-teal-500/20 bg-teal-500/[0.07] dark:bg-teal-500/[0.08]"
+                      : "border-indigo-500/20 bg-indigo-500/[0.06] dark:bg-indigo-500/[0.08]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-2.5 shrink-0 rounded-full",
+                      departmentDomain === "medical" ? "bg-teal-500" : "bg-indigo-500",
+                    )}
+                    aria-hidden
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-dark dark:text-white">
+                      {departmentDomain === "medical" ? "Medical Sciences" : "Non-Medical Sciences"}{" "}
+                      review track
+                    </p>
+                    <p className="text-xs text-dark-6 dark:text-slate-500">
+                      Set by your department — only matching forms are shown.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-6 flex justify-end">
-                  <MagneticButton variant="ghost" onClick={() => setLocalIsFormPickerOpen(false)}>
-                    Cancel
-                  </MagneticButton>
+                <div className="p-6">
+                  <h3 className="text-lg font-bold tracking-tight text-dark dark:text-white">
+                    Select Application Form
+                  </h3>
+                  <p className="mt-1 text-sm text-dark-6 dark:text-slate-400">
+                    Choose the type of submission you want to start.
+                  </p>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {(isStudentSession ? studentFormOptions : facultyFormOptions).map((form) => {
+                      const formNumber = form.id.match(/^form(\d+)/)?.[1] ?? "·";
+                      const typeTitle =
+                        form.applicationType === "thesis" ? "Thesis" : "Publication";
+                      const description =
+                        form.applicationType === "thesis"
+                          ? "Ethical approval for a thesis or research project."
+                          : "Ethical approval for a research publication.";
+                      return (
+                        <button
+                          key={form.id}
+                          onClick={() => selectForm(form.id)}
+                          className={cn(
+                            "group relative flex flex-col overflow-hidden rounded-xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900",
+                            departmentDomain === "medical"
+                              ? "border-stroke hover:border-teal-500/60 hover:shadow-[0_10px_30px_-10px_rgba(20,184,166,0.45)] focus-visible:ring-teal-500 dark:border-white/10 dark:hover:border-teal-500/50"
+                              : "border-stroke hover:border-indigo-500/60 hover:shadow-[0_10px_30px_-10px_rgba(99,102,241,0.45)] focus-visible:ring-indigo-500 dark:border-white/10 dark:hover:border-indigo-500/50",
+                          )}
+                        >
+                          {/* Ghost form numeral — the card's anchor */}
+                          <span
+                            className={cn(
+                              "pointer-events-none absolute -bottom-4 -right-1 select-none text-[5.5rem] font-bold leading-none tracking-tighter transition-opacity duration-200",
+                              departmentDomain === "medical"
+                                ? "text-teal-500/10 group-hover:text-teal-500/20"
+                                : "text-indigo-500/10 group-hover:text-indigo-500/20",
+                            )}
+                            aria-hidden
+                          >
+                            {formNumber}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "font-mono text-[11px] font-semibold tracking-[0.18em]",
+                              departmentDomain === "medical"
+                                ? "text-teal-600 dark:text-teal-400"
+                                : "text-indigo-500 dark:text-indigo-400",
+                            )}
+                          >
+                            FORM {formNumber}
+                          </span>
+                          <span className="mt-4 text-2xl font-bold tracking-tight text-dark dark:text-white">
+                            {typeTitle}
+                          </span>
+                          <span className="mt-2 text-xs leading-relaxed text-dark-6 dark:text-slate-400">
+                            {description}
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-5 text-xs font-semibold text-dark-6 transition-colors dark:text-slate-500",
+                              departmentDomain === "medical"
+                                ? "group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                                : "group-hover:text-indigo-500 dark:group-hover:text-indigo-400",
+                            )}
+                          >
+                            Start this form
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <MagneticButton variant="ghost" onClick={() => setLocalIsFormPickerOpen(false)}>
+                      Cancel
+                    </MagneticButton>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>

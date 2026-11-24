@@ -10,10 +10,12 @@
 import {
   FACULTY_FORM_CATALOG,
   ADMIN_ETHICS_FORM_CATALOG,
+  getFormAudience,
   inferFormIdFromLegacyRequiredForm,
   type ApprovalFormId,
   type RequiredForm,
 } from "@/app/profile/_components/forms/form-registry";
+import type { DepartmentDomain } from "@/lib/department-domain";
 
 /**
  * Set of form IDs available to faculty members.
@@ -73,12 +75,17 @@ export function resolveFormIdFromEthics(
  *
  * @param ethics - The ethics JSON payload from the submission request
  * @param applicantRole - The authenticated user's applicant role ("student" | "faculty")
+ * @param departmentDomain - The applicant's department domain ("medical" | "non-medical"),
+ *        resolved from the session's SAP data. When provided, the form's audience
+ *        must match the domain. A null domain skips the audience check (the
+ *        department could not be classified).
  * @returns true if the form is allowed (or if no form ID could be determined,
  *          which preserves backwards compatibility), false otherwise
  */
 export function isFormAllowedForApplicant(
   ethics: Record<string, unknown> | undefined,
   applicantRole: "student" | "faculty" | null | undefined,
+  departmentDomain?: DepartmentDomain | null,
 ): boolean {
   const formId = resolveFormIdFromEthics(ethics);
   if (!formId) {
@@ -88,13 +95,21 @@ export function isFormAllowedForApplicant(
   }
 
   if (applicantRole === "faculty") {
-    return FACULTY_ALLOWED_FORM_IDS.has(formId);
+    if (!FACULTY_ALLOWED_FORM_IDS.has(formId)) return false;
+  } else if (applicantRole === "student") {
+    if (!STUDENT_ALLOWED_FORM_IDS.has(formId)) return false;
+  } else {
+    // Unknown role — deny
+    return false;
   }
 
-  if (applicantRole === "student") {
-    return STUDENT_ALLOWED_FORM_IDS.has(formId);
+  // Domain check: a classified department restricts the applicant to the
+  // forms matching their medical/non-medical audience. Forms without a
+  // catalog audience (e.g. legacy Form 5) are left untouched.
+  if (departmentDomain) {
+    const audience = getFormAudience(formId);
+    if (audience && audience !== departmentDomain) return false;
   }
 
-  // Unknown role — deny
-  return false;
+  return true;
 }

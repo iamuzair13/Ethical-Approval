@@ -32,6 +32,12 @@ type HodPickerProps = {
   sectionTitle?: string;
   /** When true, the picker is read-only (view mode). */
   readOnly?: boolean;
+  /**
+   * Restricts the HOD list to members of medical or non-medical
+   * departments. Thesis forms always pass their own domain so a
+   * medical thesis can only pick a medical-department HOD.
+   */
+  domain?: "medical" | "non-medical";
 };
 
 // ─── Component ───
@@ -61,6 +67,7 @@ export function HodPicker({
   setForm,
   sectionTitle = "1.2 HOD's Information",
   readOnly = false,
+  domain,
 }: HodPickerProps) {
   const [hods, setHods] = useState<HodOption[]>([]);
   const [hodsLoading, setHodsLoading] = useState(false);
@@ -71,7 +78,10 @@ export function HodPicker({
     let cancelled = false;
     setHodsLoading(true);
     setLoadError(null);
-    fetch("/api/profile/hods")
+    const url = domain
+      ? `/api/profile/hods?domain=${encodeURIComponent(domain)}`
+      : "/api/profile/hods";
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data?.ok) return;
@@ -86,7 +96,7 @@ export function HodPicker({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [domain]);
 
   // ─── Handlers ───
 
@@ -151,10 +161,10 @@ export function HodPicker({
               hodsLoading
                 ? "Loading hods…"
                 : hods.length === 0
-                  ? "No hods available."
+                  ? `No ${domain ?? ""} hods available.`
                   : "Select HOD"
             }
-            emptyMessage="No hods available."
+            emptyMessage={`No ${domain ?? ""} hods available.`}
             noResultsMessage='No hods match your search.'
           />
         </Required>

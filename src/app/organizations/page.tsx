@@ -7,7 +7,18 @@ import {
   DropdownTrigger,
 } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import {
+  getDepartmentDirectoryEntry,
+  DEPARTMENT_DIRECTORY,
+  type DepartmentDirectoryEntry,
+} from "@/lib/department-domain";
+import {
+  GraduationCap,
+  MoreVertical,
+  Pencil,
+  Stethoscope,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -25,7 +36,15 @@ type DepartmentModalState =
 
 type InsertionState = { type: "department" };
 
-const PAGE_SIZE = 30;
+type ClassifiedDepartment = {
+  department: Department;
+  entry: DepartmentDirectoryEntry;
+};
+
+type FacultyGroup = {
+  faculty: string;
+  items: ClassifiedDepartment[];
+};
 
 function StatCard({
   label,
@@ -56,7 +75,6 @@ export default function OrganizationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [insertion, setInsertion] = useState<InsertionState | null>(null);
   const [insertionName, setInsertionName] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   const fetchDepartments = useCallback(async () => {
@@ -80,30 +98,72 @@ export default function OrganizationsPage() {
     void fetchDepartments();
   }, [fetchDepartments]);
 
-  // ─── Helpers ───
+  // ─── Classification against the official medical/non-medical lists ───
 
-  const activeDepartments = useMemo(
-    () => departments.filter((d) => d.is_active !== false),
-    [departments],
+  const facultyOrder = useMemo(() => {
+    const order = new Map<string, number>();
+    DEPARTMENT_DIRECTORY.forEach((entry, index) => {
+      if (!order.has(entry.faculty)) order.set(entry.faculty, index);
+    });
+    return order;
+  }, []);
+
+  const { medical, nonMedical, unmappedCount } = useMemo(() => {
+    const medicalList: ClassifiedDepartment[] = [];
+    const nonMedicalList: ClassifiedDepartment[] = [];
+    let unmapped = 0;
+    for (const department of departments) {
+      const entry = getDepartmentDirectoryEntry(department.name);
+      if (!entry) {
+        unmapped += 1;
+        continue;
+      }
+      const item: ClassifiedDepartment = { department, entry };
+      (entry.domain === "medical" ? medicalList : nonMedicalList).push(item);
+    }
+    return { medical: medicalList, nonMedical: nonMedicalList, unmappedCount: unmapped };
+  }, [departments]);
+
+  const groupByFaculty = useCallback(
+    (items: ClassifiedDepartment[]): FacultyGroup[] => {
+      const query = searchQuery.trim().toLowerCase();
+      const byFaculty = new Map<string, ClassifiedDepartment[]>();
+      for (const item of items) {
+        if (query && !item.department.name.toLowerCase().includes(query)) continue;
+        const list = byFaculty.get(item.entry.faculty) ?? [];
+        list.push(item);
+        byFaculty.set(item.entry.faculty, list);
+      }
+      return [...byFaculty.entries()]
+        .map(([faculty, groupItems]) => ({
+          faculty,
+          items: groupItems.sort((a, b) => a.entry.code.localeCompare(b.entry.code)),
+        }))
+        .sort(
+          (a, b) =>
+            (facultyOrder.get(a.faculty) ?? Number.MAX_SAFE_INTEGER) -
+            (facultyOrder.get(b.faculty) ?? Number.MAX_SAFE_INTEGER),
+        );
+    },
+    [searchQuery, facultyOrder],
   );
 
-  const filteredDepartments = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return departments;
-    return departments.filter((d) => d.name.toLowerCase().includes(q));
-  }, [departments, searchQuery]);
+  const medicalGroups = useMemo(() => groupByFaculty(medical), [groupByFaculty, medical]);
+  const nonMedicalGroups = useMemo(() => groupByFaculty(nonMedical), [groupByFaculty, nonMedical]);
 
-  // Reset to page 1 when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedDepartments = useMemo(() => {
-    const start = (safePage - 1) * PAGE_SIZE;
-    return filteredDepartments.slice(start, start + PAGE_SIZE);
-  }, [filteredDepartments, safePage]);
+  const medicalCount = useMemo(
+    () => medicalGroups.reduce((sum, g) => sum + g.items.length, 0),
+    [medicalGroups],
+  );
+  const nonMedicalCount = useMemo(
+    () => nonMedicalGroups.reduce((sum, g) => sum + g.items.length, 0),
+    [nonMedicalGroups],
+  );
+  const listedCount = medicalCount + nonMedicalCount;
+  const facultyCount = useMemo(
+    () => new Set(DEPARTMENT_DIRECTORY.map((entry) => entry.faculty)).size,
+    [],
+  );
 
   // ─── Create ───
 
@@ -199,25 +259,167 @@ export default function OrganizationsPage() {
 
   // ─── Render ───
 
-  const start = (safePage - 1) * PAGE_SIZE + 1;
-  const end = Math.min(safePage * PAGE_SIZE, filteredDepartments.length);
-
   const menuItemClass =
     "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition hover:bg-gray-50 dark:hover:bg-gray-700";
+
+  const renderDepartmentRow = ({ department, entry }: ClassifiedDepartment) => (
+    <li
+      key={department.id}
+      className="group flex items-center gap-3 py-2.5"
+    >
+      <span className="w-14 shrink-0 font-mono text-[11px] tabular-nums text-dark-5 dark:text-slate-500">
+        {entry.code}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-sm font-medium text-dark dark:text-white"
+          title={department.name}
+        >
+          {department.name}
+        </p>
+        {department.name !== entry.name && (
+          <p className="truncate text-[11px] text-dark-5" title={entry.name}>
+            {entry.name}
+          </p>
+        )}
+      </div>
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium",
+          department.is_active === false
+            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+        )}
+      >
+        <span
+          className={cn(
+            "size-1.5 rounded-full",
+            department.is_active === false ? "bg-red-500" : "bg-green-500",
+          )}
+          aria-hidden
+        />
+        {department.is_active === false ? "Inactive" : "Active"}
+      </span>
+      <Dropdown
+        isOpen={openMenuId === department.id}
+        setIsOpen={(open) => setOpenMenuId(open ? department.id : null)}
+      >
+        <DropdownTrigger
+          className="shrink-0 rounded p-0.5 text-dark-5 opacity-0 transition-opacity hover:text-dark focus:opacity-100 group-hover:opacity-100 dark:hover:text-white"
+          aria-label={`Actions for ${department.name}`}
+        >
+          <MoreVertical className="size-4" aria-hidden />
+        </DropdownTrigger>
+        <DropdownContent portalled align="end" className="w-36 p-1">
+          <DropdownClose>
+            <button
+              type="button"
+              onClick={() => openEditDepartmentModal(department)}
+              className={menuItemClass}
+            >
+              <Pencil className="size-3.5" aria-hidden />
+              Edit
+            </button>
+          </DropdownClose>
+          <DropdownClose>
+            <button
+              type="button"
+              onClick={() => openDeleteDepartmentModal(department)}
+              className={cn(menuItemClass, "text-red-600 dark:text-red-400")}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Delete
+            </button>
+          </DropdownClose>
+        </DropdownContent>
+      </Dropdown>
+    </li>
+  );
+
+  const renderDomainSection = ({
+    title,
+    caption,
+    groups,
+    accent,
+  }: {
+    title: string;
+    caption: string;
+    groups: FacultyGroup[];
+    accent: "medical" | "non-medical";
+  }) => {
+    const count = groups.reduce((sum, g) => sum + g.items.length, 0);
+    const Icon = accent === "medical" ? Stethoscope : GraduationCap;
+    return (
+      <section className="overflow-hidden rounded-[10px] border border-stroke dark:border-dark-3">
+        <header
+          className={cn(
+            "flex items-center gap-3 border-l-4 bg-gray-2/60 px-5 py-4 dark:bg-white/[0.03]",
+            accent === "medical" ? "border-l-teal-500" : "border-l-primary",
+          )}
+        >
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              accent === "medical"
+                ? "bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                : "bg-primary/10 text-primary",
+            )}
+          >
+            <Icon className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h4 className="text-base font-semibold text-dark dark:text-white">{title}</h4>
+            <p className="text-xs text-dark-5">{caption}</p>
+          </div>
+          <span className="ml-auto shrink-0 rounded-full border border-stroke bg-white px-2.5 py-0.5 text-xs font-semibold tabular-nums text-dark dark:border-dark-3 dark:bg-dark-2 dark:text-white">
+            {count}
+          </span>
+        </header>
+        <div className="px-5 pb-5">
+          {groups.length === 0 ? (
+            <p className="py-6 text-center text-sm text-dark-5">
+              No departments to show.
+            </p>
+          ) : (
+            groups.map((group) => (
+              <div key={group.faculty} className="mt-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-dark-5">
+                    {group.faculty}
+                  </h5>
+                  <span className="text-[11px] tabular-nums text-dark-5">
+                    {group.items.length}
+                  </span>
+                </div>
+                <ul className="mt-1 divide-y divide-stroke/70 dark:divide-dark-3/70">
+                  {group.items.map(renderDepartmentRow)}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          label="Total Departments"
-          value={String(departments.length)}
-          helper="All departments in the system"
+          label="Medical Departments"
+          value={String(medicalCount)}
+          helper="Medicine, pharmacy & allied health"
         />
         <StatCard
-          label="Active Departments"
-          value={String(activeDepartments.length)}
-          helper="Currently available for assignment"
+          label="Non-Medical Departments"
+          value={String(nonMedicalCount)}
+          helper="Business, law, engineering, IT & arts"
+        />
+        <StatCard
+          label="Faculties"
+          value={String(facultyCount)}
+          helper="Official faculties across both domains"
         />
       </div>
 
@@ -227,7 +429,7 @@ export default function OrganizationsPage() {
         </div>
       )}
 
-      {/* ─── Departments (compact grid) ─── */}
+      {/* ─── Departments (domain sections) ─── */}
       <div className="rounded-[10px] bg-white p-5 shadow-1 dark:bg-gray-dark dark:shadow-card sm:p-6">
         {/* Header: title + search + add button */}
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -236,9 +438,9 @@ export default function OrganizationsPage() {
               Departments
             </h3>
             <p className="mt-1 text-sm text-dark-5">
-              {filteredDepartments.length}{" "}
-              {filteredDepartments.length === 1 ? "department" : "departments"}
-              {searchQuery && " match your search"}
+              {listedCount} {listedCount === 1 ? "department" : "departments"} on the
+              official list
+              {searchQuery && " — filtered by your search"}
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -283,6 +485,10 @@ export default function OrganizationsPage() {
                 className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm dark:border-dark-3 dark:text-white"
                 autoFocus
               />
+              <span className="mt-1 block text-[11px] text-dark-5">
+                Only names on the official medical/non-medical lists will appear on
+                this page.
+              </span>
             </label>
             <div className="flex gap-2">
               <button
@@ -306,125 +512,41 @@ export default function OrganizationsPage() {
           </form>
         )}
 
-        {/* Department grid */}
+        {/* Domain sections */}
         {loading ? (
           <div className="py-12 text-center text-sm text-dark-5">
             Loading departments...
           </div>
-        ) : filteredDepartments.length === 0 ? (
+        ) : listedCount === 0 ? (
           <div className="py-12 text-center text-sm text-dark-5">
             {searchQuery
               ? "No departments match your search."
-              : 'No departments found. Click "Add Department" to create one.'}
+              : "No listed departments found in the database."}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {paginatedDepartments.map((department) => (
-                <div
-                  key={department.id}
-                  className="group flex flex-col gap-1.5 rounded-lg border border-stroke bg-white px-3.5 py-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.02] dark:border-dark-3 dark:bg-dark-2 dark:hover:border-primary/40 dark:hover:bg-primary/[0.03]"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h4
-                      className="text-sm font-medium leading-snug text-dark dark:text-white"
-                      title={department.name}
-                    >
-                      {department.name}
-                    </h4>
-                    <Dropdown
-                      isOpen={openMenuId === department.id}
-                      setIsOpen={(open) => setOpenMenuId(open ? department.id : null)}
-                    >
-                      <DropdownTrigger
-                        className="shrink-0 rounded p-0.5 text-dark-5 opacity-0 transition-opacity hover:text-dark focus:opacity-100 group-hover:opacity-100 dark:hover:text-white"
-                        aria-label={`Actions for ${department.name}`}
-                      >
-                        <MoreVertical className="size-4" aria-hidden />
-                      </DropdownTrigger>
-                      <DropdownContent
-                        portalled
-                        align="end"
-                        className="w-36 p-1"
-                      >
-                        <DropdownClose>
-                          <button
-                            type="button"
-                            onClick={() => openEditDepartmentModal(department)}
-                            className={menuItemClass}
-                          >
-                            <Pencil className="size-3.5" aria-hidden />
-                            Edit
-                          </button>
-                        </DropdownClose>
-                        <DropdownClose>
-                          <button
-                            type="button"
-                            onClick={() => openDeleteDepartmentModal(department)}
-                            className={cn(menuItemClass, "text-red-600 dark:text-red-400")}
-                          >
-                            <Trash2 className="size-3.5" aria-hidden />
-                            Delete
-                          </button>
-                        </DropdownClose>
-                      </DropdownContent>
-                    </Dropdown>
-                  </div>
-                  <span
-                    className={cn(
-                      "inline-flex w-fit items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium",
-                      department.is_active === false
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        department.is_active === false
-                          ? "bg-red-500"
-                          : "bg-green-500",
-                      )}
-                      aria-hidden
-                    />
-                    {department.is_active === false ? "Inactive" : "Active"}
-                  </span>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+              {renderDomainSection({
+                title: "Medical Sciences",
+                caption: "Medicine, dentistry, pharmacy & allied health sciences",
+                groups: medicalGroups,
+                accent: "medical",
+              })}
+              {renderDomainSection({
+                title: "Non-Medical Sciences",
+                caption: "Business, law, engineering, IT, languages, arts & social sciences",
+                groups: nonMedicalGroups,
+                accent: "non-medical",
+              })}
             </div>
-
-            {/* Pagination */}
-            {filteredDepartments.length > PAGE_SIZE && (
-              <div className="mt-5 flex flex-col items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-gray-700 sm:flex-row">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing {start}–{end} of {filteredDepartments.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={safePage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    aria-label="Previous page"
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    <ChevronLeft className="size-4" aria-hidden />
-                    Previous
-                  </button>
-                  <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
-                    Page {safePage} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={safePage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    aria-label="Next page"
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    Next
-                    <ChevronRight className="size-4" aria-hidden />
-                  </button>
-                </div>
-              </div>
+            {unmappedCount > 0 && (
+              <p className="mt-4 text-xs text-dark-5">
+                {unmappedCount} other{" "}
+                {unmappedCount === 1 ? "department" : "departments"} in the
+                database {unmappedCount === 1 ? "is" : "are"} not shown —{" "}
+                {unmappedCount === 1 ? "it doesn't" : "they don't"} match the
+                official medical/non-medical lists.
+              </p>
             )}
           </>
         )}

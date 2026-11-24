@@ -7,6 +7,20 @@ import {
   listAllHods,
   getHodForSelection,
 } from "@/lib/hod-selection";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  getDepartmentDomain,
+  type DepartmentDomain,
+} from "@/lib/department-domain";
+
+function hodDomainMatches(
+  department: string,
+  domain: DepartmentDomain,
+): boolean {
+  return (
+    (getDepartmentDomain(department) ?? DEFAULT_DEPARTMENT_DOMAIN) === domain
+  );
+}
 
 /**
  * GET /api/profile/hods
@@ -16,6 +30,8 @@ import {
  * Three modes:
  *   1. no params — returns every eligible HOD across all departments
  *      (HOD-first picker: student selects the HOD, department auto-fills).
+ *      Optional `domain=medical|non-medical` restricts the list to HODs
+ *      whose own department belongs to that domain.
  *   2. `departmentId` query param — returns the list of active HODs in
  *      that department.
  *   3. `hodUserId` query param — returns a single HOD's full
@@ -37,6 +53,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const departmentIdRaw = searchParams.get("departmentId")?.trim() ?? "";
   const hodUserId = searchParams.get("hodUserId")?.trim() ?? "";
+  const domainRaw = searchParams.get("domain")?.trim() ?? "";
+  const domain: DepartmentDomain | null =
+    domainRaw === "medical" || domainRaw === "non-medical" ? domainRaw : null;
 
   if (hodUserId) {
     const hod = await getHodForSelection(hodUserId);
@@ -50,7 +69,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!departmentIdRaw) {
-    const hods = await listAllHods();
+    const hods = await listAllHods(domain);
     return NextResponse.json({ ok: true, hods });
   }
 
@@ -62,6 +81,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const hods = await listHodsForDepartment(departmentId);
+  const hods = (await listHodsForDepartment(departmentId)).filter(
+    (hod) => !domain || hodDomainMatches(hod.department, domain),
+  );
   return NextResponse.json({ ok: true, hods });
 }

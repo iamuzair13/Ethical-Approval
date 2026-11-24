@@ -1,3 +1,5 @@
+import type { DepartmentDomain } from "@/lib/department-domain";
+
 export type ApplicationType = "thesis" | "research-publication";
 
 export type ApprovalFormId =
@@ -242,6 +244,30 @@ export function getFacultyFormById(formId: string): RequiredForm | null {
   };
 }
 
+/**
+ * Returns the medical/non-medical audience for a form ID, or null when the
+ * form is not in any catalog (e.g. legacy Form 5).
+ */
+export function getFormAudience(
+  formId: ApprovalFormId,
+): "medical" | "non-medical" | null {
+  const entry =
+    FORM_REGISTRY.find((item) => item.id === formId) ??
+    FACULTY_FORM_CATALOG.find((item) => item.id === formId);
+  return entry?.audience ?? null;
+}
+
+/**
+ * Faculty forms filtered by the applicant's department domain.
+ * A null domain returns the full catalog (unclassified department fallback).
+ */
+export function getFacultyFormsForDomain(
+  domain: DepartmentDomain | null,
+): FacultyFormCatalogEntry[] {
+  if (!domain) return FACULTY_FORM_CATALOG;
+  return FACULTY_FORM_CATALOG.filter((entry) => entry.audience === domain);
+}
+
 // ─── Student form catalog ───
 // All four student forms (Forms 1-4). The applicant picks the form manually —
 // the medical/non-medical distinction is no longer inferred from the faculty
@@ -270,5 +296,16 @@ export function getStudentFormById(formId: string): RequiredForm | null {
     href: `/${encodeURI(`studentsfinalforms/${entry.label}`)}`,
     applicationType: entry.applicationType,
   };
+}
+
+/**
+ * Student forms filtered by the applicant's department domain.
+ * A null domain returns the full catalog (unclassified department fallback).
+ */
+export function getStudentFormsForDomain(
+  domain: DepartmentDomain | null,
+): FacultyFormCatalogEntry[] {
+  if (!domain) return STUDENT_FORM_CATALOG;
+  return STUDENT_FORM_CATALOG.filter((entry) => entry.audience === domain);
 }
 

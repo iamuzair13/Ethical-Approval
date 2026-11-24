@@ -1,4 +1,9 @@
 import { db } from "@/lib/db";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  getDepartmentDomain,
+  type DepartmentDomain,
+} from "@/lib/department-domain";
 
 // ─── Types ───
 
@@ -87,8 +92,22 @@ export async function listHodsForDepartment(
  * filter — used by the HOD-first picker where the student selects the HOD
  * and the department is derived from the HOD's own record.
  */
-export async function listAllHods(): Promise<HodOption[]> {
-  return queryHods(null);
+export async function listAllHods(
+  domain?: DepartmentDomain | null,
+): Promise<HodOption[]> {
+  const hods = await queryHods(null);
+  if (!domain) return hods;
+  return hods.filter(
+    (hod) => hodDepartmentDomain(hod.department) === domain,
+  );
+}
+
+/**
+ * Domain of a hod's own department. Unclassifiable department names fall
+ * back to the default domain (non-medical) — same rule as applicants.
+ */
+function hodDepartmentDomain(department: string): DepartmentDomain {
+  return getDepartmentDomain(department) ?? DEFAULT_DEPARTMENT_DOMAIN;
 }
 
 async function queryHods(departmentId: number | null): Promise<HodOption[]> {
@@ -308,6 +327,7 @@ export type HodValidationResult =
  */
 export async function validateHodForSubmission(
   ethics: Record<string, unknown> | undefined,
+  expectedDomain?: DepartmentDomain | null,
 ): Promise<HodValidationResult> {
   const extracted = extractHodFromEthics(ethics);
   if (!extracted || !extracted.hodUserId) {
@@ -334,6 +354,18 @@ export async function validateHodForSubmission(
       ok: false,
       error:
         "The selected hod is not eligible. Please select a valid hod from the list.",
+    };
+  }
+
+  // Domain check: a medical thesis can only be reviewed by an HOD from a
+  // medical department, and vice versa. Unclassifiable hod departments
+  // fall back to the default (non-medical) domain.
+  if (expectedDomain && hodDepartmentDomain(hod.department) !== expectedDomain) {
+    return {
+      ok: false,
+      error: `Please select an HOD from a ${
+        expectedDomain === "medical" ? "medical" : "non-medical"
+      } department.`,
     };
   }
 

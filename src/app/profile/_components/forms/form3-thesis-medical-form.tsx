@@ -191,7 +191,7 @@ export function Form3ThesisMedicalForm({
         </FormSection>
 
         {/* 1.2 HOD's Information — Department -> HOD -> auto-fill */}
-        <HodPicker form={form} setForm={setForm} />
+        <HodPicker form={form} setForm={setForm} domain="medical" />
 
         <CoPersonSection
           title="1.3 Co-hod"

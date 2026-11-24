@@ -6,7 +6,12 @@ import { mergeUploadedFilesIntoEthics } from "@/lib/submission-multipart";
 import { stripAdminAuditNote } from "@/lib/approval-comment-utils";
 import { scheduleSubmissionConfirmationEmail } from "@/lib/email";
 import { resolveFacultyIdsFromSnapshotValue } from "@/lib/admin-repository";
-import { isFormAllowedForApplicant } from "@/lib/form-eligibility";
+import { isFormAllowedForApplicant, resolveFormIdFromEthics } from "@/lib/form-eligibility";
+import { getFormAudience } from "@/app/profile/_components/forms/form-registry";
+import {
+  DEFAULT_DEPARTMENT_DOMAIN,
+  resolveSessionDepartmentDomain,
+} from "@/lib/department-domain";
 import { validateHodForSubmission, type VerifiedHod } from "@/lib/hod-selection";
 import { db } from "@/lib/db";
 
@@ -403,9 +408,12 @@ export async function POST(request: NextRequest) {
   // Faculty sessions have applicantRole = "faculty"; student sessions have "student".
   const isStudent = sessionApplicantRole === "student";
 
-  // Validate that the selected form is available to this applicant role.
-  // This prevents faculty from submitting student-only forms and vice versa.
-  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole)) {
+  // Validate that the selected form is available to this applicant role and
+  // department domain. This prevents faculty from submitting student-only
+  // forms and vice versa, and blocks cross-domain (medical/non-medical) forms.
+  const departmentDomain =
+    resolveSessionDepartmentDomain(session?.user) ?? DEFAULT_DEPARTMENT_DOMAIN;
+  if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole, departmentDomain)) {
     return NextResponse.json(
       { ok: false, error: "The selected form is not available for your account type." },
       { status: 403 },
@@ -419,8 +427,18 @@ export async function POST(request: NextRequest) {
   let verifiedHod: VerifiedHod | null = null;
 
   if (needsHod) {
+    // The HOD must belong to the same medical/non-medical domain as the
+    // application — derived from the submitted form's audience, falling
+    // back to the request's domain field.
+    const submittedFormId = resolveFormIdFromEthics(
+      body.ethics as Record<string, unknown> | undefined,
+    );
+    const expectedHodDomain =
+      (submittedFormId ? getFormAudience(submittedFormId) : null) ??
+      (domain === "medical" ? "medical" : "non-medical");
     const hodValidation = await validateHodForSubmission(
       body.ethics as Record<string, unknown> | undefined,
+      expectedHodDomain,
     );
     if (!hodValidation.ok) {
       return NextResponse.json(
