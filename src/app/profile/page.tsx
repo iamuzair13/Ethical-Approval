@@ -24,6 +24,10 @@ import {
   DEFAULT_DEPARTMENT_DOMAIN,
   getDepartmentDomain,
 } from "@/lib/department-domain";
+import {
+  StageChip,
+  StatusTimeline,
+} from "@/app/profile/_components/status-timeline";
 
 // --- Types & Interfaces (preserve your existing types) ---
 interface Profile {
@@ -231,15 +235,7 @@ const StatusBadge = ({ stage, isDraft }: { stage: string; isDraft?: boolean }) =
 };
 
 // --- Accordion Timeline Item ---
-const TimelineAccordion = ({
-  request,
-  stages,
-  getStageState
-}: {
-  request: RequestItem;
-  stages: string[];
-  getStageState: (current: string, stage: string) => "done" | "active" | "pending";
-}) => {
+const TimelineAccordion = ({ request }: { request: RequestItem }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -248,10 +244,12 @@ const TimelineAccordion = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <h4 className="font-semibold text-dark truncate dark:text-white">{request.title}</h4>
-            {request.isDraft && (
+            {request.isDraft ? (
               <span className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
                 DRAFT
               </span>
+            ) : (
+              <StageChip currentStage={request.currentStage} />
             )}
           </div>
           <p className="mt-1 truncate text-sm text-body">{request.description}</p>
@@ -281,55 +279,11 @@ const TimelineAccordion = ({
               </p>
             </div>
           ) : (
-            <div className="relative pl-2">
-              {stages.map((stage, idx) => {
-                const state = getStageState(request.currentStage, stage);
-                const isLast = idx === stages.length - 1;
-
-                return (
-                  <div key={stage} className="relative flex items-start gap-3 pb-4 last:pb-0">
-                    {!isLast && (
-                      <div className={cn(
-                        "absolute left-[9px] top-5 w-px h-full",
-                        state === "done" ? "bg-green/30" : "bg-stroke dark:bg-dark-3"
-                      )} />
-                    )}
-                    <div className={cn(
-                      "relative z-10 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center",
-                      state === "done" && "bg-green text-white",
-                      state === "active" && "bg-primary text-white",
-                      state === "pending" &&
-                        "border border-stroke bg-gray-2 text-body dark:border-dark-3 dark:bg-white/5"
-                    )}>
-                      {state === "done" ? (
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : state === "active" ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                      ) : (
-                        <span className="h-1 w-1 rounded-full bg-body" />
-                      )}
-                    </div>
-                    <div className="pt-0.5">
-                      <span className={cn(
-                        "text-sm",
-                        state === "done" && "text-body",
-                        state === "active" && "font-semibold text-dark dark:text-white",
-                        state === "pending" && "text-body"
-                      )}>
-                        {stage}
-                      </span>
-                      {state === "active" && (
-                        <span className="ml-2 inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                          Current
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <StatusTimeline
+              currentStage={request.currentStage}
+              submittedOn={request.submittedOn}
+              feedback={request.latestFeedbackComment}
+            />
           )}
         </div>
       )}
@@ -436,43 +390,6 @@ export default function ProfileDashboard() {
   const [localRequests, setLocalRequests] = useState<RequestItem[]>(requests);
   const [localIsLoadingRequests, setLocalIsLoadingRequests] = useState<boolean>(isLoadingRequests);
   const [localSubmissionError, setLocalSubmissionError] = useState<string | null>(submissionError);
-  const effectiveStages =
-    STAGES.length > 0
-      ? STAGES
-      : [
-          "Under Review by HOD",
-          "Approved by HOD",
-          "Rejected by HOD",
-          "Under Review by IREB",
-          "Rejected by IREB",
-          "Approved by IREB",
-        ];
-  const resolveStageState = (
-    current: string,
-    stage: string,
-  ): "done" | "active" | "pending" => {
-    const fromProps = getStageState(current, stage);
-    if (fromProps !== "pending") {
-      return fromProps;
-    }
-    // Map dynamic hod review status to the static stage label for comparison
-    const normalizedCurrent =
-      current.startsWith("Under Review by") &&
-      !current.includes("IREB") &&
-      !current.includes("Administrator")
-        ? "Under Review by HOD"
-        : current === "HOD not Assigned"
-          ? "Under Review by HOD"
-          : current;
-    const currentIndex = effectiveStages.indexOf(normalizedCurrent);
-    const stageIndex = effectiveStages.indexOf(stage);
-    if (currentIndex === -1 || stageIndex === -1) {
-      return stage === current || stage === normalizedCurrent ? "active" : "pending";
-    }
-    if (stageIndex < currentIndex) return "done";
-    if (stageIndex === currentIndex) return "active";
-    return "pending";
-  };
   const computedRequestStats = localRequests.reduce(
     (acc, request) => {
       const stage = request.currentStage;
@@ -1135,8 +1052,6 @@ export default function ProfileDashboard() {
               <TimelineAccordion
                 key={`${request.id}-timeline`}
                 request={request}
-                stages={effectiveStages}
-                getStageState={resolveStageState}
               />
             ))}
           </div>

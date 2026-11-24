@@ -32,6 +32,10 @@ import {
   DEFAULT_DEPARTMENT_DOMAIN,
   getDepartmentDomain,
 } from "@/lib/department-domain";
+import {
+  StageChip,
+  StatusTimeline,
+} from "@/app/profile/_components/status-timeline";
 
 // ─── Types ───
 
@@ -225,15 +229,7 @@ const StatusBadge = ({ stage, isDraft }: { stage: string; isDraft?: boolean }) =
 
 // ─── Timeline Accordion ───
 
-const TimelineAccordion = ({
-  request,
-  stages,
-  getStageState
-}: {
-  request: RequestItem;
-  stages: string[];
-  getStageState: (current: string, stage: string) => "done" | "active" | "pending";
-}) => {
+const TimelineAccordion = ({ request }: { request: RequestItem }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -242,10 +238,12 @@ const TimelineAccordion = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <h4 className="font-semibold text-dark truncate dark:text-white">{request.title}</h4>
-            {request.isDraft && (
+            {request.isDraft ? (
               <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
                 DRAFT
               </span>
+            ) : (
+              <StageChip currentStage={request.currentStage} />
             )}
           </div>
           <p className="mt-1 truncate text-sm text-dark-6 dark:text-slate-500">{request.description}</p>
@@ -254,6 +252,7 @@ const TimelineAccordion = ({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
           className="ml-4 rounded-lg bg-gray-2 p-2 text-dark-6 transition-colors hover:bg-gray-3 hover:text-dark dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
         >
           <motion.svg
@@ -288,55 +287,11 @@ const TimelineAccordion = ({
                   </p>
                 </div>
               ) : (
-                <div className="relative pl-2">
-                  {stages.map((stage, idx) => {
-                    const state = getStageState(request.currentStage, stage);
-                    const isLast = idx === stages.length - 1;
-
-                    return (
-                      <div key={stage} className="relative flex items-start gap-3 pb-4 last:pb-0">
-                        {!isLast && (
-                          <div className={cn(
-                            "absolute left-[9px] top-5 w-px h-full",
-                            state === "done" ? "bg-emerald-500/30" : "bg-gray-3 dark:bg-white/5"
-                          )} />
-                        )}
-                        <div className={cn(
-                          "relative z-10 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300",
-                          state === "done" && "bg-emerald-500 text-white",
-                          state === "active" && "bg-indigo-500 text-white ring-4 ring-indigo-500/20",
-                          state === "pending" &&
-                            "border border-stroke bg-gray-3 text-dark-6 dark:border-white/10 dark:bg-slate-800 dark:text-slate-500"
-                        )}>
-                          {state === "done" ? (
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : state === "active" ? (
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          ) : (
-                            <span className="h-1 w-1 rounded-full bg-dark-5 dark:bg-slate-600" />
-                          )}
-                        </div>
-                        <div className="pt-0.5">
-                          <span className={cn(
-                            "text-sm transition-colors",
-                            state === "done" && "line-through text-dark-5 dark:text-slate-300",
-                            state === "active" && "font-semibold text-dark dark:text-white",
-                            state === "pending" && "text-dark-6 dark:text-slate-600"
-                          )}>
-                            {stage}
-                          </span>
-                          {state === "active" && (
-                            <span className="ml-2 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-400 uppercase tracking-wider border border-indigo-500/20">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <StatusTimeline
+                  currentStage={request.currentStage}
+                  submittedOn={request.submittedOn}
+                  feedback={request.latestFeedbackComment}
+                />
               )}
             </div>
           </motion.div>
@@ -492,37 +447,6 @@ export default function MyApplicationsPage() {
     },
     { inHod: 0, inEthical: 0, completed: 0 } as RequestStats,
   );
-
-  // ─── Stage helpers ───
-
-  const effectiveStages = [
-    "Under Review by HOD",
-    "Approved by HOD",
-    "Rejected by HOD",
-    "Under Review by IREB",
-    "Rejected by IREB",
-    "Approved by IREB",
-  ];
-
-  const resolveStageState = (
-    current: string,
-    stage: string,
-  ): "done" | "active" | "pending" => {
-    const normalizedCurrent =
-      current.startsWith("Under Review by") && !current.includes("IREB")
-        ? "Under Review by HOD"
-        : current === "HOD not Assigned"
-          ? "Under Review by HOD"
-          : current;
-    const currentIndex = effectiveStages.indexOf(normalizedCurrent);
-    const stageIndex = effectiveStages.indexOf(stage);
-    if (currentIndex === -1 || stageIndex === -1) {
-      return stage === current || stage === normalizedCurrent ? "active" : "pending";
-    }
-    if (stageIndex < currentIndex) return "done";
-    if (stageIndex === currentIndex) return "active";
-    return "pending";
-  };
 
   // ─── Form selection & stepper launch ───
 
@@ -1196,8 +1120,6 @@ export default function MyApplicationsPage() {
                   <TimelineAccordion
                     key={request.id}
                     request={request}
-                    stages={effectiveStages}
-                    getStageState={resolveStageState}
                   />
                 ))}
             </motion.div>
