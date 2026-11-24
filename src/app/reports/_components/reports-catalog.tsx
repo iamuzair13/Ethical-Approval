@@ -11,6 +11,15 @@ import {
 } from "@/app/reports/_components/report-date-range";
 import { ReportPreviewModal } from "@/app/reports/_components/report-preview-modal";
 import { cn } from "@/lib/utils";
+import {
+  Building2,
+  FolderTree,
+  Gauge,
+  GraduationCap,
+  PieChart,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -232,185 +241,216 @@ export function ReportsCatalog({ adminRole }: { adminRole: AdminRole }) {
 
   const dateRangeInvalid = (slug: ReportSlug) => !isReportDateRangeValid(dateRanges[slug]);
 
+  const iconCls = "size-5";
+
+  const reportSection = (title: string, caption: string, children: React.ReactNode) => (
+    <section>
+      <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-stroke pb-3 dark:border-dark-3">
+        <div>
+          <h3 className="text-base font-semibold text-dark dark:text-white">{title}</h3>
+          <p className="mt-0.5 text-xs text-dark-5">{caption}</p>
+        </div>
+      </div>
+      <div className="grid gap-5 md:grid-cols-2">{children}</div>
+    </section>
+  );
+
   return (
     <div className="space-y-8">
       <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">Reporting</p>
-        <p className="mt-2 text-sm leading-relaxed text-body">
-          Generate scoped institutional reports. Output opens in a print-ready preview; use{" "}
+        <h2 className="text-xl font-semibold text-dark dark:text-white">Reports</h2>
+        <p className="mt-1 text-sm leading-relaxed text-body dark:text-dark-6">
+          Output opens in a print-ready preview — use{" "}
           <span className="font-medium text-dark dark:text-white">Print / Save as PDF</span> or{" "}
-          <span className="font-medium text-dark dark:text-white">Download PDF</span> for exports.
+          <span className="font-medium text-dark dark:text-white">Download PDF</span> to export.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {adminRole !== "ireb" ? (
+      {reportSection(
+        "Institution-wide",
+        "Reports spanning the whole institution for the selected range",
+        <>
           <ReportCatalogCard
-            title="HOD's Report"
-            description="Single-hod performance snapshot for submissions received in the selected date range: approvals, rejections, stated rejection reasons, response timing, delay flag, and share of institution-wide submissions in that same range (faculty-scoped)."
-            badge="Scope / Dates"
+            icon={<Gauge className={iconCls} aria-hidden />}
+            title="Total Efficiency Report"
+            description="Throughput, status mix, and turnaround times for the selected date range — scoped to your faculties, or institution-wide for administrators."
+            tags={["Throughput", "Status mix", "Timing"]}
+            controls={
+              <ReportDateRange
+                idPrefix="total-efficiency"
+                range={dateRanges["total-efficiency"]}
+                onChange={(next) => setReportDateRange("total-efficiency", next)}
+              />
+            }
+            action={primaryBtn("total-efficiency", "Preview report", dateRangeInvalid("total-efficiency"))}
+          />
+
+          <ReportCatalogCard
+            icon={<PieChart className={iconCls} aria-hidden />}
+            title="Overall Research Specific Report"
+            description="Thesis vs publication volume and the medical vs non-medical mix for the selected date range, with status and faculty context."
+            tags={["Thesis vs publication", "Domain mix", "Faculty volume"]}
+            controls={
+              <ReportDateRange
+                idPrefix="overall-research-specific"
+                range={dateRanges["overall-research-specific"]}
+                onChange={(next) => setReportDateRange("overall-research-specific", next)}
+              />
+            }
+            action={primaryBtn(
+              "overall-research-specific",
+              "Preview report",
+              dateRangeInvalid("overall-research-specific"),
+            )}
+          />
+
+          <ReportCatalogCard
+            icon={<GraduationCap className={iconCls} aria-hidden />}
+            title="Overall Student Report"
+            description="UOL student applicants, thesis and publications: program mix, outcomes, response times, and top SDGs."
+            tags={["Program mix", "Outcomes", "Response time", "SDGs"]}
+            controls={
+              <ReportDateRange
+                idPrefix="overall-student"
+                range={dateRanges["overall-student"]}
+                onChange={(next) => setReportDateRange("overall-student", next)}
+              />
+            }
+            action={primaryBtn("overall-student", "Preview report", dateRangeInvalid("overall-student"))}
+          />
+
+          <ReportCatalogCard
+            icon={<Users className={iconCls} aria-hidden />}
+            title="Overall Faculty Report"
+            description="Faculty and staff research publications: volume, concentration, approval rates, and processing time."
+            tags={["PhD share", "Approval rate", "Processing days", "SDGs"]}
+            controls={
+              <ReportDateRange
+                idPrefix="overall-faculty"
+                range={dateRanges["overall-faculty"]}
+                onChange={(next) => setReportDateRange("overall-faculty", next)}
+              />
+            }
+            action={primaryBtn("overall-faculty", "Preview report", dateRangeInvalid("overall-faculty"))}
+          />
+        </>,
+      )}
+
+      {reportSection(
+        "Scoped reports",
+        "One unit at a time — pick the hod, faculty, or department and a date range",
+        <>
+          {adminRole !== "ireb" ? (
+            <ReportCatalogCard
+              icon={<UserCheck className={iconCls} aria-hidden />}
+              title="HOD's Report"
+              description="A single hod's approvals, rejections, stated reasons, and response timing for the selected range."
+              tags={["Approvals", "Rejections", "Response time", "Delay flag"]}
+              controls={
+                <div className="flex flex-col gap-3">
+                  {isAdministrator ? (
+                    <HodPickerSelect
+                      hods={hods}
+                      value={hodId}
+                      onChange={setHodId}
+                      loading={hodsLoading}
+                    />
+                  ) : (
+                    <p className="text-xs text-body">
+                      This report uses your assigned hod faculty automatically.
+                    </p>
+                  )}
+                  <ReportDateRange
+                    idPrefix="hods-report"
+                    range={dateRanges["hods-report"]}
+                    onChange={(next) => setReportDateRange("hods-report", next)}
+                  />
+                </div>
+              }
+              action={primaryBtn(
+                "hods-report",
+                "Preview report",
+                Boolean((isAdministrator && !hodId.trim()) || dateRangeInvalid("hods-report")),
+              )}
+            />
+          ) : null}
+
+          <ReportCatalogCard
+            icon={<Building2 className={iconCls} aria-hidden />}
+            title="Faculty Wise Research Report"
+            description="One faculty's research volume, outcomes, common purpose, and top departments for the selected range."
+            tags={["Volume", "Outcomes", "Top SDGs", "Departments"]}
             controls={
               <div className="flex flex-col gap-3">
-                {isAdministrator ? (
-                  <HodPickerSelect
-                    hods={hods}
-                    value={hodId}
-                    onChange={setHodId}
-                    loading={hodsLoading}
-                  />
-                ) : (
-                  <p className="text-xs text-body">
-                    This report uses your assigned hod faculty automatically.
-                  </p>
-                )}
                 <ReportDateRange
-                  idPrefix="hods-report"
-                  range={dateRanges["hods-report"]}
-                  onChange={(next) => setReportDateRange("hods-report", next)}
+                  idPrefix="faculty-wise-research"
+                  range={dateRanges["faculty-wise-research"]}
+                  onChange={(next) => setReportDateRange("faculty-wise-research", next)}
+                />
+                <SearchableSelect
+                  label="Faculty"
+                  placeholder={reportFiltersLoading ? "Loading…" : "Select a faculty…"}
+                  searchPlaceholder="Search faculties…"
+                  disabled={reportFiltersLoading}
+                  loading={reportFiltersLoading}
+                  options={reportFaculties.map((f) => ({
+                    value: String(f.id),
+                    label: f.name,
+                  }))}
+                  value={facultyWiseFacultyId}
+                  onChange={setFacultyWiseFacultyId}
+                  triggerClassName="max-w-md"
                 />
               </div>
             }
             action={primaryBtn(
-              "hods-report",
+              "faculty-wise-research",
               "Preview report",
-              Boolean((isAdministrator && !hodId.trim()) || dateRangeInvalid("hods-report")),
+              !facultyWiseFacultyId.trim() ||
+                reportFiltersLoading ||
+                dateRangeInvalid("faculty-wise-research"),
             )}
           />
-        ) : null}
 
-        <ReportCatalogCard
-          title="Total Efficiency Report"
-          description="Throughput, status mix, and timing metrics for the selected date range — scoped to your faculties, or institution-wide for administrators."
-          badge="Date range"
-          controls={
-            <ReportDateRange
-              idPrefix="total-efficiency"
-              range={dateRanges["total-efficiency"]}
-              onChange={(next) => setReportDateRange("total-efficiency", next)}
-            />
-          }
-          action={primaryBtn("total-efficiency", "Preview report", dateRangeInvalid("total-efficiency"))}
-        />
-
-        <ReportCatalogCard
-          title="Overall Research Specific Report"
-          description="Thesis vs publication and medical vs non-medical mix for the selected date range, with status and faculty volume context."
-          badge="Date range"
-          controls={
-            <ReportDateRange
-              idPrefix="overall-research-specific"
-              range={dateRanges["overall-research-specific"]}
-              onChange={(next) => setReportDateRange("overall-research-specific", next)}
-            />
-          }
-          action={primaryBtn(
-            "overall-research-specific",
-            "Preview report",
-            dateRangeInvalid("overall-research-specific"),
-          )}
-        />
-
-        <ReportCatalogCard
-          title="Overall Student Report"
-          description="UOL student applicants (@student.uol.edu.pk), thesis and publications: program mix, faculty concentration, thesis vs publication volume, outcomes, response times, and top SDGs."
-          badge="Date range"
-          controls={
-            <ReportDateRange
-              idPrefix="overall-student"
-              range={dateRanges["overall-student"]}
-              onChange={(next) => setReportDateRange("overall-student", next)}
-            />
-          }
-          action={primaryBtn("overall-student", "Preview report", dateRangeInvalid("overall-student"))}
-        />
-
-        <ReportCatalogCard
-          title="Overall Faculty Report"
-          description="Faculty/staff research publications only (excludes @student.uol.edu.pk). One summary table: volume, faculty/department concentration, PhD share, medical vs other domain counts, approval/rejection rates, attempts, student hod-throughput by faculty snapshot, response times, processing days, and top SDGs."
-          badge="Date range"
-          controls={
-            <ReportDateRange
-              idPrefix="overall-faculty"
-              range={dateRanges["overall-faculty"]}
-              onChange={(next) => setReportDateRange("overall-faculty", next)}
-            />
-          }
-          action={primaryBtn("overall-faculty", "Preview report", dateRangeInvalid("overall-faculty"))}
-        />
-
-        <ReportCatalogCard
-          title="Faculty Wise Research Report"
-          description="Per-faculty snapshot for the selected date range: thesis vs publication volume, approval/rejection/pending counts, common research purpose, top SDGs, highest and lowest department volume within the faculty, and faculty-applicant share."
-          badge="Faculty / Date range"
-          controls={
-            <div className="flex flex-col gap-3">
-              <ReportDateRange
-                idPrefix="faculty-wise-research"
-                range={dateRanges["faculty-wise-research"]}
-                onChange={(next) => setReportDateRange("faculty-wise-research", next)}
-              />
-              <SearchableSelect
-                label="Faculty"
-                placeholder={reportFiltersLoading ? "Loading…" : "Select a faculty…"}
-                searchPlaceholder="Search faculties…"
-                disabled={reportFiltersLoading}
-                loading={reportFiltersLoading}
-                options={reportFaculties.map((f) => ({
-                  value: String(f.id),
-                  label: f.name,
-                }))}
-                value={facultyWiseFacultyId}
-                onChange={setFacultyWiseFacultyId}
-                triggerClassName="max-w-md"
-              />
-            </div>
-          }
-          action={primaryBtn(
-            "faculty-wise-research",
-            "Preview report",
-            !facultyWiseFacultyId.trim() ||
-              reportFiltersLoading ||
-              dateRangeInvalid("faculty-wise-research"),
-          )}
-        />
-
-        <ReportCatalogCard
-          title="Department Wise Research Report"
-          description="Per-department snapshot for the selected date range: thesis vs publication volume, outcomes, common research purpose, top SDGs, and faculty-applicant share — scoped to the selected master department record."
-          badge="Department / Date range"
-          controls={
-            <div className="flex flex-col gap-3">
-              <ReportDateRange
-                idPrefix="department-wise-research"
-                range={dateRanges["department-wise-research"]}
-                onChange={(next) => setReportDateRange("department-wise-research", next)}
-              />
-              <SearchableSelect
-                label="Department"
-                placeholder={reportFiltersLoading ? "Loading…" : "Select a department…"}
-                searchPlaceholder="Search departments…"
-                disabled={reportFiltersLoading}
-                loading={reportFiltersLoading}
-                options={reportDepartments.map((d) => ({
-                  value: String(d.id),
-                  label: d.name,
-                  hint: d.facultyName,
-                }))}
-                value={deptWiseDepartmentId}
-                onChange={setDeptWiseDepartmentId}
-                triggerClassName="max-w-md"
-              />
-            </div>
-          }
-          action={primaryBtn(
-            "department-wise-research",
-            "Preview report",
-            !deptWiseDepartmentId.trim() ||
-              reportFiltersLoading ||
-              dateRangeInvalid("department-wise-research"),
-          )}
-        />
-      </div>
+          <ReportCatalogCard
+            icon={<FolderTree className={iconCls} aria-hidden />}
+            title="Department Wise Research Report"
+            description="One department's research volume, outcomes, and purpose mix — scoped to the selected master department record."
+            tags={["Volume", "Outcomes", "Research purpose"]}
+            controls={
+              <div className="flex flex-col gap-3">
+                <ReportDateRange
+                  idPrefix="department-wise-research"
+                  range={dateRanges["department-wise-research"]}
+                  onChange={(next) => setReportDateRange("department-wise-research", next)}
+                />
+                <SearchableSelect
+                  label="Department"
+                  placeholder={reportFiltersLoading ? "Loading…" : "Select a department…"}
+                  searchPlaceholder="Search departments…"
+                  disabled={reportFiltersLoading}
+                  loading={reportFiltersLoading}
+                  options={reportDepartments.map((d) => ({
+                    value: String(d.id),
+                    label: d.name,
+                    hint: d.facultyName,
+                  }))}
+                  value={deptWiseDepartmentId}
+                  onChange={setDeptWiseDepartmentId}
+                  triggerClassName="max-w-md"
+                />
+              </div>
+            }
+            action={primaryBtn(
+              "department-wise-research",
+              "Preview report",
+              !deptWiseDepartmentId.trim() ||
+                reportFiltersLoading ||
+                dateRangeInvalid("department-wise-research"),
+            )}
+          />
+        </>,
+      )}
 
       <ReportPreviewModal
         open={previewOpen}
