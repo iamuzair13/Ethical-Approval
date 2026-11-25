@@ -326,10 +326,17 @@ export default function MyApplicationsPage() {
   const facultyDepartment = (sessionUser?.facultyDepartment ?? "").trim();
   const userStorageId = sessionSapId;
   const normalizedSessionEmail = sessionEmail.toLowerCase();
+  // A faculty member's role is authoritative from the session — some faculty
+  // authenticate with @student.uol.edu.pk addresses, so the email heuristic
+  // alone would misclassify them as students.
+  const isFacultySession =
+    sessionUser?.applicantRole === "faculty" ||
+    Boolean(sessionUser?.facultyMemberId);
   const isStudentSession =
-    sessionUser?.applicantRole === "student" ||
-    normalizedSessionEmail.endsWith("@student.uol.edu.pk") ||
-    normalizedSessionEmail.includes("student");
+    !isFacultySession &&
+    (sessionUser?.applicantRole === "student" ||
+      normalizedSessionEmail.endsWith("@student.uol.edu.pk") ||
+      normalizedSessionEmail.includes("student"));
   const studentDepartment = (
     sessionUser?.studentRecord?.DeptName ??
     sessionUser?.studentRecord?.Dept ??
@@ -339,7 +346,13 @@ export default function MyApplicationsPage() {
   const departmentDomain =
     getDepartmentDomain(isStudentSession ? studentDepartment : facultyDepartment) ??
     DEFAULT_DEPARTMENT_DOMAIN;
-  const facultyFormOptions = getFacultyFormsForDomain(departmentDomain);
+  // Faculty whose department is outside the organization structure sees both
+  // publication forms and chooses manually — a null domain returns the full
+  // faculty catalog instead of forcing the non-medical track.
+  const facultyDomain = isStudentSession
+    ? departmentDomain
+    : getDepartmentDomain(facultyDepartment);
+  const facultyFormOptions = getFacultyFormsForDomain(facultyDomain);
   const studentFormOptions = getStudentFormsForDomain(departmentDomain);
 
   // ─── State ───
@@ -669,7 +682,7 @@ export default function MyApplicationsPage() {
         } else {
           // Fallback: use the first form available to this department domain
           const fallback = getFacultyFormById(
-            (getFacultyFormsForDomain(departmentDomain)[0] ?? FACULTY_FORM_CATALOG[0]).id,
+            (facultyFormOptions[0] ?? FACULTY_FORM_CATALOG[0]).id,
           );
           if (fallback) setLocalRequiredForm(fallback);
         }
@@ -687,7 +700,7 @@ export default function MyApplicationsPage() {
         );
       }
     },
-    [sessionSapId, departmentDomain],
+    [sessionSapId, facultyFormOptions],
   );
 
   // ─── View submission ───
@@ -751,7 +764,7 @@ export default function MyApplicationsPage() {
           setLocalRequiredForm(reqForm as RequiredForm);
         } else {
           const fallback = getFacultyFormById(
-            (getFacultyFormsForDomain(departmentDomain)[0] ?? FACULTY_FORM_CATALOG[0]).id,
+            (facultyFormOptions[0] ?? FACULTY_FORM_CATALOG[0]).id,
           );
           if (fallback) setLocalRequiredForm(fallback);
         }
@@ -773,7 +786,7 @@ export default function MyApplicationsPage() {
         );
       }
     },
-    [sessionSapId, departmentDomain],
+    [sessionSapId, facultyFormOptions],
   );
 
   // ─── Animation variants ───

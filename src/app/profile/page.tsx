@@ -422,6 +422,8 @@ export default function ProfileDashboard() {
     name?: string;
     email?: string;
     sapId?: string;
+    applicantRole?: "student" | "faculty";
+    facultyMemberId?: string;
     facultyDepartment?: string;
     facultyDesignation?: string;
     studentRecord?: {
@@ -436,8 +438,16 @@ export default function ProfileDashboard() {
   } | null;
   const sessionEmail = (sessionUser?.email ?? "").trim();
   const normalizedSessionEmail = sessionEmail.toLowerCase();
+  // A faculty member's role is authoritative from the session — some faculty
+  // authenticate with @student.uol.edu.pk addresses, so the email heuristic
+  // alone would misclassify them as students.
+  const isFacultySession =
+    sessionUser?.applicantRole === "faculty" ||
+    Boolean(sessionUser?.facultyMemberId);
   const isStudentSession =
-    normalizedSessionEmail.endsWith("@student.uol.edu.pk") || normalizedSessionEmail.includes("student");
+    !isFacultySession &&
+    (normalizedSessionEmail.endsWith("@student.uol.edu.pk") ||
+      normalizedSessionEmail.includes("student"));
   const studentRecord = sessionUser?.studentRecord;
   const resolvedProfile: Profile =
     sessionUser && sessionEmail
@@ -469,11 +479,16 @@ export default function ProfileDashboard() {
   const userStorageId = sessionUser?.sapId?.trim() ?? "";
   const normalizedEmail = resolvedProfile.email.toLowerCase();
   const isStudentEmail =
-    normalizedEmail.endsWith("@student.uol.edu.pk") || normalizedEmail.includes("student");
-  const departmentDomain =
-    getDepartmentDomain(resolvedProfile.department) ?? DEFAULT_DEPARTMENT_DOMAIN;
+    !isFacultySession &&
+    (normalizedEmail.endsWith("@student.uol.edu.pk") || normalizedEmail.includes("student"));
+  const classifiedDomain = getDepartmentDomain(resolvedProfile.department);
+  const departmentDomain = classifiedDomain ?? DEFAULT_DEPARTMENT_DOMAIN;
+  // Faculty whose department is outside the organization structure sees both
+  // publication forms and chooses manually — a null domain returns the full
+  // faculty catalog instead of forcing the non-medical track.
+  const facultyDomain = isStudentEmail ? departmentDomain : classifiedDomain;
   const studentFormOptions = getStudentFormsForDomain(departmentDomain);
-  const facultyFormOptions = getFacultyFormsForDomain(departmentDomain);
+  const facultyFormOptions = getFacultyFormsForDomain(facultyDomain);
   const [localIsStepperOpen, setLocalIsStepperOpen] = useState(false);
   const [localIsApplicationPickerOpen, setLocalIsApplicationPickerOpen] = useState(false);
   const [localStepperMode, setLocalStepperMode] = useState<"create" | "view" | "edit" | "resume">("create");

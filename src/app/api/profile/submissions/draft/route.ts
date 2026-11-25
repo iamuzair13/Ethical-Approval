@@ -91,8 +91,12 @@ export async function POST(request: NextRequest) {
 
   // Validate that the selected form is available to this applicant role and
   // department domain.
+  // Faculty whose department is outside the organization structure may pick
+  // either publication form manually — a null domain skips the audience check.
+  // Students always fall back to the non-medical track.
   const departmentDomain =
-    resolveSessionDepartmentDomain(session?.user) ?? DEFAULT_DEPARTMENT_DOMAIN;
+    resolveSessionDepartmentDomain(session?.user) ??
+    (sessionApplicantRole === "faculty" ? null : DEFAULT_DEPARTMENT_DOMAIN);
   if (!isFormAllowedForApplicant(body.ethics, sessionApplicantRole, departmentDomain)) {
     return NextResponse.json(
       { ok: false, error: "The selected form is not available for your account type." },
