@@ -205,7 +205,7 @@ const FORM_5_MANDATORY_ATTACHMENT_LABELS: readonly string[] = [
 
 /** Same wording as Form #3 medical thesis Step 7 declaration checkbox */
 function buildMedicalEthicsDeclarationParagraph(declarationName: string): string {
-  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines for medical and health sciences research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my hod and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
+  return `I ${declarationName} hereby certify that: I have read and understood the ethical guidelines research. The information provided in this application is accurate and complete to the best of my knowledge. I will conduct this research strictly according to the approved protocol. I will report all adverse events and protocol deviations to my hod and the IREB immediately. I will obtain updated approvals if any significant changes to the protocol are necessary. I will not proceed with data collection without formal ethical approval.`;
 }
 
 const INITIAL_FORM = {
